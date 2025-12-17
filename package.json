@@ -12,6 +12,7 @@
     "@ai-sdk/google": "^2.0.40",
     "@google/genai": "^1.32.0",
     "@supabase/supabase-js": "^2.81.0",
+    "@tailwindcss/postcss": "^4.1.18",
     "@tailwindcss/typography": "^0.5.19",
     "ai": "^5.0.99",
     "katex": "^0.16.27",
