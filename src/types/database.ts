@@ -15,8 +15,12 @@
 export interface Institute {
   id: string
   name: string
+  code: string
   city: string | null
   email: string | null
+  logo_url: string | null
+  primary_color: string
+  tagline: string | null
   subscription_status: 'active' | 'trial' | 'suspended'
   created_at: string
 }

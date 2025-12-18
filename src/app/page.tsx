@@ -1,29 +1,85 @@
+import Image from 'next/image'
+
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <div className="text-center">
-        <h1 className="text-6xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+    <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-gradient-to-br from-neutral-50 via-white to-blue-50">
+      <div className="text-center max-w-4xl">
+        {/* Logo */}
+        <div className="mb-8 flex justify-center">
+          <Image
+            src="/logo.png"
+            alt="aachaaryAI Logo"
+            width={200}
+            height={133}
+            priority
+            className="drop-shadow-lg"
+          />
+        </div>
+
+        {/* Brand Name with Gradient */}
+        <h1 className="text-6xl md:text-7xl font-bold mb-4 bg-gradient-to-r from-brand-saffron via-brand-saffron-dark to-brand-blue bg-clip-text text-transparent">
           aachaaryAI
         </h1>
-        <p className="text-xl text-neutral mb-8">
+
+        <p className="text-xl md:text-2xl text-neutral-600 mb-12 font-medium">
           Your AI Teaching Assistant for Test Paper Generation
         </p>
-        <div className="bg-white shadow-lg rounded-lg p-8 max-w-2xl">
-          <h2 className="text-2xl font-semibold mb-4">Replace ₹60k/month typist costs with AI</h2>
-          <p className="text-neutral mb-4">
-            Generate test papers in &lt;30 minutes instead of 2-4 hours
+
+        {/* Main Value Proposition Card */}
+        <div className="bg-white shadow-2xl rounded-2xl p-8 md:p-12 mb-8 border border-neutral-100">
+          <h2 className="text-3xl font-bold mb-6 text-neutral-800">
+            Replace <span className="text-brand-saffron">₹60k/month</span> typist costs with AI
+          </h2>
+          <p className="text-lg text-neutral-600 mb-8">
+            Generate professional test papers in &lt;30 minutes instead of 2-4 hours
           </p>
-          <div className="grid grid-cols-2 gap-4 mt-6">
-            <div className="bg-primary/10 p-4 rounded">
-              <p className="text-sm text-neutral">Current Process</p>
-              <p className="text-2xl font-bold text-primary">2-4 hours</p>
+
+          {/* Time Comparison */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+            <div className="bg-gradient-to-br from-neutral-100 to-neutral-50 p-6 rounded-xl border border-neutral-200">
+              <p className="text-sm text-neutral-500 font-semibold uppercase tracking-wide mb-2">
+                Current Process
+              </p>
+              <p className="text-4xl font-bold text-neutral-700">2-4 hours</p>
+              <p className="text-sm text-neutral-500 mt-2">Manual typing & formatting</p>
             </div>
-            <div className="bg-success/10 p-4 rounded">
-              <p className="text-sm text-neutral">With aachaaryAI</p>
-              <p className="text-2xl font-bold text-success">&lt;30 min</p>
+            <div className="bg-gradient-to-br from-brand-blue/10 to-brand-saffron/10 p-6 rounded-xl border-2 border-brand-blue/20">
+              <p className="text-sm text-brand-blue font-semibold uppercase tracking-wide mb-2">
+                With aachaaryAI
+              </p>
+              <p className="text-4xl font-bold bg-gradient-to-r from-brand-saffron to-brand-blue bg-clip-text text-transparent">
+                &lt;30 min
+              </p>
+              <p className="text-sm text-brand-blue-dark mt-2">AI-powered generation</p>
             </div>
           </div>
+
+          {/* Key Features */}
+          <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div className="flex items-center justify-center gap-2 text-neutral-600">
+              <span className="text-success text-lg">✓</span>
+              <span>Multi-format questions</span>
+            </div>
+            <div className="flex items-center justify-center gap-2 text-neutral-600">
+              <span className="text-success text-lg">✓</span>
+              <span>Instant solutions</span>
+            </div>
+            <div className="flex items-center justify-center gap-2 text-neutral-600">
+              <span className="text-success text-lg">✓</span>
+              <span>Chapter-wise control</span>
+            </div>
+          </div>
+
+          {/* CTA Button */}
+          <button className="mt-10 px-8 py-4 bg-gradient-to-r from-brand-saffron to-brand-saffron-dark text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105">
+            Get Started
+          </button>
         </div>
+
+        {/* Footer Note */}
+        <p className="text-sm text-neutral-400 mt-6">
+          Trusted by coaching institutes for NEET, JEE, Banking & more
+        </p>
       </div>
     </main>
   )
