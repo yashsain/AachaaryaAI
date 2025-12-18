@@ -110,7 +110,7 @@ export interface Material {
   id: string
   institute_id: string
   stream_id: string
-  class_id: string
+  class_id: string | null // DEPRECATED: Use MaterialClass junction table instead
   subject_id: string
   uploaded_by: string | null
   material_type_id: string
@@ -124,6 +124,13 @@ export interface MaterialChapter {
   id: string
   material_id: string
   chapter_id: string
+  created_at: string
+}
+
+export interface MaterialClass {
+  id: string
+  material_id: string
+  class_id: string
   created_at: string
 }
 
@@ -432,10 +439,11 @@ export interface TeacherWithDetails extends Teacher {
 export interface MaterialWithDetails extends Material {
   institute?: Institute
   stream?: Stream
-  class?: Class
+  class?: Class // DEPRECATED: Use classes array instead
   subject?: Subject
   material_type?: MaterialType
   chapters?: Chapter[]
+  classes?: Class[] // Many-to-many relationship via MaterialClass junction table
   uploaded_by_teacher?: Teacher
 }
 

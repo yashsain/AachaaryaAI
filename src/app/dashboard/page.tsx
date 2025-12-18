@@ -143,17 +143,19 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {/* Upload Materials */}
-          <div className="bg-white rounded-xl shadow-md p-6 border border-neutral-100 hover:shadow-lg transition-shadow">
-            <div className="w-12 h-12 bg-gradient-to-br from-brand-blue to-brand-blue-dark rounded-lg flex items-center justify-center mb-4">
-              <span className="text-2xl text-white">📚</span>
+          {/* Manage Study Materials */}
+          <Link href="/dashboard/materials">
+            <div className="bg-white rounded-xl shadow-md p-6 border border-neutral-100 hover:shadow-lg transition-shadow cursor-pointer">
+              <div className="w-12 h-12 bg-gradient-to-br from-brand-blue to-brand-blue-dark rounded-lg flex items-center justify-center mb-4">
+                <span className="text-2xl text-white">📚</span>
+              </div>
+              <h3 className="text-xl font-semibold text-neutral-800 mb-2">Manage Study Materials</h3>
+              <p className="text-neutral-600 mb-4">View, upload, and organize study materials</p>
+              <span className="text-brand-blue hover:text-brand-blue-dark font-medium transition-colors">
+                Open →
+              </span>
             </div>
-            <h3 className="text-xl font-semibold text-neutral-800 mb-2">Upload Materials</h3>
-            <p className="text-neutral-600 mb-4">Add study materials and previous papers</p>
-            <button className="text-brand-blue hover:text-brand-blue-dark font-medium transition-colors">
-              Coming Soon →
-            </button>
-          </div>
+          </Link>
 
           {/* Question Bank */}
           <div className="bg-white rounded-xl shadow-md p-6 border border-neutral-100 hover:shadow-lg transition-shadow">

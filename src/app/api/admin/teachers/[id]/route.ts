@@ -2,6 +2,81 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase, supabaseAdmin } from '@/lib/supabase'
 import { deleteTeacher } from '@/lib/auth/teacherAccount'
 
+// GET - Fetch single teacher for editing
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: teacherId } = await params
+
+    // Get session from request header
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
+    }
+
+    // Get admin's teacher record to verify role
+    const { data: adminTeacher, error: adminError } = await supabaseAdmin
+      .from('teachers')
+      .select('id, institute_id, role')
+      .eq('id', user.id)
+      .is('deleted_at', null)
+      .single()
+
+    if (adminError || !adminTeacher) {
+      return NextResponse.json({ error: 'Teacher profile not found' }, { status: 404 })
+    }
+
+    // Verify admin role
+    if (adminTeacher.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+
+    // Fetch teacher with subjects and classes
+    const { data: teacher, error: fetchError } = await supabaseAdmin
+      .from('teachers')
+      .select(`
+        id,
+        name,
+        email,
+        phone,
+        role,
+        institute_id,
+        teacher_subjects (
+          subject_id
+        ),
+        teacher_classes (
+          class_id
+        )
+      `)
+      .eq('id', teacherId)
+      .is('deleted_at', null)
+      .single()
+
+    if (fetchError || !teacher) {
+      return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
+    }
+
+    // Verify teacher belongs to admin's institute
+    if (teacher.institute_id !== adminTeacher.institute_id) {
+      return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ teacher }, { status: 200 })
+  } catch (error) {
+    console.error('GET /api/admin/teachers/[id] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
 // PATCH - Update teacher details
 export async function PATCH(
   request: NextRequest,

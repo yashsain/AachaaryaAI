@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState, use } from 'react'
 import { TeacherForm } from '@/components/admin/TeacherForm'
-import { supabase, supabaseAdmin } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { AuthLoadingState } from '@/components/auth/AuthLoadingState'
 
@@ -40,30 +40,20 @@ export default function EditTeacherPage({ params }: { params: Promise<{ id: stri
           return
         }
 
-        // Fetch teacher with subjects and classes
-        const { data: teacherRecord, error: teacherFetchError } = await supabase
-          .from('teachers')
-          .select(`
-            id,
-            name,
-            email,
-            phone,
-            role,
-            teacher_subjects (
-              subject_id
-            ),
-            teacher_classes (
-              class_id
-            )
-          `)
-          .eq('id', teacherId)
-          .is('deleted_at', null)
-          .single()
+        // Fetch teacher via API route
+        const response = await fetch(`/api/admin/teachers/${teacherId}`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        })
 
-        if (teacherFetchError || !teacherRecord) {
-          setFetchError('Teacher not found')
+        if (!response.ok) {
+          const data = await response.json()
+          setFetchError(data.error || 'Teacher not found')
           return
         }
+
+        const { teacher: teacherRecord } = await response.json()
 
         // Transform data for form
         const formData: TeacherData = {
