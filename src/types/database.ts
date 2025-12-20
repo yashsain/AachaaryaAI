@@ -18,6 +18,8 @@ export interface Institute {
   code: string
   city: string | null
   email: string | null
+  phone: string | null
+  address: string | null
   logo_url: string | null
   primary_color: string
   tagline: string | null
@@ -139,20 +141,30 @@ export interface TestPaper {
   institute_id: string
   created_by: string
   stream_id: string
-  class_id: string
+  class_id: string | null // DEPRECATED: Use PaperClass junction table instead
   subject_id: string
+  material_type_id: string // References material_types: DPP, JEE Mains Paper, JEE Advanced Paper, NEET Paper
   title: string
   status: 'draft' | 'review' | 'finalized'
   pdf_url: string | null
   solution_url: string | null
   created_at: string
   finalized_at: string | null
+  question_count: number | null
+  difficulty_level: 'easy' | 'balanced' | 'hard' | null
 }
 
 export interface PaperChapter {
   id: string
   paper_id: string
   chapter_id: string
+  created_at: string
+}
+
+export interface PaperClass {
+  id: string
+  paper_id: string
+  class_id: string
   created_at: string
 }
 
@@ -450,10 +462,12 @@ export interface MaterialWithDetails extends Material {
 export interface TestPaperWithDetails extends TestPaper {
   institute?: Institute
   stream?: Stream
-  class?: Class
+  class?: Class // DEPRECATED: Use classes array instead
   subject?: Subject
+  material_type?: MaterialType // DPP, JEE Mains Paper, JEE Advanced Paper, NEET Paper
   created_by_teacher?: Teacher
   chapters?: Chapter[]
+  classes?: Class[] // Many-to-many relationship via PaperClass junction table
   questions?: Question[]
 }
 
@@ -480,11 +494,13 @@ export interface ChapterWithDetails extends Chapter {
 
 export interface CreateTestPaperRequest {
   stream_id: string
-  class_id: string
+  class_ids: string[] // Multiple classes via paper_classes junction table
   subject_id: string
+  material_type_id: string // Paper type: DPP, NEET Paper, etc.
   title: string
   chapter_ids: string[]
   question_count: number
+  difficulty_level: 'easy' | 'balanced' | 'hard'
   marks_per_question: number
   negative_marks: number
 }

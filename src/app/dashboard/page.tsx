@@ -122,26 +122,28 @@ export default function DashboardPage() {
         {/* Quick Actions Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Create Test Paper - Institute Branded */}
-          <div className="bg-white rounded-xl shadow-md p-6 border border-neutral-100 hover:shadow-lg transition-shadow">
-            <div
-              className="w-12 h-12 rounded-lg flex items-center justify-center mb-4"
-              style={{
-                background: `linear-gradient(to bottom right, ${institute.primary_color}, ${institute.primary_color}dd)`,
-              }}
-            >
-              <span className="text-2xl text-white">📝</span>
+          <Link href="/dashboard/test-papers">
+            <div className="bg-white rounded-xl shadow-md p-6 border border-neutral-100 hover:shadow-lg transition-shadow cursor-pointer">
+              <div
+                className="w-12 h-12 rounded-lg flex items-center justify-center mb-4"
+                style={{
+                  background: `linear-gradient(to bottom right, ${institute.primary_color}, ${institute.primary_color}dd)`,
+                }}
+              >
+                <span className="text-2xl text-white">📝</span>
+              </div>
+              <h3 className="text-xl font-semibold text-neutral-800 mb-2">Create Test Paper</h3>
+              <p className="text-neutral-600 mb-4">
+                Generate a new test paper with AI assistance
+              </p>
+              <span
+                style={{ color: institute.primary_color }}
+                className="font-medium transition-opacity hover:opacity-70"
+              >
+                Open →
+              </span>
             </div>
-            <h3 className="text-xl font-semibold text-neutral-800 mb-2">Create Test Paper</h3>
-            <p className="text-neutral-600 mb-4">
-              Generate a new test paper with AI assistance
-            </p>
-            <button
-              style={{ color: institute.primary_color }}
-              className="font-medium transition-opacity hover:opacity-70"
-            >
-              Coming Soon →
-            </button>
-          </div>
+          </Link>
 
           {/* Manage Study Materials */}
           <Link href="/dashboard/materials">

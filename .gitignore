@@ -41,3 +41,6 @@ Thumbs.db
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Debug logs (dry run verification files)
+debug_logs/*.json
