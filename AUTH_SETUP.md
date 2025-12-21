@@ -17,7 +17,7 @@ Complete authentication system implementation for aachaaryAI multi-tenant platfo
 
 1. Open Supabase Dashboard: https://lcqedbasygvbpefhagob.supabase.co
 2. Navigate to **SQL Editor**
-3. Copy and run `/Users/yashsain/GuruMitra/docs/005_auth_setup.sql`
+3. Copy and run `/Users/yashsain/AachaaryaAI/docs/005_auth_setup.sql`
 
 This creates:
 - Custom Access Token Hook (adds `institute_id` and `role` to JWT)

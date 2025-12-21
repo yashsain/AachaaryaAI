@@ -23,7 +23,7 @@ export const NEETTemplate: React.FC<NEETTemplateProps> = ({ config }) => {
       title={config.testTitle}
       author={config.instituteName}
       subject="NEET Practice Test"
-      creator="GuruMitra AI"
+      creator="Aachaarya AI"
     >
       {/* Page 1: Front Page with Instructions */}
       <Page size="A4" style={neetStyles.page}>
