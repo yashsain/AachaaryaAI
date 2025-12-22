@@ -30,6 +30,11 @@ export const NEETTemplate: React.FC<NEETTemplateProps> = ({ config }) => {
         {/* Header with branding */}
         <PDFHeader config={config} />
 
+        {/* Test Title Section */}
+        <View style={neetStyles.testTitleSection}>
+          <Text style={neetStyles.testTitle}>{config.testTitle}</Text>
+        </View>
+
         {/* Instructions */}
         <PDFInstructions />
 

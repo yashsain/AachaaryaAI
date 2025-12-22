@@ -16,7 +16,7 @@ interface PDFHeaderProps {
 export const PDFHeader: React.FC<PDFHeaderProps> = ({ config }) => {
   return (
     <View style={neetStyles.header}>
-      {/* Top row: Logo + Institute Name */}
+      {/* Top row: Logo + Institute Branding */}
       <View style={neetStyles.headerTop}>
         {config.instituteLogo && (
           <Image
@@ -25,53 +25,36 @@ export const PDFHeader: React.FC<PDFHeaderProps> = ({ config }) => {
           />
         )}
 
-        <View style={{ flex: 1, textAlign: 'center' }}>
-          <Text style={neetStyles.instituteName}>
-            {config.instituteName}
+        <View style={neetStyles.headerBranding}>
+          <Text style={neetStyles.instituteSubtitle}>
+            A Unit of NAVJEEVAN SCIENCE GROUP, SIKAR
           </Text>
-          {config.tagline && (
-            <Text style={neetStyles.tagline}>
-              {config.tagline}
-            </Text>
-          )}
+          <Text style={neetStyles.instituteMainTitle}>
+            NAVJEEVAN{'\n'}NEET ACADEMY
+          </Text>
         </View>
       </View>
 
-      {/* Test Metadata Box */}
+      {/* Test Metadata Box - Single Row */}
       <View style={neetStyles.metadataBox}>
-        <View style={neetStyles.metadataItem}>
-          <Text>
-            <Text style={neetStyles.metadataLabel}>Test: </Text>
-            {config.testTitle}
-          </Text>
+        <View style={neetStyles.metadataCell}>
+          <Text style={neetStyles.metadataLabel}>Max. Marks : </Text>
+          <Text style={neetStyles.metadataValue}>{config.maxMarks}</Text>
         </View>
 
-        <View style={neetStyles.metadataItem}>
-          <Text>
-            <Text style={neetStyles.metadataLabel}>Code: </Text>
-            {config.testCode}
-          </Text>
+        <View style={neetStyles.metadataCell}>
+          <Text style={neetStyles.metadataLabel}>Date : </Text>
+          <Text style={neetStyles.metadataValue}>{config.date}</Text>
         </View>
 
-        <View style={neetStyles.metadataItem}>
-          <Text>
-            <Text style={neetStyles.metadataLabel}>Date: </Text>
-            {config.date}
-          </Text>
+        <View style={neetStyles.metadataCell}>
+          <Text style={neetStyles.metadataLabel}>Time : </Text>
+          <Text style={neetStyles.metadataValue}>{config.duration}</Text>
         </View>
 
-        <View style={neetStyles.metadataItem}>
-          <Text>
-            <Text style={neetStyles.metadataLabel}>Time: </Text>
-            {config.duration}
-          </Text>
-        </View>
-
-        <View style={neetStyles.metadataItem}>
-          <Text>
-            <Text style={neetStyles.metadataLabel}>Max Marks: </Text>
-            {config.maxMarks}
-          </Text>
+        <View style={neetStyles.metadataCell}>
+          <Text style={neetStyles.metadataLabel}>Test Code : </Text>
+          <Text style={neetStyles.metadataValue}>{config.testCode}</Text>
         </View>
       </View>
     </View>

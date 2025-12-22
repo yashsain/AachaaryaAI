@@ -22,14 +22,32 @@ export const neetStyles = StyleSheet.create({
   },
   headerTop: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
+    gap: 20,
   },
   logo: {
-    width: 50,
-    height: 50,
+    width: 70,
+    height: 70,
     objectFit: 'contain',
+  },
+  headerBranding: {
+    alignItems: 'center',
+  },
+  instituteSubtitle: {
+    fontSize: 11,
+    color: '#8B1A1A',
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    marginBottom: 4,
+  },
+  instituteMainTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#8B1A1A',
+    textAlign: 'center',
+    lineHeight: 1.2,
   },
   instituteName: {
     fontSize: 18,
@@ -45,20 +63,43 @@ export const neetStyles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // Metadata box
+  // Metadata box - Horizontal layout
   metadataBox: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    border: '1pt solid #000000',
-    padding: 8,
-    marginVertical: 10,
-    backgroundColor: '#F5F5F5',
+    alignItems: 'center',
+    border: '1pt solid #999999',
+    padding: 6,
+    marginTop: 8,
+    backgroundColor: '#E8E8E8',
   },
-  metadataItem: {
+  metadataCell: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
     fontSize: 9,
   },
   metadataLabel: {
     fontWeight: 'bold',
+    fontSize: 9,
+  },
+  metadataValue: {
+    fontSize: 9,
+  },
+  metadataItem: {
+    fontSize: 9,
+  },
+
+  // Test title section
+  testTitleSection: {
+    marginVertical: 12,
+    padding: 8,
+    backgroundColor: '#D3D3D3',
+    borderLeft: '3pt solid #8B1A1A',
+  },
+  testTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 
   // Instructions section

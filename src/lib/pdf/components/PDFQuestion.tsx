@@ -34,13 +34,6 @@ export const PDFQuestion: React.FC<PDFQuestionProps> = ({ question, displayNumbe
           </View>
         ))}
       </View>
-
-      {/* Chapter label (optional, for reference) */}
-      {question.chapter_name && (
-        <Text style={neetStyles.chapterLabel}>
-          Chapter: {question.chapter_name}
-        </Text>
-      )}
     </View>
   )
 }

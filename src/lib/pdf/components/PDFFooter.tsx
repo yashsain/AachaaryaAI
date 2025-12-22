@@ -16,11 +16,11 @@ interface PDFFooterProps {
 }
 
 export const PDFFooter: React.FC<PDFFooterProps> = ({ contactInfo, pageNumber, totalPages }) => {
-  // Build contact string
+  // Build contact string - format like "PIPRALI ROAD, SIKAR • Sikar • 9257086020 • admin@democoaching.com"
   const contactParts: string[] = []
 
   if (contactInfo.address) {
-    contactParts.push(contactInfo.address)
+    contactParts.push(contactInfo.address.toUpperCase())
   }
 
   if (contactInfo.city) {
@@ -28,7 +28,7 @@ export const PDFFooter: React.FC<PDFFooterProps> = ({ contactInfo, pageNumber, t
   }
 
   if (contactInfo.phone) {
-    contactParts.push(`☎ ${contactInfo.phone}`)
+    contactParts.push(contactInfo.phone)
   }
 
   if (contactInfo.email) {

@@ -164,10 +164,39 @@ export async function POST(
     const institute = paper.institutes as any
     let instituteLogo: string | null = null
     if (institute.logo_url) {
-      instituteLogo = await getInstituteLogo(
-        institute.logo_url,
-        process.env.NEXT_PUBLIC_SUPABASE_URL
-      )
+      console.log('[GENERATE_PDF] Processing logo from:', institute.logo_url)
+
+      // If logo is in Supabase storage, generate a signed URL first
+      if (institute.logo_url.includes('supabase') || !institute.logo_url.startsWith('http')) {
+        try {
+          // Extract bucket and path if it's a storage path
+          const logoPath = institute.logo_url.replace(/^\/storage\/v1\/object\/public\//, '')
+          const [bucket, ...pathParts] = logoPath.split('/')
+          const filePath = pathParts.join('/')
+
+          console.log('[GENERATE_PDF] Creating signed URL for:', bucket, filePath)
+
+          const { data: signedData, error: signedError } = await supabaseAdmin.storage
+            .from(bucket || 'logos')
+            .createSignedUrl(filePath || institute.logo_url, 3600) // 1 hour expiry
+
+          if (!signedError && signedData?.signedUrl) {
+            console.log('[GENERATE_PDF] Signed URL created, converting to base64')
+            instituteLogo = await getInstituteLogo(signedData.signedUrl)
+          } else {
+            console.error('[GENERATE_PDF] Signed URL error:', signedError)
+            instituteLogo = await getInstituteLogo(institute.logo_url, process.env.NEXT_PUBLIC_SUPABASE_URL)
+          }
+        } catch (error) {
+          console.error('[GENERATE_PDF] Logo processing error:', error)
+          instituteLogo = null
+        }
+      } else {
+        // External URL, use directly
+        instituteLogo = await getInstituteLogo(institute.logo_url)
+      }
+
+      console.log('[GENERATE_PDF] Logo processed:', instituteLogo ? 'Success' : 'Failed')
     }
 
     // Generate test code
