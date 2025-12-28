@@ -12,11 +12,12 @@
 import { useRequireAuth } from '@/contexts/AuthContext'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/MultiSelect'
 import { Input } from '@/components/ui/Input'
+import { getValidPaperTypes } from '@/lib/streamPaperTypes'
 
 interface Chapter {
   id: string
@@ -50,9 +51,6 @@ interface MaterialType {
 }
 
 type Step = 'classes' | 'format' | 'chapters' | 'review'
-
-// Material types for test papers (shared with uploaded materials)
-const TEST_PAPER_TYPE_NAMES = ['DPP', 'JEE Mains Paper', 'JEE Advanced Paper', 'NEET Paper']
 
 export default function CreateTestPaperPage() {
   const { teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireAuth()
@@ -135,24 +133,37 @@ export default function CreateTestPaperPage() {
         return
       }
 
-      // Fetch subject details
-      const subjectResponse = await fetch(`/api/subjects?subject_id=${subject_id}`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      })
+      // Query subject directly to get stream_id and stream name
+      const { data: subjectData, error: subjectError } = await supabaseAdmin
+        .from('subjects')
+        .select(`
+          id,
+          name,
+          stream_id,
+          streams (
+            id,
+            name
+          )
+        `)
+        .eq('id', subject_id)
+        .single()
 
-      if (!subjectResponse.ok) {
-        throw new Error('Failed to fetch subject details')
+      if (subjectError || !subjectData) {
+        throw new Error('Failed to fetch subject')
       }
 
-      const subjectData = await subjectResponse.json()
-      if (subjectData.subjects && subjectData.subjects.length > 0) {
-        setSubject(subjectData.subjects[0])
+      setSubject(subjectData)
+      const subjectStreamId = subjectData.stream_id
+      const streamName = (subjectData.streams as any)?.name
+
+      if (!subjectStreamId || !streamName) {
+        throw new Error('Subject stream_id or stream name not found')
       }
 
-      // Fetch classes
-      const classesResponse = await fetch('/api/classes', {
+      console.log('[TEST_PAPER_FORM] subject_id=%s stream_id=%s stream_name=%s', subject_id, subjectStreamId, streamName)
+
+      // Fetch classes filtered by stream_id
+      const classesResponse = await fetch(`/api/classes?stream_id=${subjectStreamId}`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },
@@ -164,6 +175,7 @@ export default function CreateTestPaperPage() {
 
       const classesData = await classesResponse.json()
       setClasses(classesData.classes || [])
+      console.log('[TEST_PAPER_FORM] classes_count=%s', classesData.classes?.length || 0)
 
       // Fetch chapters for this subject
       const chaptersResponse = await fetch(`/api/chapters?subject_id=${subject_id}`, {
@@ -191,11 +203,17 @@ export default function CreateTestPaperPage() {
       }
 
       const materialTypesData = await materialTypesResponse.json()
-      // Filter to only show test paper types
-      const testPaperTypes = (materialTypesData.materialTypes || []).filter((mt: MaterialType) =>
-        TEST_PAPER_TYPE_NAMES.includes(mt.name)
+
+      // Filter paper types based on stream
+      const validPaperTypeNames = getValidPaperTypes(streamName)
+      const streamPaperTypes = (materialTypesData.materialTypes || []).filter((mt: MaterialType) =>
+        validPaperTypeNames.includes(mt.name)
       )
-      setMaterialTypes(testPaperTypes)
+
+      console.log('[TEST_PAPER_FORM] stream=%s valid_paper_types=%s filtered_count=%s',
+        streamName, validPaperTypeNames.join(','), streamPaperTypes.length)
+
+      setMaterialTypes(streamPaperTypes)
     } catch (err) {
       console.error('[CREATE_PAPER_FETCH_ERROR]', err)
       setFormError(err instanceof Error ? err.message : 'Failed to load form data')

@@ -1,13 +1,11 @@
 'use client'
 
 /**
- * Subject Picker Page - Test Papers
+ * Stream Picker Page - Test Papers
  *
  * First step in test paper creation workflow
- * Shows list of subjects for user to select
- * - Teachers: see only their assigned subjects
- * - Admins: see all subjects
- * - Auto-redirects if only 1 subject available
+ * Shows list of streams for user to select
+ * Streams are filtered by institute via institute_streams table
  */
 
 import { useRequireAuth } from '@/contexts/AuthContext'
@@ -17,41 +15,37 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 
-interface Subject {
+interface Stream {
   id: string
   name: string
-  stream_id: string
-  streams: {
-    id: string
-    name: string
-  }
+  created_at: string
 }
 
-export default function TestPapersSubjectPickerPage() {
+export default function TestPapersStreamPickerPage() {
   const { teacher, institute, loading, teacherLoading, error, retry, clearError, signOut } = useRequireAuth()
   const router = useRouter()
-  const [subjects, setSubjects] = useState<Subject[]>([])
-  const [loadingSubjects, setLoadingSubjects] = useState(true)
-  const [subjectsError, setSubjectsError] = useState<string | null>(null)
+  const [streams, setStreams] = useState<Stream[]>([])
+  const [loadingStreams, setLoadingStreams] = useState(true)
+  const [streamsError, setStreamsError] = useState<string | null>(null)
 
   useEffect(() => {
     if (teacher && !loading && !teacherLoading) {
-      fetchSubjects()
+      fetchStreams()
     }
   }, [teacher, loading, teacherLoading])
 
-  const fetchSubjects = async () => {
+  const fetchStreams = async () => {
     try {
-      setLoadingSubjects(true)
-      setSubjectsError(null)
+      setLoadingStreams(true)
+      setStreamsError(null)
 
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
-        setSubjectsError('Session expired. Please sign in again.')
+        setStreamsError('Session expired. Please sign in again.')
         return
       }
 
-      const response = await fetch('/api/subjects', {
+      const response = await fetch('/api/streams', {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },
@@ -59,23 +53,17 @@ export default function TestPapersSubjectPickerPage() {
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || 'Failed to fetch subjects')
+        throw new Error(data.error || 'Failed to fetch streams')
       }
 
       const data = await response.json()
-      const subjectsList = data.subjects || []
-      setSubjects(subjectsList)
-
-      // Auto-redirect if only 1 subject
-      if (subjectsList.length === 1) {
-        console.log('[TEST_PAPERS_SUBJECT_PICKER] Auto-redirecting to only subject:', subjectsList[0].id)
-        router.push(`/dashboard/test-papers/subject/${subjectsList[0].id}`)
-      }
+      const streamsList = data.streams || []
+      setStreams(streamsList)
     } catch (err) {
-      console.error('[TEST_PAPERS_SUBJECT_PICKER_ERROR]', err)
-      setSubjectsError(err instanceof Error ? err.message : 'Failed to load subjects')
+      console.error('[TEST_PAPERS_STREAM_PICKER_ERROR]', err)
+      setStreamsError(err instanceof Error ? err.message : 'Failed to load streams')
     } finally {
-      setLoadingSubjects(false)
+      setLoadingStreams(false)
     }
   }
 
@@ -85,12 +73,12 @@ export default function TestPapersSubjectPickerPage() {
   }
 
   // Show loading state
-  if (loading || teacherLoading || loadingSubjects) {
+  if (loading || teacherLoading || loadingStreams) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-neutral-50">
         <div className="text-center">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-brand-saffron border-r-transparent"></div>
-          <p className="mt-4 text-neutral-600">Loading subjects...</p>
+          <p className="mt-4 text-neutral-600">Loading streams...</p>
         </div>
       </div>
     )
@@ -104,7 +92,7 @@ export default function TestPapersSubjectPickerPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-neutral-800">Create Test Paper</h1>
-              <p className="text-sm text-neutral-600 mt-1">Select a subject to continue</p>
+              <p className="text-sm text-neutral-600 mt-1">Select a stream to continue</p>
             </div>
             <Link href="/dashboard">
               <button className="px-4 py-2 text-sm font-medium text-neutral-700 hover:text-brand-saffron transition-colors">
@@ -118,15 +106,15 @@ export default function TestPapersSubjectPickerPage() {
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Error State */}
-        {subjectsError && (
+        {streamsError && (
           <div className="bg-error/10 border border-error/30 rounded-lg p-4 mb-6">
             <div className="flex items-start gap-3">
               <span className="text-error text-xl">⚠️</span>
               <div className="flex-1">
-                <p className="text-error font-medium">Error Loading Subjects</p>
-                <p className="text-error/80 text-sm mt-1">{subjectsError}</p>
+                <p className="text-error font-medium">Error Loading Streams</p>
+                <p className="text-error/80 text-sm mt-1">{streamsError}</p>
                 <button
-                  onClick={fetchSubjects}
+                  onClick={fetchStreams}
                   className="mt-3 text-sm text-error hover:underline font-medium"
                 >
                   Try Again
@@ -137,44 +125,44 @@ export default function TestPapersSubjectPickerPage() {
         )}
 
         {/* Empty State */}
-        {!subjectsError && subjects.length === 0 && !loadingSubjects && (
+        {!streamsError && streams.length === 0 && !loadingStreams && (
           <div className="bg-white rounded-xl shadow-md p-12 text-center">
             <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl">📝</span>
+              <span className="text-3xl">📚</span>
             </div>
-            <h2 className="text-xl font-semibold text-neutral-800 mb-2">No Subjects Found</h2>
+            <h2 className="text-xl font-semibold text-neutral-800 mb-2">No Streams Found</h2>
             <p className="text-neutral-600 mb-6">
               {teacher?.role === 'admin'
-                ? 'No subjects have been added to your institute yet.'
-                : 'You have not been assigned any subjects yet. Please contact your administrator.'}
+                ? 'No streams have been added to your institute yet.'
+                : 'Your institute has no streams configured yet. Please contact your administrator.'}
             </p>
             {teacher?.role === 'admin' && (
-              <Link href="/dashboard/admin/subjects">
+              <Link href="/dashboard/admin/streams">
                 <button className="px-6 py-2.5 bg-brand-saffron text-white rounded-lg hover:bg-brand-saffron/90 transition-colors font-medium">
-                  Add Subjects
+                  Manage Streams
                 </button>
               </Link>
             )}
           </div>
         )}
 
-        {/* Subjects Grid */}
-        {subjects.length > 0 && (
+        {/* Streams Grid */}
+        {streams.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {subjects.map((subject) => (
+            {streams.map((stream) => (
               <Link
-                key={subject.id}
-                href={`/dashboard/test-papers/subject/${subject.id}`}
+                key={stream.id}
+                href={`/dashboard/test-papers/stream/${stream.id}`}
                 className="block"
               >
                 <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 p-6 border border-neutral-200 hover:border-brand-saffron group">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold text-neutral-800 group-hover:text-brand-saffron transition-colors">
-                        {subject.name}
+                        {stream.name}
                       </h3>
                       <p className="text-sm text-neutral-500 mt-1">
-                        {subject.streams.name}
+                        Select to view subjects
                       </p>
                     </div>
                     <svg

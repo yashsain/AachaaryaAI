@@ -13,6 +13,7 @@
  * - Create new papers
  */
 
+import React from 'react'
 import { useRequireAuth } from '@/contexts/AuthContext'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -385,7 +386,7 @@ interface PaperCardProps {
   paper: Paper
   onDelete: (paper: Paper) => void
   formatDate: (date: string) => string
-  getStatusBadge: (status: string) => JSX.Element
+  getStatusBadge: (status: string) => React.ReactElement
 }
 
 function PaperCard({ paper, onDelete, formatDate, getStatusBadge }: PaperCardProps) {

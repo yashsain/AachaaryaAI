@@ -1,37 +1,51 @@
 /**
  * Difficulty Mapper
  *
- * Maps difficulty level (easy/balanced/hard) to NEET protocol configuration
+ * Maps difficulty level (easy/balanced/hard) to protocol configuration
+ * Works with any exam protocol (NEET, JEE, Banking, etc.)
  * Includes archetype distribution, structural forms, cognitive load, and prohibitions
  */
 
-export interface ProtocolConfig {
-  archetypeDistribution: {
-    directRecall: number
-    directApplication: number
-    integrative: number
-    discriminator: number
-    exceptionOutlier: number
+import { Protocol, ProtocolConfig as IProtocolConfig } from './protocols/types'
+
+// Re-export ProtocolConfig for backward compatibility
+export interface ProtocolConfig extends IProtocolConfig {}
+
+// Also export directly from types for convenience
+export type { ProtocolConfig as Config } from './protocols/types'
+
+/**
+ * Map difficulty level to protocol configuration (protocol-aware version)
+ * This is the new, protocol-aware mapper
+ */
+export function mapDifficultyToConfig(
+  protocol: Protocol,
+  difficulty: 'easy' | 'balanced' | 'hard',
+  questionCount: number
+): ProtocolConfig {
+  const difficultyMapping = protocol.difficultyMappings[difficulty]
+
+  const warmupCount = Math.min(
+    Math.floor(questionCount * protocol.cognitiveLoadConstraints.warmupPercentage),
+    3
+  )
+
+  return {
+    archetypeDistribution: difficultyMapping.archetypes,
+    structuralForms: difficultyMapping.structuralForms,
+    cognitiveLoad: {
+      ...difficultyMapping.cognitiveLoad,
+      maxConsecutiveHigh: protocol.cognitiveLoadConstraints.maxConsecutiveHigh,
+      warmupCount
+    },
+    prohibitions: protocol.prohibitions
   }
-  structuralForms: {
-    standardMCQ: number
-    matchFollowing: number
-    assertionReason: number
-    negativePhrasing: number
-    multiStatement: number
-  }
-  cognitiveLoad: {
-    lowDensity: number
-    mediumDensity: number
-    highDensity: number
-    maxConsecutiveHigh: number
-    warmupCount: number
-  }
-  prohibitions: string[]
 }
 
 /**
- * Map difficulty level to NEET protocol configuration
+ * Map difficulty level to NEET Biology protocol configuration (legacy version)
+ * This function is hardcoded for NEET Biology only
+ * @deprecated Use mapDifficultyToConfig(protocol, difficulty, questionCount) instead
  */
 export function mapDifficultyToProtocol(
   difficulty: 'easy' | 'balanced' | 'hard',

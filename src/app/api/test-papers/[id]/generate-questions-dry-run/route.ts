@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase, supabaseAdmin } from '@/lib/supabase'
-import { ai, GEMINI_MODEL, NEET_GENERATION_CONFIG } from '@/lib/ai/geminiClient'
+import { ai, GEMINI_MODEL, GENERATION_CONFIG } from '@/lib/ai/geminiClient'
 import { fetchMaterialsForChapter } from '@/lib/ai/materialFetcher'
 import { uploadPDFToGemini } from '@/lib/ai/pdfUploader'
-import { mapDifficultyToProtocol } from '@/lib/ai/difficultyMapper'
-import { buildNEETPrompt } from '@/lib/ai/promptBuilder'
-import { validateQuestions, Question } from '@/lib/ai/questionValidator'
+import { mapDifficultyToConfig } from '@/lib/ai/difficultyMapper'
+import { buildPrompt } from '@/lib/ai/promptBuilder'
+import { validateQuestionsWithProtocol, Question } from '@/lib/ai/questionValidator'
 import { logGeminiRequest, logGeminiResponse, logDBPreview, logGenerationSummary } from '@/lib/ai/debugLogger'
 import { parseGeminiJSON, getDiagnosticInfo } from '@/lib/ai/jsonCleaner'
+import { getProtocol } from '@/lib/ai/protocols'
 
 export const maxDuration = 300 // 5 minutes timeout
 
@@ -60,7 +61,7 @@ export async function POST(
 
     console.log(`[DRY_RUN] Teacher: ${teacher.id}, Institute: ${teacher.institute_id}`)
 
-    // Fetch paper details with chapters
+    // Fetch paper details with stream and subject for protocol routing
     const { data: paper, error: paperError } = await supabaseAdmin
       .from('test_papers')
       .select(`
@@ -70,7 +71,13 @@ export async function POST(
         difficulty_level,
         subject_id,
         institute_id,
-        status
+        status,
+        streams (
+          name
+        ),
+        subjects (
+          name
+        )
       `)
       .eq('id', paperId)
       .eq('institute_id', teacher.institute_id)
@@ -82,6 +89,27 @@ export async function POST(
     }
 
     console.log(`[DRY_RUN] Paper: "${paper.title}", Questions: ${paper.question_count}, Difficulty: ${paper.difficulty_level}`)
+
+    // Get protocol for this exam+subject combination
+    const streamName = (paper.streams as any)?.name
+    const subjectName = (paper.subjects as any)?.name
+
+    if (!streamName || !subjectName) {
+      console.error('[DRY_RUN_ERROR] Paper missing stream or subject')
+      return NextResponse.json({ error: 'Paper configuration incomplete' }, { status: 400 })
+    }
+
+    let protocol
+    try {
+      protocol = getProtocol(streamName, subjectName)
+      console.log(`[DRY_RUN] Using protocol: ${protocol.id} (${protocol.name}) for ${streamName} - ${subjectName}`)
+    } catch (protocolError) {
+      console.error('[DRY_RUN_ERROR] Protocol not found:', protocolError)
+      return NextResponse.json({
+        error: `No question generation protocol available for ${streamName} ${subjectName}. Please contact support.`,
+        details: protocolError instanceof Error ? protocolError.message : 'Unknown error'
+      }, { status: 400 })
+    }
 
     // Fetch chapters for this paper
     const { data: paperChapters, error: chaptersError } = await supabaseAdmin
@@ -182,7 +210,8 @@ export async function POST(
 
         // Step 3: Map difficulty to protocol config
         console.log(`[DRY_RUN] Step 3: Mapping difficulty to protocol config...`)
-        const protocolConfig = mapDifficultyToProtocol(
+        const protocolConfig = mapDifficultyToConfig(
+          protocol,
           paper.difficulty_level as 'easy' | 'balanced' | 'hard',
           questionsPerChapter
         )
@@ -192,9 +221,10 @@ export async function POST(
         console.log(`  Structural forms:`, protocolConfig.structuralForms)
         console.log(`  Cognitive load:`, protocolConfig.cognitiveLoad)
 
-        // Step 4: Build NEET prompt
-        console.log(`[DRY_RUN] Step 4: Building NEET prompt...`)
-        const prompt = buildNEETPrompt(
+        // Step 4: Build prompt using protocol
+        console.log(`[DRY_RUN] Step 4: Building prompt using ${protocol.name}...`)
+        const prompt = buildPrompt(
+          protocol,
           protocolConfig,
           chapterName,
           questionsPerChapter,
@@ -230,12 +260,15 @@ export async function POST(
             ...fileDataParts,
             { text: prompt }
           ],
-          generationConfig: NEET_GENERATION_CONFIG
+          config: GENERATION_CONFIG
         })
 
         timing[`chapter${chapterIndex + 1}_gemini`] = Date.now() - geminiStartTime
 
         const responseText = response.text
+        if (!responseText) {
+          throw new Error('No response text received from Gemini')
+        }
         console.log(`[DRY_RUN] ✓ Received response (${responseText.length} characters)`)
 
         // Step 6: Parse JSON response with production-grade cleaning
@@ -288,9 +321,9 @@ export async function POST(
         const questions = parsedResponse.questions || []
         console.log(`[DRY_RUN] ✓ Parsed ${questions.length} questions`)
 
-        // Step 7: Validate questions
-        console.log(`[DRY_RUN] Step 7: Validating questions...`)
-        const validation = validateQuestions(questions)
+        // Step 7: Validate questions using protocol
+        console.log(`[DRY_RUN] Step 7: Validating questions using protocol...`)
+        const validation = validateQuestionsWithProtocol(questions, protocol)
 
         console.log(`[DRY_RUN] Validation result:`)
         console.log(`  Valid: ${validation.valid}`)

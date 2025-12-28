@@ -8,11 +8,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabase'
-import { ai } from '@/lib/ai/geminiClient'
+import { ai, GEMINI_MODEL } from '@/lib/ai/geminiClient'
 import { uploadPDFToGemini } from '@/lib/ai/pdfUploader'
-import { buildNEETPrompt } from '@/lib/ai/promptBuilder'
-import { mapDifficultyToProtocol } from '@/lib/ai/difficultyMapper'
 import { parseGeminiJSON } from '@/lib/ai/jsonCleaner'
+import { logApiUsage, calculateCost } from '@/lib/ai/tokenTracker'
+import { getProtocol } from '@/lib/ai/protocols'
+import { mapDifficultyToConfig } from '@/lib/ai/difficultyMapper'
 
 interface RegenerateQuestionParams {
   params: Promise<{
@@ -75,7 +76,7 @@ export async function POST(
 
     console.log('[REGENERATE_QUESTION] question_id:', questionId, 'teacher_id:', teacher.id, 'instruction:', body.instruction)
 
-    // Fetch existing question with paper and chapter details
+    // Fetch existing question with paper, stream, subject, and chapter details
     const { data: existingQuestion, error: fetchError } = await supabase
       .from('questions')
       .select(`
@@ -88,7 +89,18 @@ export async function POST(
         explanation,
         papers:paper_id (
           id,
-          difficulty_level
+          title,
+          difficulty_level,
+          institute_id,
+          streams (
+            name
+          ),
+          subjects (
+            name
+          ),
+          institutes (
+            name
+          )
         ),
         chapters:chapter_id (
           id,
@@ -104,6 +116,28 @@ export async function POST(
     }
 
     console.log('[REGENERATE_QUESTION] Found question for chapter:', (existingQuestion as any).chapters?.name)
+
+    // Get protocol for this exam+subject combination
+    const paper = (existingQuestion as any).papers
+    const streamName = paper?.streams?.name
+    const subjectName = paper?.subjects?.name
+
+    if (!streamName || !subjectName) {
+      console.error('[REGENERATE_QUESTION_ERROR] Question missing stream or subject')
+      return NextResponse.json({ error: 'Question configuration incomplete' }, { status: 400 })
+    }
+
+    let protocol
+    try {
+      protocol = getProtocol(streamName, subjectName)
+      console.log(`[REGENERATE_QUESTION] Using protocol: ${protocol.id} (${protocol.name})`)
+    } catch (protocolError) {
+      console.error('[REGENERATE_QUESTION_ERROR] Protocol not found:', protocolError)
+      return NextResponse.json({
+        error: `No question generation protocol available for ${streamName} ${subjectName}. Please contact support.`,
+        details: protocolError instanceof Error ? protocolError.message : 'Unknown error'
+      }, { status: 400 })
+    }
 
     // Fetch materials for this chapter
     const { data: materialChapters, error: mcError } = await supabaseAdmin
@@ -149,9 +183,9 @@ export async function POST(
 
     console.log('[REGENERATE_QUESTION] Uploaded', uploadedFiles.length, 'files to Gemini')
 
-    // Get difficulty config
-    const difficulty = (existingQuestion as any).papers?.difficulty_level || 'balanced'
-    const protocolConfig = mapDifficultyToProtocol(difficulty, 1)
+    // Get difficulty config using protocol
+    const difficulty = paper?.difficulty_level || 'balanced'
+    const protocolConfig = mapDifficultyToConfig(protocol, difficulty, 1)
 
     // Build regeneration prompt
     const originalQuestionJSON = JSON.stringify({
@@ -164,7 +198,7 @@ export async function POST(
       difficulty: existingQuestion.question_data.difficulty,
     }, null, 2)
 
-    const regenerationPrompt = `You are an expert NEET Biology question regenerator. You will be given an existing question and teacher instructions to improve it.
+    const regenerationPrompt = `You are an expert ${protocol.name} question regenerator. You will be given an existing question and teacher instructions to improve it.
 
 ## ORIGINAL QUESTION:
 \`\`\`json
@@ -175,13 +209,13 @@ ${originalQuestionJSON}
 ${body.instruction}
 
 ## TASK:
-Regenerate this question following the teacher's instructions while maintaining NEET protocol compliance.
+Regenerate this question following the teacher's instructions while maintaining ${protocol.name} protocol compliance.
 
 IMPORTANT RULES:
 1. Follow the teacher's instructions EXACTLY
 2. Maintain the same structural form (${existingQuestion.question_data.structuralForm || existingQuestion.question_data.structural_form || 'standardMCQ'}) unless teacher requests a change
 3. Use content ONLY from the provided study materials
-4. Follow all NEET protocol rules (no "Always/Never", no "None/All of the above", no meta-references)
+4. Follow all ${protocol.name} protocol rules and prohibitions
 5. Return ONLY valid JSON in this exact format:
 
 \`\`\`json
@@ -210,12 +244,12 @@ Generate the improved question now:`
     const fileDataArray = uploadedFiles.map(f => ({
       fileData: {
         mimeType: 'application/pdf',
-        fileUri: f.uri,
+        fileUri: f.fileUri,
       }
     }))
 
-    const model = ai.models.get({ model: 'gemini-2.0-flash-exp' })
-    const result = await model.generateContent({
+    const result = await ai.models.generateContent({
+      model: GEMINI_MODEL,
       contents: [
         {
           role: 'user',
@@ -232,7 +266,19 @@ Generate the improved question now:`
     })
 
     const responseText = result.text
+    if (!responseText) {
+      throw new Error('No response text received from Gemini')
+    }
     console.log('[REGENERATE_QUESTION] Received response:', responseText.length, 'characters')
+
+    // Capture token usage
+    const tokenUsage = {
+      promptTokens: result.usageMetadata?.promptTokenCount || 0,
+      completionTokens: result.usageMetadata?.candidatesTokenCount || 0,
+      totalTokens: result.usageMetadata?.totalTokenCount || 0,
+    }
+    const costs = calculateCost(tokenUsage, GEMINI_MODEL, 'standard')
+    console.log(`[REGENERATE_QUESTION_COST] ${tokenUsage.totalTokens} tokens, ₹${costs.costInINR.toFixed(4)}`)
 
     // Parse JSON
     let parsedResponse: any
@@ -268,6 +314,28 @@ Generate the improved question now:`
     if (updateError) {
       console.error('[REGENERATE_QUESTION_UPDATE_ERROR]', updateError)
       return NextResponse.json({ error: 'Failed to update question' }, { status: 500 })
+    }
+
+    // Log API usage to file (non-blocking)
+    try {
+      const paper = (existingQuestion as any).papers
+      logApiUsage({
+        instituteId: paper.institute_id,
+        instituteName: paper.institutes?.name,
+        teacherId: teacher.id,
+        paperId: existingQuestion.paper_id,
+        paperTitle: paper.title,
+        chapterId: existingQuestion.chapter_id,
+        chapterName: (existingQuestion as any).chapters?.name,
+        questionId: questionId,
+        usage: tokenUsage,
+        modelUsed: GEMINI_MODEL,
+        operationType: 'regenerate',
+        questionsGenerated: 1,
+        mode: 'standard'
+      })
+    } catch (err) {
+      console.error('[TOKEN_TRACKER] Failed to log usage:', err)
     }
 
     console.log('[REGENERATE_QUESTION_SUCCESS] question_id:', questionId)

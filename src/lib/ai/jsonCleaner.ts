@@ -99,7 +99,14 @@ export function getDiagnosticInfo(rawResponse: string, error: Error): {
 } {
   const cleaned = cleanGeminiJSON(rawResponse)
 
-  const result = {
+  const result: {
+    errorMessage: string
+    responseLength: number
+    firstChars: string
+    lastChars: string
+    errorContext?: string
+    cleanedPreview?: string
+  } = {
     errorMessage: error instanceof Error ? error.message : 'Unknown error',
     responseLength: rawResponse.length,
     firstChars: rawResponse.substring(0, 1000),

@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "analyze-tokens": "tsx scripts/analyze-token-usage.ts",
+    "token-usage": "tsx scripts/analyze-token-usage.ts",
+    "token-export": "tsx scripts/analyze-token-usage.ts -- --export-csv"
   },
   "dependencies": {
     "@ai-sdk/google": "^2.0.40",
@@ -34,6 +37,7 @@
     "eslint-config-next": "^16.0.0",
     "postcss": "^8",
     "tailwindcss": "^4.1.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
 }

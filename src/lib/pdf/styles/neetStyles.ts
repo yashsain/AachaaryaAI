@@ -1,16 +1,38 @@
 /**
  * React-PDF StyleSheet for NEET Papers
  * Phase 6: PDF Generation
+ * Updated: Added Devanagari font support for Hindi content (REET, etc.)
  */
 
-import { StyleSheet } from '@react-pdf/renderer'
+import { StyleSheet, Font } from '@react-pdf/renderer'
+import path from 'path'
+
+// Register Noto Sans Devanagari font for Hindi/Devanagari script support
+// This font supports both Latin (English) and Devanagari (Hindi) characters
+// Using local WOFF2 files from public/fonts directory (avoids CORS issues)
+// Note: For server-side rendering, we need absolute file system paths
+const fontPath = path.join(process.cwd(), 'public', 'fonts')
+
+Font.register({
+  family: 'Noto Sans Devanagari',
+  fonts: [
+    {
+      src: path.join(fontPath, 'NotoSansDevanagari-Regular.ttf'),
+      fontWeight: 'normal',
+    },
+    {
+      src: path.join(fontPath, 'NotoSansDevanagari-Bold.ttf'),
+      fontWeight: 'bold',
+    },
+  ],
+})
 
 export const neetStyles = StyleSheet.create({
   // Page layout
   page: {
     padding: '15mm',
     fontSize: 10,
-    fontFamily: 'Helvetica',
+    fontFamily: 'Noto Sans Devanagari', // Supports both English and Hindi/Devanagari
     backgroundColor: '#FFFFFF',
   },
 

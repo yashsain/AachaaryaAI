@@ -4,6 +4,7 @@
  * Phase 6: PDF Generation
  */
 
+import React from 'react'
 import { renderToStream } from '@react-pdf/renderer'
 import { TemplateConfig } from '../types'
 import { NEETTemplate } from '../templates/NEETTemplate'
@@ -34,7 +35,7 @@ export async function generatePDF(config: TemplateConfig): Promise<Readable> {
     }
 
     // Generate PDF using React-PDF
-    const pdfStream = await renderToStream(NEETTemplate({ config }))
+    const pdfStream = await renderToStream(<NEETTemplate config={config} />)
 
     console.log('[PDF_GENERATOR] PDF generation completed successfully')
 
@@ -71,17 +72,19 @@ export async function streamToBuffer(stream: Readable): Promise<Buffer> {
 
 /**
  * Generates a test code for the paper
- * Format: NEET-{SUBJECT_CODE}-{YYYYMMDD}-{RANDOM}
+ * Format: {STREAM}-{SUBJECT_CODE}-{YYYYMMDD}-{RANDOM}
+ * @param streamName - Exam/stream name (e.g., "NEET", "JEE", "Banking")
  * @param subjectName - Subject name (e.g., "Biology", "Physics")
  * @param date - Date object
  * @returns Generated test code
  */
-export function generateTestCode(subjectName: string, date: Date = new Date()): string {
+export function generateTestCode(streamName: string, subjectName: string, date: Date = new Date()): string {
+  const streamCode = streamName.substring(0, 4).toUpperCase()
   const subjectCode = subjectName.substring(0, 3).toUpperCase()
   const dateStr = date.toISOString().split('T')[0].replace(/-/g, '')
   const random = Math.random().toString(36).substring(2, 6).toUpperCase()
 
-  return `NEET-${subjectCode}-${dateStr}-${random}`
+  return `${streamCode}-${subjectCode}-${dateStr}-${random}`
 }
 
 /**

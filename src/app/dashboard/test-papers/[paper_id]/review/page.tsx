@@ -232,7 +232,7 @@ export default function ReviewQuestionsPage() {
       console.log('[FINALIZE] Success! PDF generated:', pdfData.pdf_url)
 
       alert('Selection finalized and PDF generated successfully!')
-      router.push(`/dashboard/test-papers/subject/${paper.subject_id}`)
+      router.push(`/dashboard/test-papers/subject/${paper?.subject_id || ''}`)
     } catch (err) {
       console.error('[FINALIZE_ERROR]', err)
       alert(err instanceof Error ? err.message : 'Failed to finalize selection')

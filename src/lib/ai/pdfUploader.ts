@@ -108,6 +108,10 @@ export async function uploadPDFToGemini(
       }
     })
 
+    if (!uploadResult.name) {
+      throw new Error('Upload succeeded but no file name returned')
+    }
+
     console.log('[PDF_UPLOADER] Uploaded to Gemini:', uploadResult.name)
 
     // Step 6: Wait for file processing (poll until ACTIVE or FAILED)
@@ -136,6 +140,10 @@ export async function uploadPDFToGemini(
       uri: fileState.uri,
       state: fileState.state
     })
+
+    if (!fileState.uri || !fileState.name || !fileState.state || !fileState.mimeType) {
+      throw new Error('File state missing required fields')
+    }
 
     return {
       fileUri: fileState.uri,

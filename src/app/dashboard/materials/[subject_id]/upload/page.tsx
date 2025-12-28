@@ -12,7 +12,7 @@
 import { useRequireAuth } from '@/contexts/AuthContext'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/MultiSelect'
@@ -86,6 +86,27 @@ export default function UploadMaterialPage() {
         return
       }
 
+      // Query subject directly to get stream_id
+      const { data: subjectData, error: subjectError } = await supabaseAdmin
+        .from('subjects')
+        .select('id, name, stream_id')
+        .eq('id', subject_id)
+        .single()
+
+      if (subjectError || !subjectData) {
+        throw new Error('Failed to fetch subject')
+      }
+
+      const subjectStreamId = subjectData.stream_id
+
+      if (!subjectStreamId) {
+        throw new Error('Subject stream_id not found')
+      }
+
+      // Set stream_id from subject (not from classes)
+      setStreamId(subjectStreamId)
+      console.log('[UPLOAD_STREAM_ID]', subjectStreamId)
+
       // Fetch material types
       const typesResponse = await fetch('/api/material-types', {
         headers: {
@@ -114,8 +135,8 @@ export default function UploadMaterialPage() {
       const chaptersData = await chaptersResponse.json()
       setChapters(chaptersData.chapters || [])
 
-      // Fetch classes for multi-select
-      const classesResponse = await fetch('/api/classes', {
+      // Fetch classes filtered by stream_id
+      const classesResponse = await fetch(`/api/classes?stream_id=${subjectStreamId}`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },
@@ -126,12 +147,10 @@ export default function UploadMaterialPage() {
         console.log('[UPLOAD_CLASSES_DATA]', classesData)
         if (classesData.classes && classesData.classes.length > 0) {
           setClasses(classesData.classes)
-          // Derive stream_id from first class (all classes should have same stream for this subject)
-          setStreamId(classesData.classes[0].stream_id)
-          console.log('[UPLOAD_STREAM_ID]', classesData.classes[0].stream_id)
+          console.log('[UPLOAD_CLASSES_COUNT]', classesData.classes.length)
         } else {
-          console.error('[UPLOAD_NO_CLASSES]', 'No classes found for institute')
-          setUploadError('No classes found. Please contact your administrator.')
+          console.error('[UPLOAD_NO_CLASSES]', 'No classes found for this stream')
+          setUploadError('No classes found for this stream. Please contact your administrator.')
         }
       } else {
         console.error('[UPLOAD_CLASSES_ERROR]', await classesResponse.text())

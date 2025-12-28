@@ -1,11 +1,13 @@
 /**
  * Question Validator
  *
- * Validates generated questions against NEET protocol rules
+ * Validates generated questions against protocol rules
+ * Works with any exam protocol (NEET, JEE, Banking, etc.)
  * Returns errors (hard failures) and warnings (soft issues)
  */
 
 import { detectMetaReferences } from './metaReferenceDetector'
+import { Protocol } from './protocols/types'
 
 export interface Question {
   questionNumber: number
@@ -287,7 +289,40 @@ export function validateBasicQuality(question: Question): string[] {
 }
 
 /**
- * Validate all questions (orchestrator)
+ * Validate questions using a protocol (protocol-aware version)
+ * This is the new, protocol-aware validator
+ */
+export function validateQuestionsWithProtocol(
+  questions: Question[],
+  protocol: Protocol
+): ValidationResult {
+  const errors: string[] = []
+  const warnings: string[] = []
+
+  // Run protocol-specific validators
+  for (const validator of protocol.validators) {
+    const validatorResults = validator(questions)
+
+    // Protocol validators return errors (hard failures)
+    // We could enhance this in the future to support warnings too
+    errors.push(...validatorResults)
+  }
+
+  // Always run basic quality checks (warnings)
+  for (const question of questions) {
+    warnings.push(...validateBasicQuality(question))
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors: [...new Set(errors)], // Remove duplicates
+    warnings: [...new Set(warnings)] // Remove duplicates
+  }
+}
+
+/**
+ * Validate all questions (orchestrator) - Legacy NEET-specific version
+ * @deprecated Use validateQuestionsWithProtocol(questions, protocol) instead
  */
 export function validateQuestions(questions: Question[]): ValidationResult {
   const errors: string[] = []

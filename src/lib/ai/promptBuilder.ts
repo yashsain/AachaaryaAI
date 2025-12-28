@@ -1,12 +1,32 @@
 /**
- * NEET Prompt Builder
+ * Prompt Builder
  *
- * Builds comprehensive prompts for Gemini to generate NEET-style Biology questions
- * following the validated protocol from NEET 2021-2024 papers
+ * Builds comprehensive prompts for Gemini to generate exam-specific questions
+ * Delegates to protocol-specific prompt builders
  */
 
-import { ProtocolConfig, getArchetypeCounts, getStructuralFormCounts } from './difficultyMapper'
+import { Protocol, ProtocolConfig } from './protocols/types'
+import { getArchetypeCounts, getStructuralFormCounts } from './difficultyMapper'
 
+/**
+ * Build prompt using a protocol
+ * This is the new, protocol-aware prompt builder
+ */
+export function buildPrompt(
+  protocol: Protocol,
+  config: ProtocolConfig,
+  chapterName: string,
+  questionCount: number,
+  totalQuestions: number
+): string {
+  return protocol.buildPrompt(config, chapterName, questionCount, totalQuestions)
+}
+
+/**
+ * Legacy NEET-specific prompt builder
+ * Kept for backward compatibility - will be removed in future
+ * @deprecated Use buildPrompt(protocol, config, ...) instead
+ */
 export function buildNEETPrompt(
   config: ProtocolConfig,
   chapterName: string,

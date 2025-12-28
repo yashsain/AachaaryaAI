@@ -22,7 +22,10 @@ function extractSubject(data: Subject | Subject[] | null): Subject | null {
  * - Admin: All subjects for the institute's streams
  * - Teacher: Only subjects they are assigned to teach
  *
- * Used for: Subject picker page in material management
+ * Query parameters:
+ * - stream_id (optional): Filter subjects by stream
+ *
+ * Used for: Subject picker page in material management and test papers
  */
 export async function GET(request: NextRequest) {
   try {
@@ -51,13 +54,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Teacher profile not found' }, { status: 404 })
     }
 
-    console.log(`[SUBJECTS_API] user_id=${teacher.id} role=${teacher.role} institute_id=${teacher.institute_id}`)
+    // Get optional stream_id filter from query params
+    const { searchParams } = new URL(request.url)
+    const streamId = searchParams.get('stream_id')
+
+    console.log(`[SUBJECTS_API] user_id=${teacher.id} role=${teacher.role} institute_id=${teacher.institute_id} stream_id=${streamId || 'all'}`)
 
     let subjects
 
     if (teacher.role === 'admin') {
       // Admin: Get all subjects for the institute's streams
-      const { data, error: subjectsError } = await supabaseAdmin
+      let query = supabaseAdmin
         .from('subjects')
         .select(`
           id,
@@ -68,7 +75,13 @@ export async function GET(request: NextRequest) {
             name
           )
         `)
-        .order('name', { ascending: true })
+
+      // Apply stream filter if provided
+      if (streamId) {
+        query = query.eq('stream_id', streamId)
+      }
+
+      const { data, error: subjectsError } = await query.order('name', { ascending: true })
 
       if (subjectsError) {
         console.error('[SUBJECTS_API_ERROR]', subjectsError)
@@ -80,7 +93,7 @@ export async function GET(request: NextRequest) {
       console.log(`[SUBJECTS_API_ADMIN] subjects_count=${subjects?.length || 0}`)
     } else {
       // Teacher: Get only their assigned subjects
-      const { data, error: subjectsError } = await supabaseAdmin
+      let query = supabaseAdmin
         .from('teacher_subjects')
         .select(`
           subject_id,
@@ -95,6 +108,13 @@ export async function GET(request: NextRequest) {
           )
         `)
         .eq('teacher_id', teacher.id)
+
+      // Apply stream filter if provided
+      if (streamId) {
+        query = query.eq('subjects.stream_id', streamId)
+      }
+
+      const { data, error: subjectsError } = await query
 
       if (subjectsError) {
         console.error('[SUBJECTS_API_ERROR]', subjectsError)

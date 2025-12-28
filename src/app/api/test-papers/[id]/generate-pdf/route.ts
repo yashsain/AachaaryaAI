@@ -48,6 +48,12 @@ export async function POST(
       }
     )
 
+    // Create service role client for storage operations (bypasses RLS)
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
     // Fetch teacher profile
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
@@ -79,7 +85,12 @@ export async function POST(
         finalized_at,
         institute_id,
         subject_id,
+        stream_id,
         subjects (
+          id,
+          name
+        ),
+        streams (
           id,
           name
         ),
@@ -200,8 +211,9 @@ export async function POST(
     }
 
     // Generate test code
+    const stream = paper.streams as any
     const subject = paper.subjects as any
-    const testCode = generateTestCode(subject.name, new Date())
+    const testCode = generateTestCode(stream.name, subject.name, new Date())
 
     // Build template configuration
     const config: TemplateConfig = {
@@ -235,12 +247,6 @@ export async function POST(
     // Generate storage path using helper function (institute isolation)
     const fileName = generatePaperPath(institute.id, paperId, 'question_paper')
     console.log('[GENERATE_PDF] Storage path:', fileName)
-
-    // Create service role client for storage upload (bypasses RLS)
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
 
     // Upload with upsert=true to replace existing PDF on re-finalization
     const { data: uploadData, error: uploadError } = await supabaseAdmin

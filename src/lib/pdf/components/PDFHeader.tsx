@@ -26,11 +26,13 @@ export const PDFHeader: React.FC<PDFHeaderProps> = ({ config }) => {
         )}
 
         <View style={neetStyles.headerBranding}>
-          <Text style={neetStyles.instituteSubtitle}>
-            A Unit of NAVJEEVAN SCIENCE GROUP, SIKAR
-          </Text>
+          {config.tagline && (
+            <Text style={neetStyles.instituteSubtitle}>
+              {config.tagline}
+            </Text>
+          )}
           <Text style={neetStyles.instituteMainTitle}>
-            NAVJEEVAN{'\n'}NEET ACADEMY
+            {config.instituteName}
           </Text>
         </View>
       </View>

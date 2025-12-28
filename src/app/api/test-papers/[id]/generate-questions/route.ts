@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase, supabaseAdmin } from '@/lib/supabase'
-import { ai, GEMINI_MODEL, NEET_GENERATION_CONFIG } from '@/lib/ai/geminiClient'
+import { ai, GEMINI_MODEL, GENERATION_CONFIG } from '@/lib/ai/geminiClient'
 import { fetchMaterialsForChapter } from '@/lib/ai/materialFetcher'
 import { uploadPDFToGemini } from '@/lib/ai/pdfUploader'
-import { mapDifficultyToProtocol } from '@/lib/ai/difficultyMapper'
-import { buildNEETPrompt } from '@/lib/ai/promptBuilder'
-import { validateQuestions, Question } from '@/lib/ai/questionValidator'
+import { mapDifficultyToConfig } from '@/lib/ai/difficultyMapper'
+import { buildPrompt } from '@/lib/ai/promptBuilder'
+import { validateQuestionsWithProtocol, Question } from '@/lib/ai/questionValidator'
 import { parseGeminiJSON, getDiagnosticInfo } from '@/lib/ai/jsonCleaner'
+import { logApiUsage, calculateCost } from '@/lib/ai/tokenTracker'
+import { getProtocol } from '@/lib/ai/protocols'
 
 export const maxDuration = 300 // 5 minutes timeout
 
@@ -50,7 +52,7 @@ export async function POST(
       return NextResponse.json({ error: 'Teacher profile not found' }, { status: 404 })
     }
 
-    // Fetch paper details with chapters
+    // Fetch paper details with stream and subject for protocol routing
     const { data: paper, error: paperError } = await supabaseAdmin
       .from('test_papers')
       .select(`
@@ -60,7 +62,16 @@ export async function POST(
         difficulty_level,
         subject_id,
         institute_id,
-        status
+        status,
+        streams (
+          name
+        ),
+        subjects (
+          name
+        ),
+        institutes (
+          name
+        )
       `)
       .eq('id', paperId)
       .eq('institute_id', teacher.institute_id)
@@ -69,6 +80,27 @@ export async function POST(
     if (paperError || !paper) {
       console.error('[GENERATE_QUESTIONS_ERROR] Paper not found:', paperError)
       return NextResponse.json({ error: 'Test paper not found' }, { status: 404 })
+    }
+
+    // Get protocol for this exam+subject combination
+    const streamName = (paper.streams as any)?.name
+    const subjectName = (paper.subjects as any)?.name
+
+    if (!streamName || !subjectName) {
+      console.error('[GENERATE_QUESTIONS_ERROR] Paper missing stream or subject')
+      return NextResponse.json({ error: 'Paper configuration incomplete' }, { status: 400 })
+    }
+
+    let protocol
+    try {
+      protocol = getProtocol(streamName, subjectName)
+      console.log(`[GENERATE_QUESTIONS] Using protocol: ${protocol.id} (${protocol.name})`)
+    } catch (protocolError) {
+      console.error('[GENERATE_QUESTIONS_ERROR] Protocol not found:', protocolError)
+      return NextResponse.json({
+        error: `No question generation protocol available for ${streamName} ${subjectName}. Please contact support.`,
+        details: protocolError instanceof Error ? protocolError.message : 'Unknown error'
+      }, { status: 400 })
     }
 
     // Fetch chapters for this paper
@@ -136,13 +168,15 @@ export async function POST(
         }
 
         // Step 3: Map difficulty to protocol config
-        const protocolConfig = mapDifficultyToProtocol(
+        const protocolConfig = mapDifficultyToConfig(
+          protocol,
           paper.difficulty_level as 'easy' | 'balanced' | 'hard',
           questionsPerChapter
         )
 
-        // Step 4: Build NEET prompt
-        const prompt = buildNEETPrompt(
+        // Step 4: Build prompt using protocol
+        const prompt = buildPrompt(
+          protocol,
           protocolConfig,
           chapterName,
           questionsPerChapter,
@@ -165,11 +199,22 @@ export async function POST(
             ...fileDataParts,
             { text: prompt }
           ],
-          generationConfig: NEET_GENERATION_CONFIG
+          config: GENERATION_CONFIG
         })
 
         const responseText = response.text
+        if (!responseText) {
+          throw new Error('No response text received from Gemini')
+        }
         console.log(`[GENERATE_QUESTIONS] Received response from Gemini (${responseText.length} chars)`)
+
+        // Capture token usage from response
+        const tokenUsage = {
+          promptTokens: response.usageMetadata?.promptTokenCount || 0,
+          completionTokens: response.usageMetadata?.candidatesTokenCount || 0,
+          totalTokens: response.usageMetadata?.totalTokenCount || 0,
+        }
+        console.log(`[GENERATE_QUESTIONS] Token usage: ${tokenUsage.totalTokens} total (${tokenUsage.promptTokens} input, ${tokenUsage.completionTokens} output)`)
 
         // Step 6: Parse JSON response with production-grade cleaning
         let parsedResponse: { questions: Question[] }
@@ -212,8 +257,8 @@ export async function POST(
           continue
         }
 
-        // Step 7: Validate questions
-        const validation = validateQuestions(questions)
+        // Step 7: Validate questions using protocol
+        const validation = validateQuestionsWithProtocol(questions, protocol)
 
         if (validation.errors.length > 0) {
           console.error('[GENERATE_QUESTIONS_VALIDATION_ERRORS]', validation.errors)
@@ -258,6 +303,30 @@ export async function POST(
 
         totalGenerated += questions.length
         chaptersProcessed++
+
+        // Log API usage and costs to file
+        const costs = calculateCost(tokenUsage, GEMINI_MODEL, 'standard')
+        console.log(`[GENERATE_QUESTIONS_COST] Chapter ${chapterName}: ${questions.length} questions, ₹${costs.costInINR.toFixed(4)}`)
+
+        // Log usage to file (non-blocking)
+        try {
+          logApiUsage({
+            instituteId: paper.institute_id,
+            instituteName: (paper.institutes as any)?.name,
+            teacherId: teacher.id,
+            paperId: paperId,
+            paperTitle: paper.title,
+            chapterId: chapter.id,
+            chapterName: chapterName,
+            usage: tokenUsage,
+            modelUsed: GEMINI_MODEL,
+            operationType: 'generate',
+            questionsGenerated: questions.length,
+            mode: 'standard'
+          })
+        } catch (err) {
+          console.error('[TOKEN_TRACKER] Failed to log usage:', err)
+        }
 
         console.log(`[GENERATE_QUESTIONS_CHAPTER_SUCCESS] chapter=${chapterName} generated=${questions.length} total=${totalGenerated}`)
 
