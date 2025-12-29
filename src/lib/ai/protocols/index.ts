@@ -12,6 +12,12 @@ import { supabaseAdmin } from '@/lib/supabase'
 // REET Mains Level 2 Protocols
 import { reetMainsLevel2ScienceMathematicsProtocol } from './reet/mains/level2/science-mathematics'
 import { reetMainsLevel2SocialStudiesProtocol } from './reet/mains/level2/social-studies'
+import { reetMainsLevel2EnglishProtocol } from './reet/mains/level2/english'
+import { reetMainsLevel2HindiProtocol } from './reet/mains/level2/hindi'
+import {
+  reetMainsLevel2EnglishTeachingMethodsProtocol,
+  reetMainsLevel2HindiTeachingMethodsProtocol
+} from './reet/mains/level2/teaching-methods'
 import { reetMainsLevel2RajasthanGKProtocol } from './reet/mains/level2/common_sections/rajasthan-general-knowledge'
 import { reetMainsLevel2EducationalPsychologyProtocol } from './reet/mains/level2/common_sections/educational-psychology'
 import { reetMainsLevel2InformationTechnologyProtocol } from './reet/mains/level2/common_sections/information-technology'
@@ -27,6 +33,10 @@ const protocolRegistry: Map<ProtocolKey, Protocol> = new Map([
   // REET Mains Level 2 Protocols
   ['reet mains level 2-science & mathematics', reetMainsLevel2ScienceMathematicsProtocol],
   ['reet mains level 2-social studies', reetMainsLevel2SocialStudiesProtocol],
+  ['reet mains level 2-english', reetMainsLevel2EnglishProtocol],
+  ['reet mains level 2-hindi', reetMainsLevel2HindiProtocol],
+  ['reet mains level 2-english-teaching-methods', reetMainsLevel2EnglishTeachingMethodsProtocol],
+  ['reet mains level 2-hindi-teaching-methods', reetMainsLevel2HindiTeachingMethodsProtocol],
   ['reet mains level 2-rajasthan general knowledge', reetMainsLevel2RajasthanGKProtocol],
   ['reet mains level 2-psychology (child development & pedagogy)', reetMainsLevel2EducationalPsychologyProtocol],
   ['reet mains level 2-information technology', reetMainsLevel2InformationTechnologyProtocol],
