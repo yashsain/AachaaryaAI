@@ -24,8 +24,8 @@
  * Remaining 30 marks = Educational Psychology (20) + IT (10)
  */
 
-import { Protocol, ProtocolConfig } from '../../../types'
-import { Question } from '../../../../questionValidator'
+import { Protocol, ProtocolConfig } from '../../../../types'
+import { Question } from '../../../../../questionValidator'
 
 /**
  * Rajasthan GK Archetype Distributions
@@ -461,7 +461,7 @@ import {
   validateProhibitedPatterns,
   validateAnswerKeyBalance,
   validateCognitiveLoad
-} from '../../../../questionValidator'
+} from '../../../../../questionValidator'
 
 const validators: Protocol['validators'] = [
   (questions: Question[]) => {

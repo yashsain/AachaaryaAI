@@ -15,16 +15,19 @@ export interface ProtocolConfig {
   archetypeDistribution: {
     directRecall: number
     directApplication: number
-    integrative: number
+    integrative?: number // Optional - not used in all exams (e.g., REET Ed Psych)
     discriminator: number
     exceptionOutlier: number
+    theoryAttribution?: number // Optional - attribution questions (e.g., "Who proposed...?", "According to...")
+    calculationNumerical?: number // Optional - numerical calculations (e.g., IQ calculation)
   }
   structuralForms: {
     standardMCQ: number
     matchFollowing: number
-    assertionReason: number
+    assertionReason?: number // Optional - not used in all exams (e.g., REET Ed Psych)
     negativePhrasing: number
-    multiStatement: number
+    multiStatement?: number // Optional - not used in all exams (e.g., REET Ed Psych)
+    scenarioBasedMCQ?: number // Optional - scenario/case-study based questions
   }
   cognitiveLoad: {
     lowDensity: number

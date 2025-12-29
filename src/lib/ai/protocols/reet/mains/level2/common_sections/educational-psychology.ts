@@ -27,7 +27,7 @@
  * - Negative marking applicable
  */
 
-import { Protocol, ProtocolConfig } from '../../../types'
+import { Protocol, ProtocolConfig } from '../../../../types'
 import { getArchetypeCounts, getStructuralFormCounts } from '@/lib/ai/difficultyMapper'
 
 /**
@@ -70,11 +70,12 @@ This is part of a ${totalQuestions}-question paper. Generate questions following
 ## QUESTION ARCHETYPE DISTRIBUTION (Target Counts)
 
 Generate exactly:
-- **${archetypeCounts.directRecall} Direct Recall questions**: Definitions, theories, psychologists' names, stages of development, terminology. Use exact information from study materials (e.g., "Piaget's stages", "Vygotsky's ZPD", "Bloom's Taxonomy").
-- **${archetypeCounts.directApplication} Direct Application questions**: Apply psychological theories to classroom scenarios - identify learning style, suggest appropriate teaching method, recognize developmental stage from behavior.
-- **${archetypeCounts.integrative} Integrative/Multi-concept questions**: Combine multiple psychological concepts - link learning theories with classroom strategies, connect assessment types with learning objectives, integrate development stages with pedagogical approaches.
-- **${archetypeCounts.discriminator} Conceptual Discriminator questions**: Deep understanding to separate subtle distinctions - differentiate similar theories (Piaget vs Vygotsky), distinguish assessment types (formative vs summative), identify appropriate interventions for different learner needs.
-- **${archetypeCounts.exceptionOutlier} Exception/Outlier Logic questions**: Identify exceptions to psychological principles, special cases in child development, outliers in learning patterns, limitations of specific theories.
+- **${archetypeCounts.directRecall} Direct Recall questions**: Definitions, terminology, stages of development (e.g., "Piaget's stages", "Vygotsky's ZPD", "Bloom's Taxonomy levels"). Focus on factual knowledge recall.
+- **${archetypeCounts.theoryAttribution || 0} Theory Attribution questions**: "Who proposed...?", "According to [Psychologist], ...", "Which psychologist is associated with...?" Ask about authorship of theories and concepts (e.g., "Spearman's 'g' factor", "Maslow's hierarchy", "Gardner's Multiple Intelligences").
+- **${archetypeCounts.directApplication} Direct Application questions**: Apply psychological theories to classroom scenarios - identify learning style from behavior, suggest appropriate teaching method, recognize developmental stage from description. Use scenario-based contexts.
+- **${archetypeCounts.discriminator} Conceptual Discriminator questions**: Differentiate similar theories (Piaget vs Vygotsky), distinguish assessment types (formative vs summative), identify subtle differences between psychological concepts.
+- **${archetypeCounts.exceptionOutlier} Exception/Outlier Logic questions**: Identify exceptions to psychological principles, incorrect statements, outliers in learning patterns, limitations of specific theories. Often use "Which is NOT..." phrasing.
+- **${archetypeCounts.calculationNumerical || 0} Calculation/Numerical questions**: Numerical calculations like IQ formula (Mental Age / Chronological Age × 100), statistical concepts, age-based developmental stages.
 
 Every question must fall into exactly ONE archetype category.
 
@@ -83,11 +84,10 @@ Every question must fall into exactly ONE archetype category.
 ## STRUCTURAL FORMS DISTRIBUTION (Target Counts)
 
 Generate exactly:
-- **${structuralCounts.standardMCQ} Standard 4-Option MCQ**: Traditional single stem with 4 options (1), (2), (3), (4).
-- **${structuralCounts.matchFollowing} Match-the-Following**: Always use 4×4 matrix with coded options (see template below).
-- **${structuralCounts.assertionReason} Assertion-Reason**: Two statements with 4 options about truth and linkage (see template below).
-- **${structuralCounts.negativePhrasing} Negative Phrasing**: Use "Which is NOT correct", "incorrect statement", "exception" format.
-- **${structuralCounts.multiStatement} Multi-Statement Combination**: Provide 4-5 statements, ask to select correct group from coded combinations.
+- **${structuralCounts.standardMCQ} Standard 4-Option MCQ**: Traditional single stem with 4 options (1), (2), (3), (4). Direct, concise question followed by 4 mutually exclusive options.
+- **${structuralCounts.scenarioBasedMCQ || 0} Scenario-Based MCQ**: Present a classroom situation, student behavior, or teaching context (2-3 sentences), then ask a question. Example: "Neha is watching the latest movie 'Drishyam-2' since she wants to know what happens to hero and his family. This is the best example of -"
+- **${structuralCounts.matchFollowing || 0} Match-the-Following**: Always use 4×4 matrix with coded options (see template below). Rare format - use sparingly.
+- **${structuralCounts.negativePhrasing} Negative Phrasing**: Use "Which is NOT correct", "incorrect statement", "Which of the following is not related to..." format. Common format for exception/outlier questions.
 
 Every question must use exactly ONE structural form.
 
@@ -95,7 +95,9 @@ Every question must use exactly ONE structural form.
 
 ## STRUCTURAL FORM TEMPLATES (Use Exact Formats)
 
-### Match-the-Following Template (MANDATORY - ZERO DEVIATION ALLOWED):
+### Match-the-Following Template (RARE - Use only if allocated):
+**Note**: This format is RARE in actual REET Mains Ed Psych papers (only ~2% of questions). Only use if structuralCounts.matchFollowing > 0.
+
 **FROZEN RULE**: The questionText field MUST contain the COMPLETE matrix showing Column I and Column II items, followed by the exact ending phrase.
 
 Display Format (what students see):
@@ -117,60 +119,45 @@ Choose the correct answer from the options given below:
 
 **CRITICAL**: Put the ENTIRE matrix (Column I, Column II, all A-D and I-IV items) INSIDE questionText. Options field ONLY contains coded combinations like "A-III, B-I, C-IV, D-II".
 
-### Assertion-Reason Template (MANDATORY - ZERO DEVIATION ALLOWED):
-**FROZEN RULE**: The questionText field MUST contain Assertion (A), Reason (R), AND the ending phrase "In the light of the above statements, choose the correct answer from the options given below:"
+### Scenario-Based MCQ Template (Common Format - ~16% of questions):
+Present a real-life classroom or student behavior scenario, then ask for analysis/identification.
 
-Display Format (what students see):
+Example 1 (Motivation):
 \`\`\`
-Assertion (A): [Statement about psychological concept or theory]
-Reason (R): [Explanation or related psychological principle]
-
-In the light of the above statements, choose the correct answer from the options given below:
-(1) Both A and R are true and R is the correct explanation of A
-(2) Both A and R are true but R is NOT the correct explanation of A
-(3) A is true but R is false
-(4) A is false but R is true
+Neha is watching the latest movie "Drishyam-2" since she wants to know what happens to hero and his family. This is the best example of -
+(1) Intrinsic motivation
+(2) Extrinsic motivation
+(3) Both Intrinsic and Extrinsic motivation
+(4) Neither Intrinsic nor Extrinsic motivation
 \`\`\`
 
-**CRITICAL**: The word "explanation" MUST appear in option (1) and option (2). The ending phrase "In the light of the above statements, choose the correct answer from the options given below:" is MANDATORY in questionText.
-
-### Multi-Statement Combination Template:
+Example 2 (Defense Mechanism):
 \`\`\`
-Given below are two statements about child development:
-
-Statement I: [First statement about psychological concept]
-Statement II: [Second statement about psychological concept]
-
-In the light of the above statements, choose the correct answer from the options given below:
-(1) Both Statement I and Statement II are true
-(2) Both Statement I and Statement II are false
-(3) Statement I is true but Statement II is false
-(4) Statement I is false but Statement II is true
+An eight years old child crawls like his younger infant brother. This is an example of -
+(1) Regression
+(2) Repression
+(3) Rationalization
+(4) Compensation
 \`\`\`
 
-OR use this variant:
+Example 3 (Conflict):
 \`\`\`
-Which of the following statements about learning theories are correct?
-
-A. [Statement A]
-B. [Statement B]
-C. [Statement C]
-D. [Statement D]
-
-Choose the correct answer from the options given below:
-(1) A and B only
-(2) B and C only
-(3) A, B and D only
-(4) B, C and D only
+Ramesh doesn't like to participate in family gathering because every time he doesn't want to disappoint his mother. The conflict here is –
+(1) Avoidance – Avoidance
+(2) Approach – Approach
+(3) Approach – Avoidance
+(4) Dual Approach – Avoidance
 \`\`\`
 
 ---
 
 ## CO-OCCURRENCE RULES (Apply Strictly)
 
-- **Integrative/Multi-concept archetype** → MUST use Multi-Statement Combination OR Assertion-Reason format
-- **Exception/Outlier archetype** → STRONGLY prefer Negative Phrasing format
+- **Theory Attribution archetype** → STRONGLY prefer Standard MCQ format (e.g., "Who proposed...?", "According to Piaget...")
+- **Exception/Outlier archetype** → STRONGLY prefer Negative Phrasing format (e.g., "Which is NOT...", "incorrect statement")
+- **Direct Application archetype** → STRONGLY prefer Scenario-Based MCQ format (classroom situations, student behaviors)
 - **Match-the-Following format** → STRONGLY prefer Direct Recall archetype content (psychologists with theories, stages with ages, concepts with definitions)
+- **Calculation/Numerical archetype** → MUST use Standard MCQ format with numerical problem in stem
 
 ---
 
@@ -281,8 +268,8 @@ Generate questions in this exact JSON format:
     {
       "questionNumber": 1,
       "questionText": "Full question text here with all options",
-      "archetype": "directRecall" | "directApplication" | "integrative" | "discriminator" | "exceptionOutlier",
-      "structuralForm": "standardMCQ" | "matchFollowing" | "assertionReason" | "negativePhrasing" | "multiStatement",
+      "archetype": "directRecall" | "theoryAttribution" | "directApplication" | "discriminator" | "exceptionOutlier" | "calculationNumerical",
+      "structuralForm": "standardMCQ" | "scenarioBasedMCQ" | "matchFollowing" | "negativePhrasing",
       "cognitiveLoad": "low" | "medium" | "high",
       "correctAnswer": "(1)" | "(2)" | "(3)" | "(4)",
       "options": {
@@ -303,18 +290,20 @@ Generate questions in this exact JSON format:
 
 ## QUALITY CHECKLIST (Self-Validate Before Returning)
 
-✓ All archetype counts match targets
-✓ All structural form counts match targets
-✓ First ${config.cognitiveLoad.warmupCount} questions are low-density Direct Recall
+✓ All archetype counts match targets (directRecall, theoryAttribution, directApplication, discriminator, exceptionOutlier, calculationNumerical)
+✓ All structural form counts match targets (standardMCQ, scenarioBasedMCQ, matchFollowing, negativePhrasing)
+✓ First ${config.cognitiveLoad.warmupCount} questions are low-density Direct Recall or Theory Attribution
 ✓ No more than 2 consecutive high-density questions
-✓ No prohibited patterns present (Always/Never, None/All, double negatives, meta-references)
-✓ All Match questions use exact 4×4 template with full matrix in questionText
-✓ All Assertion-Reason questions use exact template with ending phrase
+✓ No prohibited patterns present (Always/Never, None/All of above, double negatives, meta-references)
+✓ All Match questions use exact 4×4 template with full matrix in questionText (if any allocated)
+✓ All Scenario-Based MCQ questions present realistic classroom/student situations
 ✓ All options mutually exclusive and similar length
 ✓ Answer key balanced (~25% each option)
 ✓ No more than 3 consecutive same answers
-✓ All psychological theories and concepts are accurate
-✓ NO meta-references to sources ("according to", "as per", "the material says")
+✓ All psychological theories and concepts are 100% accurate
+✓ NO meta-references to sources ("according to study material", "as per notes", "the material says")
+✓ Theory Attribution questions correctly identify psychologist-theory pairings
+✓ Calculation questions use correct formulas (e.g., IQ = Mental Age / Chronological Age × 100)
 ✓ Alignment with NCF/NEP principles
 
 ---
@@ -327,22 +316,28 @@ Generate ${questionCount} questions now following ALL rules above.
 1. Extract content EXCLUSIVELY from the provided study materials about Educational Psychology
 2. Return ONLY valid JSON - no explanations, no comments, no text before/after
 3. Follow the exact JSON format shown in the examples above - COPY the structure exactly
-4. **NEVER reference sources in questions** - No "according to", "as per study material", etc. Write questions as direct, authoritative statements like a real REET exam
+4. **NEVER reference sources in questions** - No "according to study material", "as per notes", etc. Write questions as direct, authoritative statements like a real REET exam
 5. Ensure ALL psychological concepts and theories are 100% accurate
+6. Theory Attribution questions use "According to [Psychologist]" or "Who proposed..." format (referring to psychologist, NOT study material)
 
-**FOR MATCH-THE-FOLLOWING QUESTIONS** (${structuralCounts.matchFollowing} required):
+**FOR MATCH-THE-FOLLOWING QUESTIONS** (${structuralCounts.matchFollowing || 0} required):
+- Only generate if count > 0 (rare format in REET Ed Psych)
 - Put the COMPLETE matrix (Column I items A-D, Column II items I-IV) in questionText
 - End questionText with: "Choose the correct answer from the options given below:"
 - Put ONLY coded combinations (e.g., "A-III, B-I, C-IV, D-II") in options
 - If you omit the matrix or ending phrase, the question will be rejected
 
-**FOR ASSERTION-REASON QUESTIONS** (${structuralCounts.assertionReason} required):
-- Put Assertion (A) and Reason (R) in questionText
-- End questionText with: "In the light of the above statements, choose the correct answer from the options given below:"
-- Option (1) MUST say: "Both A and R are true and R is the correct explanation of A"
-- Option (2) MUST say: "Both A and R are true but R is NOT the correct explanation of A"
-- The word "explanation" must appear in options (1) and (2)
-- If you omit the ending phrase or "explanation", the question will be rejected
+**FOR SCENARIO-BASED MCQ QUESTIONS** (${structuralCounts.scenarioBasedMCQ || 0} required):
+- Present a realistic classroom situation, student behavior, or teaching context (2-3 sentences)
+- Make scenarios relatable to Indian educational context
+- Ask for identification/analysis of psychological concept demonstrated
+- Use actual REET examples as templates (Neha watching movie for intrinsic motivation, child crawling for regression, etc.)
+
+**FOR CALCULATION QUESTIONS** (${archetypeCounts.calculationNumerical || 0} required):
+- Use standard formulas: IQ = (Mental Age / Chronological Age) × 100
+- Provide all necessary numerical data in the question stem
+- Make calculations straightforward (no calculator needed)
+- All 4 options should be plausible numerical values
 
 **JSON OUTPUT**:
 - Do NOT wrap JSON in markdown code blocks (\`\`\`json)
@@ -362,65 +357,65 @@ export const reetMainsLevel2EducationalPsychologyProtocol: Protocol = {
   difficultyMappings: {
     easy: {
       archetypes: {
-        directRecall: 0.65,
-        directApplication: 0.15,
-        integrative: 0.08,
-        discriminator: 0.06,
-        exceptionOutlier: 0.06
+        directRecall: 0.50,
+        theoryAttribution: 0.12,
+        directApplication: 0.18,
+        discriminator: 0.02,
+        exceptionOutlier: 0.16,
+        calculationNumerical: 0.02
       },
       structuralForms: {
-        standardMCQ: 0.65,
-        matchFollowing: 0.15,
-        assertionReason: 0.08,
-        negativePhrasing: 0.06,
-        multiStatement: 0.06
+        standardMCQ: 0.80,
+        scenarioBasedMCQ: 0.12,
+        matchFollowing: 0.02,
+        negativePhrasing: 0.06
       },
       cognitiveLoad: {
-        lowDensity: 0.50,
-        mediumDensity: 0.38,
-        highDensity: 0.12
+        lowDensity: 0.70,
+        mediumDensity: 0.27,
+        highDensity: 0.03
       }
     },
     balanced: {
       archetypes: {
-        directRecall: 0.60,
-        directApplication: 0.16,
-        integrative: 0.10,
-        discriminator: 0.08,
-        exceptionOutlier: 0.06
+        directRecall: 0.47,
+        theoryAttribution: 0.15,
+        directApplication: 0.20,
+        discriminator: 0.03,
+        exceptionOutlier: 0.13,
+        calculationNumerical: 0.02
       },
       structuralForms: {
-        standardMCQ: 0.60,
-        matchFollowing: 0.18,
-        assertionReason: 0.10,
-        negativePhrasing: 0.06,
-        multiStatement: 0.06
+        standardMCQ: 0.77,
+        scenarioBasedMCQ: 0.16,
+        matchFollowing: 0.02,
+        negativePhrasing: 0.13
       },
       cognitiveLoad: {
-        lowDensity: 0.45,
-        mediumDensity: 0.40,
-        highDensity: 0.15
+        lowDensity: 0.65,
+        mediumDensity: 0.32,
+        highDensity: 0.03
       }
     },
     hard: {
       archetypes: {
-        directRecall: 0.55,
-        directApplication: 0.14,
-        integrative: 0.14,
-        discriminator: 0.11,
-        exceptionOutlier: 0.06
+        directRecall: 0.44,
+        theoryAttribution: 0.18,
+        directApplication: 0.22,
+        discriminator: 0.04,
+        exceptionOutlier: 0.10,
+        calculationNumerical: 0.02
       },
       structuralForms: {
-        standardMCQ: 0.55,
-        matchFollowing: 0.20,
-        assertionReason: 0.12,
-        negativePhrasing: 0.07,
-        multiStatement: 0.06
+        standardMCQ: 0.74,
+        scenarioBasedMCQ: 0.20,
+        matchFollowing: 0.02,
+        negativePhrasing: 0.16
       },
       cognitiveLoad: {
-        lowDensity: 0.40,
-        mediumDensity: 0.42,
-        highDensity: 0.18
+        lowDensity: 0.60,
+        mediumDensity: 0.36,
+        highDensity: 0.04
       }
     }
   },
@@ -428,7 +423,8 @@ export const reetMainsLevel2EducationalPsychologyProtocol: Protocol = {
   prohibitions: [
     'NEVER use "Always" or "Never" in question stems',
     'NEVER use double negatives',
-    'NEVER include "None of the above" or "All of the above"',
+    'NEVER include "None of the above" (observed in 0% of actual papers)',
+    'AVOID "All of the above" as an option (rare in actual papers)',
     'NEVER create subset inclusion (Option A contained in Option B)',
     'NEVER place more than 2 consecutive high-density questions',
     'NEVER create lopsided visual weight (1 long + 3 short options)',
@@ -436,8 +432,13 @@ export const reetMainsLevel2EducationalPsychologyProtocol: Protocol = {
     'NEVER create non-mutually exclusive options',
     'NEVER create Match questions without 4×4 matrix and coded options',
     'NEVER violate max-3-consecutive same answer key',
+    'NEVER use Assertion-Reason format (0% usage in actual REET Ed Psych papers)',
+    'NEVER use Multi-Statement combination format (0% usage in actual REET Ed Psych papers)',
+    'NEVER include non-psychology questions (e.g., biology/DNA questions observed in some papers - exclude these)',
+    'NEVER reference study materials ("according to the material", "as per notes") - only reference psychologists',
     'MUST align with NCF/NEP principles',
-    'MUST use accurate psychological theories and concepts'
+    'MUST use accurate psychological theories and concepts',
+    'MUST use Indian educational context for scenario-based questions'
   ],
 
   cognitiveLoadConstraints: {
@@ -451,10 +452,11 @@ export const reetMainsLevel2EducationalPsychologyProtocol: Protocol = {
 
   metadata: {
     description: 'REET Mains Level 2 - Educational Psychology (Common Section - 20 marks)',
-    analysisSource: 'RSMSSB Official Pattern',
-    version: '1.0.0-basic',
-    lastUpdated: '2025-12-27',
+    analysisSource: 'REET Mains 2022-23 papers (60 questions from 6 papers: English, SciMath, SST, Hindi, Sanskrit, Urdu)',
+    version: '2.0.0',
+    lastUpdated: '2025-12-29',
     examType: 'SELECTION (Merit-based)',
-    sectionWeightage: 'Common Section - 20 marks out of 160-mark common section'
+    sectionWeightage: 'Common Section - 20 marks out of 160-mark common section',
+    note: 'Protocol fitness improved from 42/100 to 75+/100 based on comprehensive analysis. Key findings: (1) Added Theory Attribution archetype (15% of questions), (2) Added Scenario-Based MCQ format (16%), (3) Removed unused formats (Assertion-Reason, Multi-Statement - 0% usage), (4) Exam is simpler than expected (65% low cognitive load vs 45% initial estimate), (5) 70% cross-paper overlap with 30% subject-specific variation'
   }
 }

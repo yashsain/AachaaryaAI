@@ -30,8 +30,8 @@
  * - Focus on practical IT knowledge for teachers
  */
 
-import { Protocol } from '../../../types'
-import { getArchetypeCounts, getStructuralFormCounts } from '../../../../difficultyMapper'
+import { Protocol } from '../../../../types'
+import { getArchetypeCounts, getStructuralFormCounts } from '../../../../../difficultyMapper'
 
 export const reetMainsLevel2InformationTechnologyProtocol: Protocol = {
   id: 'reet-mains-level2-information-technology',

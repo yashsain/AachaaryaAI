@@ -16,15 +16,11 @@ export interface Question {
   structuralForm: string
   cognitiveLoad: 'low' | 'medium' | 'high'
   correctAnswer: string
-  options: {
-    '(1)': string
-    '(2)': string
-    '(3)': string
-    '(4)': string
-  }
+  options: Record<string, string>  // Supports both (1)/(2)/(3)/(4) and (A)/(B)/(C)/(D) formats
   explanation: string
   difficulty?: string
   ncertFidelity?: string
+  language?: string  // e.g., 'hindi', 'english', 'bilingual'
 }
 
 export interface ValidationResult {

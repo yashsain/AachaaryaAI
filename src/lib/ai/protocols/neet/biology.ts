@@ -109,7 +109,7 @@ function getArchetypeCounts(config: ProtocolConfig, questionCount: number): Reco
   return {
     directRecall: Math.round(questionCount * config.archetypeDistribution.directRecall),
     directApplication: Math.round(questionCount * config.archetypeDistribution.directApplication),
-    integrative: Math.round(questionCount * config.archetypeDistribution.integrative),
+    integrative: Math.round(questionCount * (config.archetypeDistribution.integrative ?? 0)),
     discriminator: Math.round(questionCount * config.archetypeDistribution.discriminator),
     exceptionOutlier: Math.round(questionCount * config.archetypeDistribution.exceptionOutlier)
   }
@@ -119,9 +119,9 @@ function getStructuralFormCounts(config: ProtocolConfig, questionCount: number):
   return {
     standardMCQ: Math.round(questionCount * config.structuralForms.standardMCQ),
     matchFollowing: Math.round(questionCount * config.structuralForms.matchFollowing),
-    assertionReason: Math.round(questionCount * config.structuralForms.assertionReason),
+    assertionReason: Math.round(questionCount * (config.structuralForms.assertionReason ?? 0)),
     negativePhrasing: Math.round(questionCount * config.structuralForms.negativePhrasing),
-    multiStatement: Math.round(questionCount * config.structuralForms.multiStatement)
+    multiStatement: Math.round(questionCount * (config.structuralForms.multiStatement ?? 0))
   }
 }
 

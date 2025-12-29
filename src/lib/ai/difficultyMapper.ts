@@ -118,32 +118,40 @@ export function mapDifficultyToProtocol(
 
 /**
  * Get target counts for each archetype based on question count
+ * Dynamically handles all archetypes defined in the protocol (including optional ones)
  */
 export function getArchetypeCounts(
   config: ProtocolConfig,
   questionCount: number
 ): Record<string, number> {
-  return {
-    directRecall: Math.round(questionCount * config.archetypeDistribution.directRecall),
-    directApplication: Math.round(questionCount * config.archetypeDistribution.directApplication),
-    integrative: Math.round(questionCount * config.archetypeDistribution.integrative),
-    discriminator: Math.round(questionCount * config.archetypeDistribution.discriminator),
-    exceptionOutlier: Math.round(questionCount * config.archetypeDistribution.exceptionOutlier)
+  const counts: Record<string, number> = {}
+
+  // Iterate through all archetypes in the distribution
+  for (const [archetype, percentage] of Object.entries(config.archetypeDistribution)) {
+    if (percentage !== undefined && percentage > 0) {
+      counts[archetype] = Math.round(questionCount * percentage)
+    }
   }
+
+  return counts
 }
 
 /**
  * Get target counts for each structural form based on question count
+ * Dynamically handles all structural forms defined in the protocol (including optional ones)
  */
 export function getStructuralFormCounts(
   config: ProtocolConfig,
   questionCount: number
 ): Record<string, number> {
-  return {
-    standardMCQ: Math.round(questionCount * config.structuralForms.standardMCQ),
-    matchFollowing: Math.round(questionCount * config.structuralForms.matchFollowing),
-    assertionReason: Math.round(questionCount * config.structuralForms.assertionReason),
-    negativePhrasing: Math.round(questionCount * config.structuralForms.negativePhrasing),
-    multiStatement: Math.round(questionCount * config.structuralForms.multiStatement)
+  const counts: Record<string, number> = {}
+
+  // Iterate through all structural forms in the distribution
+  for (const [form, percentage] of Object.entries(config.structuralForms)) {
+    if (percentage !== undefined && percentage > 0) {
+      counts[form] = Math.round(questionCount * percentage)
+    }
   }
+
+  return counts
 }
