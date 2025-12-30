@@ -60,10 +60,10 @@ export async function GET(
 
     console.log('[GET_QUESTIONS] paper_id:', paperId, 'teacher_id:', teacher.id, 'institute_id:', teacher.institute_id)
 
-    // Verify paper belongs to teacher's institute
+    // Verify paper belongs to teacher's institute and check if it has sections
     const { data: paper, error: paperError } = await supabase
       .from('test_papers')
-      .select('id, institute_id, title, question_count, difficulty_level, status, subject_id')
+      .select('id, institute_id, title, question_count, difficulty_level, status, subject_id, paper_template_id')
       .eq('id', paperId)
       .eq('institute_id', teacher.institute_id)
       .single()
@@ -72,9 +72,10 @@ export async function GET(
       return NextResponse.json({ error: 'Test paper not found or access denied' }, { status: 404 })
     }
 
-    console.log('[GET_QUESTIONS] Paper found:', paper.title, 'status:', paper.status)
+    const hasSections = !!paper.paper_template_id
+    console.log('[GET_QUESTIONS] Paper found:', paper.title, 'status:', paper.status, 'has_sections:', hasSections)
 
-    // Fetch all questions for this paper with chapter details
+    // Fetch all questions for this paper with chapter and section details
     const { data: questions, error: questionsError } = await supabase
       .from('questions')
       .select(`
@@ -88,9 +89,15 @@ export async function GET(
         is_selected,
         created_at,
         chapter_id,
+        section_id,
         chapters (
           id,
           name
+        ),
+        test_paper_sections (
+          id,
+          section_name,
+          section_order
         )
       `)
       .eq('paper_id', paperId)
@@ -106,6 +113,7 @@ export async function GET(
     // Parse question_data JSONB and extract metadata
     const parsedQuestions = questions?.map((q: any) => {
       const questionData = q.question_data
+      const sectionData = q.test_paper_sections // From the JOIN
 
       // Extract archetype, structuralForm, difficulty from question_data if available
       return {
@@ -121,6 +129,10 @@ export async function GET(
         created_at: q.created_at,
         chapter_id: q.chapter_id,
         chapter_name: q.chapters?.name || 'Unknown Chapter',
+        // Section information (null for legacy papers)
+        section_id: q.section_id,
+        section_name: sectionData?.section_name || null,
+        section_order: sectionData?.section_order || null,
         // Metadata from question_data
         archetype: questionData.archetype || 'unknown',
         structural_form: questionData.structuralForm || questionData.structural_form || 'unknown',
@@ -133,7 +145,40 @@ export async function GET(
     // Calculate selection statistics
     const selectedCount = parsedQuestions.filter(q => q.is_selected).length
     const totalGenerated = parsedQuestions.length
-    const targetCount = paper.question_count || 30
+
+    // Calculate target count based on paper type
+    let targetCount = paper.question_count || 30
+
+    // For template-based papers, calculate actual question count from sections
+    if (hasSections) {
+      const { data: sections, error: sectionsError } = await supabase
+        .from('test_paper_sections')
+        .select('question_count')
+        .eq('paper_id', paperId)
+
+      if (!sectionsError && sections && sections.length > 0) {
+        // Sum up actual questions from all sections (question_count is the actual count)
+        targetCount = sections.reduce((total, section) => {
+          return total + section.question_count
+        }, 0)
+
+        console.log('[GET_QUESTIONS] Template-based paper: calculated target from sections:', targetCount)
+      }
+    }
+
+    // Fetch section statuses for multi-section papers
+    let sectionsData = null
+    if (hasSections) {
+      const { data: sections, error: sectionsError } = await supabase
+        .from('test_paper_sections')
+        .select('id, section_name, section_order, status, question_count, marks_per_question')
+        .eq('paper_id', paperId)
+        .order('section_order', { ascending: true })
+
+      if (!sectionsError && sections) {
+        sectionsData = sections
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -144,8 +189,11 @@ export async function GET(
         difficulty_level: paper.difficulty_level,
         status: paper.status,
         subject_id: paper.subject_id,
+        paper_template_id: paper.paper_template_id,
+        has_sections: hasSections,
       },
       questions: parsedQuestions,
+      sections: sectionsData, // NEW: Section data with statuses
       statistics: {
         total_generated: totalGenerated,
         selected_count: selectedCount,

@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { Modal } from '@/components/ui/Modal'
+import { SectionStatusBadge } from '@/components/ui/SectionStatusBadge'
 
 interface Question {
   id: string
@@ -33,6 +34,9 @@ interface Question {
   created_at: string
   chapter_id: string
   chapter_name: string
+  section_id: string | null
+  section_name: string | null
+  section_order: number | null
   archetype: string
   structural_form: string
   cognitive_load: string
@@ -47,6 +51,8 @@ interface PaperInfo {
   difficulty_level: string
   status: string
   subject_id: string
+  paper_template_id: string | null
+  has_sections: boolean
 }
 
 interface Statistics {
@@ -54,6 +60,15 @@ interface Statistics {
   selected_count: number
   target_count: number
   remaining: number
+}
+
+interface Section {
+  id: string
+  section_name: string
+  section_order: number
+  status: 'pending' | 'ready' | 'in_review' | 'finalized'
+  question_count: number
+  marks_per_question: number
 }
 
 export default function ReviewQuestionsPage() {
@@ -64,6 +79,7 @@ export default function ReviewQuestionsPage() {
 
   const [paper, setPaper] = useState<PaperInfo | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
+  const [sections, setSections] = useState<Section[]>([]) // NEW: Section data with statuses
   const [statistics, setStatistics] = useState<Statistics | null>(null)
   const [loadingData, setLoadingData] = useState(true)
   const [pageError, setPageError] = useState<string | null>(null)
@@ -83,6 +99,15 @@ export default function ReviewQuestionsPage() {
 
   // Finalize states
   const [finalizing, setFinalizing] = useState(false)
+  const [finalizingSectionId, setFinalizingSectionId] = useState<string | null>(null)
+
+  // Toast notification state
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null)
+
+  const showToast = (message: string, type: 'success' | 'error' | 'warning' = 'success') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 3000)
+  }
 
   useEffect(() => {
     if (teacher && !loading && !teacherLoading && paper_id) {
@@ -116,6 +141,7 @@ export default function ReviewQuestionsPage() {
 
       setPaper(data.paper)
       setQuestions(data.questions)
+      setSections(data.sections || []) // Set sections if available
       setStatistics(data.statistics)
     } catch (err) {
       console.error('[FETCH_QUESTIONS_ERROR]', err)
@@ -127,6 +153,35 @@ export default function ReviewQuestionsPage() {
 
   const toggleSelection = async (questionId: string, currentSelection: boolean) => {
     try {
+      // If trying to select (not deselect), check if we've reached the limit
+      if (!currentSelection) {
+        // Find the question to determine its section
+        const question = questions.find(q => q.id === questionId)
+
+        if (paper?.has_sections && question?.section_id) {
+          // Multi-section paper: validate per-section
+          const sectionQuestions = questions.filter(q => q.section_id === question.section_id)
+          const sectionSelectedCount = sectionQuestions.filter(q => q.is_selected).length
+          const sectionData = sections.find(s => s.id === question.section_id)
+          const sectionTargetCount = sectionData?.question_count || 0
+
+          if (sectionSelectedCount >= sectionTargetCount) {
+            const sectionName = sectionData?.section_name || 'This section'
+            showToast(`${sectionName} already has ${sectionTargetCount}/${sectionTargetCount} questions selected. Deselect a question first.`, 'warning')
+            return
+          }
+        } else {
+          // Legacy single-section paper: validate globally
+          const currentSelectedCount = questions.filter(q => q.is_selected).length
+          const targetCount = statistics?.target_count || 0
+
+          if (currentSelectedCount >= targetCount) {
+            showToast(`You've already selected ${targetCount} questions. Deselect a question first to select another.`, 'warning')
+            return
+          }
+        }
+      }
+
       // Optimistic update
       setQuestions(prev => prev.map(q =>
         q.id === questionId ? { ...q, is_selected: !currentSelection } : q
@@ -158,10 +213,101 @@ export default function ReviewQuestionsPage() {
         console.error('[TOGGLE_SELECTION_ERROR]', error)
         // Rollback optimistic update
         fetchQuestions()
+        return
+      }
+
+      // NEW: If multi-section paper, revert section status to 'in_review' when questions are edited
+      if (paper?.has_sections) {
+        const question = questions.find(q => q.id === questionId)
+        if (question?.section_id) {
+          const section = sections.find(s => s.id === question.section_id)
+          if (section && section.status === 'finalized') {
+            // Revert section to in_review
+            await supabase
+              .from('test_paper_sections')
+              .update({ status: 'in_review', updated_at: new Date().toISOString() })
+              .eq('id', question.section_id)
+
+            // Update local state
+            setSections(prev => prev.map(s =>
+              s.id === question.section_id ? { ...s, status: 'in_review' } : s
+            ))
+
+            console.log('[TOGGLE_SELECTION] Reverted section to in_review:', section.section_name)
+          }
+        }
       }
     } catch (err) {
       console.error('[TOGGLE_SELECTION_ERROR]', err)
       fetchQuestions()
+    }
+  }
+
+  const handleFinalizeSection = async (sectionId: string, sectionName: string) => {
+    // Find section data
+    const section = sections.find(s => s.id === sectionId)
+    if (!section) {
+      alert('Section not found')
+      return
+    }
+
+    // Calculate expected question count for this section (question_count is the actual count, not marks)
+    const expectedCount = section.question_count
+
+    // Count selected questions in this section
+    const sectionQuestions = questions.filter(q => q.section_id === sectionId)
+    const selectedCount = sectionQuestions.filter(q => q.is_selected).length
+
+    if (selectedCount < expectedCount) {
+      alert(`Please select all ${expectedCount} questions for "${sectionName}" before finalizing. Currently selected: ${selectedCount}`)
+      return
+    }
+
+    if (!confirm(`Finalize section "${sectionName}"? You have selected ${selectedCount} questions.`)) {
+      return
+    }
+
+    try {
+      setFinalizingSectionId(sectionId)
+
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setPageError('Session expired')
+        return
+      }
+
+      console.log('[FINALIZE_SECTION] Finalizing section:', sectionName)
+
+      const response = await fetch(`/api/test-papers/${paper_id}/sections/${sectionId}/finalize`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to finalize section')
+      }
+
+      console.log('[FINALIZE_SECTION] Success:', sectionName)
+
+      // Update local section status
+      setSections(prev => prev.map(s =>
+        s.id === sectionId ? { ...s, status: 'finalized' } : s
+      ))
+
+      alert(`Section "${sectionName}" finalized successfully!`)
+
+      // Redirect back to paper dashboard
+      router.push(`/dashboard/test-papers/${paper_id}`)
+    } catch (err) {
+      console.error('[FINALIZE_SECTION_ERROR]', err)
+      alert(err instanceof Error ? err.message : 'Failed to finalize section')
+    } finally {
+      setFinalizingSectionId(null)
     }
   }
 
@@ -232,7 +378,7 @@ export default function ReviewQuestionsPage() {
       console.log('[FINALIZE] Success! PDF generated:', pdfData.pdf_url)
 
       alert('Selection finalized and PDF generated successfully!')
-      router.push(`/dashboard/test-papers/subject/${paper?.subject_id || ''}`)
+      router.push(`/dashboard/test-papers/${paper_id}`)
     } catch (err) {
       console.error('[FINALIZE_ERROR]', err)
       alert(err instanceof Error ? err.message : 'Failed to finalize selection')
@@ -251,7 +397,14 @@ export default function ReviewQuestionsPage() {
   })
 
   // Get unique values for filters
-  const uniqueChapters = Array.from(new Set(questions.map(q => ({ id: q.chapter_id, name: q.chapter_name }))))
+  // Use Map for proper chapter deduplication (Set doesn't work with objects)
+  const chapterMap = new Map<string, { id: string; name: string }>()
+  questions.forEach(q => {
+    if (!chapterMap.has(q.chapter_id)) {
+      chapterMap.set(q.chapter_id, { id: q.chapter_id, name: q.chapter_name })
+    }
+  })
+  const uniqueChapters = Array.from(chapterMap.values())
   const uniqueDifficulties = Array.from(new Set(questions.map(q => q.difficulty)))
   const uniqueArchetypes = Array.from(new Set(questions.map(q => q.archetype)))
 
@@ -280,7 +433,7 @@ export default function ReviewQuestionsPage() {
           <div className="rounded-lg bg-red-50 border border-red-200 p-6">
             <p className="text-red-800 font-medium">{pageError || 'Paper not found'}</p>
             <Link
-              href={paper?.subject_id ? `/dashboard/test-papers/subject/${paper.subject_id}` : '/dashboard/test-papers'}
+              href={paper_id ? `/dashboard/test-papers/${paper_id}` : '/dashboard/test-papers'}
               className="mt-4 inline-block text-brand-saffron hover:underline"
             >
               ← Back to Papers
@@ -296,8 +449,8 @@ export default function ReviewQuestionsPage() {
       <main className="mx-auto max-w-7xl px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <Link href={`/dashboard/test-papers/subject/${paper.subject_id}`} className="text-brand-saffron hover:underline mb-4 inline-block">
-            ← Back to Papers
+          <Link href={`/dashboard/test-papers/${paper_id}`} className="text-brand-saffron hover:underline mb-4 inline-block">
+            ← Back to Paper Dashboard
           </Link>
           <div className="flex items-start justify-between">
             <div>
@@ -312,7 +465,8 @@ export default function ReviewQuestionsPage() {
               } border-2 font-semibold text-lg`}>
                 {statistics?.selected_count} / {statistics?.target_count} selected
               </div>
-              {statistics && statistics.selected_count === statistics.target_count && (
+              {/* Hide global finalize button for multi-section papers (finalize at section level instead) */}
+              {!paper.has_sections && statistics && statistics.selected_count === statistics.target_count && (
                 <button
                   onClick={handleFinalize}
                   disabled={finalizing}
@@ -327,6 +481,12 @@ export default function ReviewQuestionsPage() {
                     'Finalize Selection ✓'
                   )}
                 </button>
+              )}
+              {/* Show helper text for multi-section papers */}
+              {paper.has_sections && (
+                <p className="text-sm text-gray-600 text-right">
+                  Finalize each section individually below
+                </p>
               )}
             </div>
           </div>
@@ -423,13 +583,112 @@ export default function ReviewQuestionsPage() {
         </div>
 
         {/* Questions List */}
-        <div className="space-y-4">
-          {filteredQuestions.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-12 text-center">
-              <p className="text-neutral-600">No questions match your filters</p>
-            </div>
-          ) : (
-            filteredQuestions.map((question, index) => (
+        {filteredQuestions.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-12 text-center">
+            <p className="text-neutral-600">No questions match your filters</p>
+          </div>
+        ) : paper?.has_sections ? (
+          // Multi-section paper: Group by sections
+          <div className="space-y-8">
+            {(() => {
+              // Group questions by section
+              const sectionGroups = filteredQuestions.reduce((groups, question) => {
+                const sectionKey = question.section_id || 'no-section'
+                if (!groups[sectionKey]) {
+                  groups[sectionKey] = {
+                    section_id: question.section_id,
+                    section_name: question.section_name || 'Other Questions',
+                    section_order: question.section_order ?? 999,
+                    questions: []
+                  }
+                }
+                groups[sectionKey].questions.push(question)
+                return groups
+              }, {} as Record<string, { section_id: string | null; section_name: string; section_order: number; questions: Question[] }>)
+
+              // Sort sections by section_order
+              const sortedSections = Object.values(sectionGroups).sort((a, b) => a.section_order - b.section_order)
+
+              return sortedSections.map((section, sectionIndex) => {
+                // Find section status data
+                const sectionData = sections.find(s => s.id === section.section_id)
+                const sectionStatus = sectionData?.status || 'in_review'
+                const expectedCount = sectionData ? sectionData.question_count : section.questions.length
+                const selectedInSection = section.questions.filter(q => q.is_selected).length
+                const canFinalize = selectedInSection >= expectedCount && sectionStatus === 'in_review'
+
+                return (
+                  <div key={section.section_id || 'no-section'} className="space-y-4">
+                    {/* Section Header */}
+                    <div className="bg-white border-l-4 border-brand-saffron rounded-lg p-4 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <h3 className="text-lg font-bold text-gray-900">
+                              Section {sectionIndex + 1}: {section.section_name}
+                            </h3>
+                            {sectionData && <SectionStatusBadge status={sectionStatus} size="sm" />}
+                          </div>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {section.questions.length} {section.questions.length === 1 ? 'question' : 'questions'} generated •{' '}
+                            {selectedInSection} / {expectedCount} selected
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <div className={`text-2xl font-bold ${selectedInSection >= expectedCount ? 'text-green-600' : 'text-brand-saffron'}`}>
+                              {selectedInSection}/{expectedCount}
+                            </div>
+                            <div className="text-xs text-gray-500">Selected</div>
+                          </div>
+                          {section.section_id && sectionStatus !== 'finalized' && (
+                            <button
+                              onClick={() => handleFinalizeSection(section.section_id!, section.section_name)}
+                              disabled={!canFinalize || finalizingSectionId === section.section_id}
+                              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                                canFinalize
+                                  ? 'bg-green-600 text-white hover:bg-green-700'
+                                  : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                              }`}
+                            >
+                              {finalizingSectionId === section.section_id ? (
+                                <span className="flex items-center gap-2">
+                                  <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
+                                  Finalizing...
+                                </span>
+                              ) : (
+                                'Finalize Section'
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                  {/* Section Questions */}
+                  <div className="space-y-4 pl-4 border-l-4 border-brand-saffron/30">
+                    {section.questions.map((question, index) => (
+                      <QuestionCard
+                        key={question.id}
+                        question={question}
+                        index={index + 1}
+                        onToggleSelection={toggleSelection}
+                        onEdit={setEditingQuestion}
+                        onRegenerate={setRegeneratingQuestion}
+                        canSelect={question.is_selected || selectedInSection < expectedCount}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
+              }
+              )
+            })()}
+          </div>
+        ) : (
+          // Legacy single-subject paper: Show flat list
+          <div className="space-y-4">
+            {filteredQuestions.map((question, index) => (
               <QuestionCard
                 key={question.id}
                 question={question}
@@ -437,11 +696,11 @@ export default function ReviewQuestionsPage() {
                 onToggleSelection={toggleSelection}
                 onEdit={setEditingQuestion}
                 onRegenerate={setRegeneratingQuestion}
-                canSelect={!question.is_selected || statistics!.selected_count <= statistics!.target_count}
+                canSelect={question.is_selected || statistics!.selected_count < statistics!.target_count}
               />
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </main>
 
       {/* Edit Modal */}
@@ -470,6 +729,48 @@ export default function ReviewQuestionsPage() {
             fetchQuestions()
           }}
         />
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 animate-slide-in-right">
+          <div className={`rounded-lg shadow-lg px-6 py-4 max-w-md ${
+            toast.type === 'success' ? 'bg-green-600 text-white' :
+            toast.type === 'error' ? 'bg-red-600 text-white' :
+            'bg-yellow-500 text-white'
+          }`}>
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                {toast.type === 'success' && (
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+                {toast.type === 'error' && (
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+                {toast.type === 'warning' && (
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                )}
+              </div>
+              <div className="flex-1">
+                <p className="font-medium">{toast.message}</p>
+              </div>
+              <button
+                onClick={() => setToast(null)}
+                className="flex-shrink-0 ml-2 hover:opacity-75"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -569,10 +870,10 @@ function QuestionCard({ question, index, onToggleSelection, onEdit, onRegenerate
         <div className="flex items-center gap-3">
           <button
             onClick={() => onToggleSelection(question.id, question.is_selected)}
-            disabled={!canSelect && !question.is_selected}
+            disabled={!canSelect}
             className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
               question.is_selected
-                ? 'bg-red-600 text-white hover:bg-red-700'
+                ? 'bg-red-600 text-white hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed'
                 : canSelect
                 ? 'bg-green-600 text-white hover:bg-green-700'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'

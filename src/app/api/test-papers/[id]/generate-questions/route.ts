@@ -18,6 +18,396 @@ interface GenerateQuestionsParams {
   }>
 }
 
+/**
+ * Generate questions for multi-section papers (REET, etc.)
+ * Loops through sections, generates questions for each section separately
+ */
+async function generateQuestionsForSections(
+  paperId: string,
+  paper: any,
+  teacher: any
+) {
+  try {
+    const streamName = (paper.streams as any)?.name
+
+    if (!streamName) {
+      console.error('[GENERATE_QUESTIONS_ERROR] Paper missing stream')
+      return NextResponse.json({ error: 'Paper configuration incomplete' }, { status: 400 })
+    }
+
+    // Fetch all sections for this paper
+    const { data: sections, error: sectionsError } = await supabaseAdmin
+      .from('test_paper_sections')
+      .select(`
+        id,
+        paper_id,
+        subject_id,
+        section_type,
+        section_name,
+        section_order,
+        question_count,
+        marks_per_question,
+        negative_marks,
+        status,
+        subjects (
+          id,
+          name
+        )
+      `)
+      .eq('paper_id', paperId)
+      .order('section_order', { ascending: true })
+
+    if (sectionsError || !sections || sections.length === 0) {
+      console.error('[GENERATE_QUESTIONS_ERROR] No sections found:', sectionsError)
+      return NextResponse.json({ error: 'No sections found for this paper' }, { status: 400 })
+    }
+
+    console.log(`[GENERATE_QUESTIONS] Processing ${sections.length} sections`)
+
+    let totalGenerated = 0
+    let sectionsProcessed = 0
+    const allValidationWarnings: string[] = []
+
+    // Loop through each section
+    for (const section of sections) {
+      const sectionSubjectName = (section.subjects as any)?.name
+
+      if (!sectionSubjectName) {
+        console.error(`[GENERATE_QUESTIONS_ERROR] Section ${section.section_name} missing subject`)
+        continue
+      }
+
+      console.log(`[GENERATE_QUESTIONS_SECTION_START] section="${section.section_name}" subject="${sectionSubjectName}" questions=${section.question_count}`)
+
+      // Update section status to 'generating'
+      await supabaseAdmin
+        .from('test_paper_sections')
+        .update({ status: 'generating' })
+        .eq('id', section.id)
+
+      try {
+        // Get protocol for this section's subject
+        let protocol
+        try {
+          protocol = getProtocol(streamName, sectionSubjectName)
+          console.log(`[GENERATE_QUESTIONS] Using protocol: ${protocol.id} (${protocol.name})`)
+        } catch (protocolError) {
+          console.error('[GENERATE_QUESTIONS_ERROR] Protocol not found:', protocolError)
+
+          // Mark section as failed
+          await supabaseAdmin
+            .from('test_paper_sections')
+            .update({ status: 'failed' })
+            .eq('id', section.id)
+
+          continue
+        }
+
+        // Fetch chapters for this specific section
+        const { data: sectionChapterRels, error: chaptersError } = await supabaseAdmin
+          .from('section_chapters')
+          .select(`
+            chapter_id,
+            chapters (id, name, subject_id)
+          `)
+          .eq('section_id', section.id)
+
+        if (chaptersError || !sectionChapterRels || sectionChapterRels.length === 0) {
+          console.warn(`[GENERATE_QUESTIONS_WARNING] No chapters found for section ${section.section_name}, skipping section`)
+
+          // Mark section as failed
+          await supabaseAdmin
+            .from('test_paper_sections')
+            .update({ status: 'failed' })
+            .eq('id', section.id)
+
+          continue
+        }
+
+        console.log(`[GENERATE_QUESTIONS] Processing ${sectionChapterRels.length} chapters for section ${section.section_name}`)
+
+        // Use sectionChapterRels instead of sectionChapters for the rest of the logic
+        const sectionChapters = sectionChapterRels
+
+        // Calculate questions per chapter for this section (generate 150% for selection)
+        const totalQuestionsToGenerate = Math.ceil(section.question_count * 1.5)
+        const questionsPerChapter = Math.ceil(totalQuestionsToGenerate / sectionChapters.length)
+
+        console.log(`[GENERATE_QUESTIONS] Generating ${questionsPerChapter} questions per chapter (total: ${totalQuestionsToGenerate})`)
+
+        let sectionQuestionsGenerated = 0
+
+        // Loop through chapters for this section
+        for (const paperChapter of sectionChapters) {
+          const chapterId = paperChapter.chapter_id
+          const chapter = paperChapter.chapters as any
+          const chapterName = chapter.name
+
+          console.log(`[GENERATE_QUESTIONS_CHAPTER_START] section="${section.section_name}" chapter="${chapterName}"`)
+
+          try {
+            // Step 1: Fetch materials for this chapter
+            const materials = await fetchMaterialsForChapter(chapterId, teacher.institute_id)
+
+            if (!materials || materials.length === 0) {
+              console.warn(`[GENERATE_QUESTIONS_WARNING] No materials found for chapter ${chapterName}, skipping`)
+              continue
+            }
+
+            console.log(`[GENERATE_QUESTIONS] Found ${materials.length} materials for chapter ${chapterName}`)
+
+            // Step 2: Upload PDFs to Gemini File API
+            const uploadedFiles = []
+            for (const material of materials) {
+              try {
+                const uploadedFile = await uploadPDFToGemini(material.file_url, material.title)
+                uploadedFiles.push(uploadedFile)
+                console.log(`[GENERATE_QUESTIONS] Uploaded: ${material.title}`)
+              } catch (uploadError) {
+                console.error(`[GENERATE_QUESTIONS_ERROR] Failed to upload ${material.title}:`, uploadError)
+                // Continue with other files
+              }
+            }
+
+            if (uploadedFiles.length === 0) {
+              console.error(`[GENERATE_QUESTIONS_ERROR] No files uploaded successfully for chapter ${chapterName}`)
+              continue
+            }
+
+            // Step 3: Map difficulty to protocol config
+            const protocolConfig = mapDifficultyToConfig(
+              protocol,
+              paper.difficulty_level as 'easy' | 'balanced' | 'hard',
+              questionsPerChapter
+            )
+
+            // Step 4: Build prompt using protocol
+            const prompt = buildPrompt(
+              protocol,
+              protocolConfig,
+              chapterName,
+              questionsPerChapter,
+              totalQuestionsToGenerate
+            )
+
+            console.log(`[GENERATE_QUESTIONS] Calling Gemini for ${questionsPerChapter} questions...`)
+
+            // Step 5: Call Gemini with fileUris + prompt
+            const fileDataParts = uploadedFiles.map(file => ({
+              fileData: {
+                fileUri: file.fileUri,
+                mimeType: file.mimeType
+              }
+            }))
+
+            const response = await ai.models.generateContent({
+              model: GEMINI_MODEL,
+              contents: [
+                ...fileDataParts,
+                { text: prompt }
+              ],
+              config: GENERATION_CONFIG
+            })
+
+            const responseText = response.text
+            if (!responseText) {
+              throw new Error('No response text received from Gemini')
+            }
+            console.log(`[GENERATE_QUESTIONS] Received response from Gemini (${responseText.length} chars)`)
+
+            // Capture token usage from response
+            const tokenUsage = {
+              promptTokens: response.usageMetadata?.promptTokenCount || 0,
+              completionTokens: response.usageMetadata?.candidatesTokenCount || 0,
+              totalTokens: response.usageMetadata?.totalTokenCount || 0,
+            }
+            console.log(`[GENERATE_QUESTIONS] Token usage: ${tokenUsage.totalTokens} total (${tokenUsage.promptTokens} input, ${tokenUsage.completionTokens} output)`)
+
+            // Step 6: Parse JSON response with production-grade cleaning
+            let parsedResponse: { questions: Question[] }
+            try {
+              parsedResponse = parseGeminiJSON<{ questions: Question[] }>(responseText)
+
+              if (!parsedResponse.questions || !Array.isArray(parsedResponse.questions)) {
+                throw new Error('Response missing "questions" array')
+              }
+
+              if (parsedResponse.questions.length === 0) {
+                throw new Error('Response has empty "questions" array')
+              }
+
+              console.log(`[GENERATE_QUESTIONS] Successfully parsed ${parsedResponse.questions.length} questions`)
+            } catch (parseError) {
+              const diagnostics = getDiagnosticInfo(responseText, parseError as Error)
+
+              console.error('[GENERATE_QUESTIONS_ERROR] JSON parse failed after all cleanup attempts')
+              console.error('[GENERATE_QUESTIONS_ERROR] Error:', diagnostics.errorMessage)
+              console.error('[GENERATE_QUESTIONS_ERROR] Response length:', diagnostics.responseLength)
+              console.error('[GENERATE_QUESTIONS_ERROR] First 1000 chars:', diagnostics.firstChars)
+              console.error('[GENERATE_QUESTIONS_ERROR] Last 1000 chars:', diagnostics.lastChars)
+              console.error('[GENERATE_QUESTIONS_ERROR] Cleaned preview:', diagnostics.cleanedPreview)
+              if (diagnostics.errorContext) {
+                console.error('[GENERATE_QUESTIONS_ERROR] Error context:', diagnostics.errorContext)
+              }
+
+              // Mark section as failed and return error
+              await supabaseAdmin
+                .from('test_paper_sections')
+                .update({ status: 'failed' })
+                .eq('id', section.id)
+
+              return NextResponse.json({
+                error: `Failed to parse AI response: ${diagnostics.errorMessage}`,
+                details: 'Check server logs for full diagnostic info'
+              }, { status: 500 })
+            }
+
+            const questions = parsedResponse.questions || []
+            console.log(`[GENERATE_QUESTIONS] Parsed ${questions.length} questions`)
+
+            if (questions.length === 0) {
+              console.error('[GENERATE_QUESTIONS_ERROR] No questions in response')
+              continue
+            }
+
+            // Step 7: Validate questions using protocol
+            const validation = validateQuestionsWithProtocol(questions, protocol)
+
+            if (validation.errors.length > 0) {
+              console.error('[GENERATE_QUESTIONS_VALIDATION_ERRORS]', validation.errors)
+              allValidationWarnings.push(`Section ${section.section_name}, Chapter ${chapterName}: ${validation.errors.join('; ')}`)
+            }
+
+            if (validation.warnings.length > 0) {
+              console.warn('[GENERATE_QUESTIONS_VALIDATION_WARNINGS]', validation.warnings)
+              allValidationWarnings.push(...validation.warnings)
+            }
+
+            // Step 8: Insert questions into database WITH section_id
+            const questionsToInsert = questions.map((q, index) => ({
+              institute_id: teacher.institute_id,
+              paper_id: paperId,
+              chapter_id: chapterId,
+              section_id: section.id, // NEW: Tag with section ID
+              question_text: q.questionText,
+              question_data: {
+                options: q.options,
+                correctAnswer: q.correctAnswer,
+                archetype: q.archetype,
+                structuralForm: q.structuralForm,
+                cognitiveLoad: q.cognitiveLoad,
+                difficulty: q.difficulty,
+                ncertFidelity: q.ncertFidelity
+              },
+              explanation: q.explanation,
+              marks: section.marks_per_question || 4,
+              negative_marks: section.negative_marks || 0,
+              is_selected: false,
+              question_order: totalGenerated + index + 1
+            }))
+
+            const { error: insertError } = await supabaseAdmin
+              .from('questions')
+              .insert(questionsToInsert)
+
+            if (insertError) {
+              console.error('[GENERATE_QUESTIONS_ERROR] Failed to insert questions:', insertError)
+
+              // Mark section as failed
+              await supabaseAdmin
+                .from('test_paper_sections')
+                .update({ status: 'failed' })
+                .eq('id', section.id)
+
+              return NextResponse.json({ error: 'Failed to save questions to database' }, { status: 500 })
+            }
+
+            sectionQuestionsGenerated += questions.length
+            totalGenerated += questions.length
+
+            // Log API usage and costs to file
+            const costs = calculateCost(tokenUsage, GEMINI_MODEL, 'standard')
+            console.log(`[GENERATE_QUESTIONS_COST] Section ${section.section_name}, Chapter ${chapterName}: ${questions.length} questions, ₹${costs.costInINR.toFixed(4)}`)
+
+            // Log usage to file (non-blocking)
+            try {
+              logApiUsage({
+                instituteId: paper.institute_id,
+                instituteName: (paper.institutes as any)?.name,
+                teacherId: teacher.id,
+                paperId: paperId,
+                paperTitle: paper.title,
+                chapterId: chapter.id,
+                chapterName: chapterName,
+                usage: tokenUsage,
+                modelUsed: GEMINI_MODEL,
+                operationType: 'generate',
+                questionsGenerated: questions.length,
+                mode: 'standard'
+              })
+            } catch (err) {
+              console.error('[TOKEN_TRACKER] Failed to log usage:', err)
+            }
+
+            console.log(`[GENERATE_QUESTIONS_CHAPTER_SUCCESS] section="${section.section_name}" chapter=${chapterName} generated=${questions.length}`)
+
+          } catch (chapterError) {
+            console.error(`[GENERATE_QUESTIONS_CHAPTER_ERROR] section="${section.section_name}" chapter=${chapterName}:`, chapterError)
+            // Continue with next chapter
+          }
+        }
+
+        // Mark section as completed
+        await supabaseAdmin
+          .from('test_paper_sections')
+          .update({ status: 'completed' })
+          .eq('id', section.id)
+
+        sectionsProcessed++
+        console.log(`[GENERATE_QUESTIONS_SECTION_SUCCESS] section="${section.section_name}" generated=${sectionQuestionsGenerated}`)
+
+      } catch (sectionError) {
+        console.error(`[GENERATE_QUESTIONS_SECTION_ERROR] section="${section.section_name}":`, sectionError)
+
+        // Mark section as failed
+        await supabaseAdmin
+          .from('test_paper_sections')
+          .update({ status: 'failed' })
+          .eq('id', section.id)
+
+        // Continue with next section
+      }
+    }
+
+    // Update test paper status to 'review'
+    const { error: updateError } = await supabaseAdmin
+      .from('test_papers')
+      .update({ status: 'review' })
+      .eq('id', paperId)
+
+    if (updateError) {
+      console.error('[GENERATE_QUESTIONS_ERROR] Failed to update paper status:', updateError)
+    }
+
+    console.log(`[GENERATE_QUESTIONS_SUCCESS] paper_id=${paperId} total_generated=${totalGenerated} sections=${sectionsProcessed}`)
+
+    return NextResponse.json({
+      success: true,
+      paper_id: paperId,
+      total_questions_generated: totalGenerated,
+      sections_processed: sectionsProcessed,
+      validation_warnings: allValidationWarnings.slice(0, 10) // Limit to first 10 warnings
+    }, { status: 200 })
+
+  } catch (error) {
+    console.error('[GENERATE_QUESTIONS_EXCEPTION]', error)
+    return NextResponse.json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
+  }
+}
+
 export async function POST(
   request: NextRequest,
   { params }: GenerateQuestionsParams
@@ -52,7 +442,7 @@ export async function POST(
       return NextResponse.json({ error: 'Teacher profile not found' }, { status: 404 })
     }
 
-    // Fetch paper details with stream and subject for protocol routing
+    // Fetch paper details with stream, subject, and template info
     const { data: paper, error: paperError } = await supabaseAdmin
       .from('test_papers')
       .select(`
@@ -63,6 +453,7 @@ export async function POST(
         subject_id,
         institute_id,
         status,
+        paper_template_id,
         streams (
           name
         ),
@@ -81,6 +472,17 @@ export async function POST(
       console.error('[GENERATE_QUESTIONS_ERROR] Paper not found:', paperError)
       return NextResponse.json({ error: 'Test paper not found' }, { status: 404 })
     }
+
+    // Check if this is a multi-section paper (has template)
+    const isMultiSectionPaper = !!paper.paper_template_id
+
+    if (isMultiSectionPaper) {
+      console.log('[GENERATE_QUESTIONS] Multi-section paper detected, using section-based generation')
+      return await generateQuestionsForSections(paperId, paper, teacher)
+    }
+
+    // Otherwise, use legacy chapter-based generation
+    console.log('[GENERATE_QUESTIONS] Legacy paper detected, using chapter-based generation')
 
     // Get protocol for this exam+subject combination
     const streamName = (paper.streams as any)?.name
@@ -103,19 +505,32 @@ export async function POST(
       }, { status: 400 })
     }
 
-    // Fetch chapters for this paper
-    const { data: paperChapters, error: chaptersError } = await supabaseAdmin
-      .from('paper_chapters')
+    // Fetch chapters for this paper from section_chapters
+    // For legacy single-subject papers, all sections share the same chapters
+    const { data: sectionChapterRels, error: chaptersError } = await supabaseAdmin
+      .from('section_chapters')
       .select(`
         chapter_id,
+        section_id,
         chapters (id, name)
       `)
-      .eq('paper_id', paperId)
+      .in('section_id', await supabaseAdmin
+        .from('test_paper_sections')
+        .select('id')
+        .eq('paper_id', paperId)
+        .then(res => res.data?.map((s: any) => s.id) || [])
+      )
 
-    if (chaptersError || !paperChapters || paperChapters.length === 0) {
+    if (chaptersError || !sectionChapterRels || sectionChapterRels.length === 0) {
       console.error('[GENERATE_QUESTIONS_ERROR] No chapters found:', chaptersError)
       return NextResponse.json({ error: 'No chapters found for this paper' }, { status: 400 })
     }
+
+    // Get unique chapters (deduplicate since all sections have same chapters for NEET-style)
+    const uniqueChapterIds = [...new Set(sectionChapterRels.map(sc => sc.chapter_id))]
+    const paperChapters = uniqueChapterIds.map(chapterId => {
+      return sectionChapterRels.find(sc => sc.chapter_id === chapterId)
+    }).filter((pc): pc is NonNullable<typeof pc> => Boolean(pc))
 
     const chapterIds = paperChapters.map(pc => pc.chapter_id)
     console.log(`[GENERATE_QUESTIONS] Processing ${chapterIds.length} chapters for ${paper.question_count} questions`)
@@ -286,8 +701,8 @@ export async function POST(
             ncertFidelity: q.ncertFidelity
           },
           explanation: q.explanation,
-          marks: 4,
-          negative_marks: -1,
+          marks: 4, // Legacy papers use default marks (no section-level config)
+          negative_marks: 0, // Legacy papers use default negative marks
           is_selected: false,
           question_order: totalGenerated + index + 1
         }))

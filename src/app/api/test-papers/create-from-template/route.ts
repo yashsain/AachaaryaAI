@@ -1,13 +1,26 @@
+/**
+ * POST /api/test-papers/create-from-template
+ *
+ * Creates a new test paper with metadata only (NO chapters)
+ * Creates empty sections based on template
+ * Used by Simplified Paper Creation Form
+ *
+ * Request Body:
+ * - template_id: Paper template ID
+ * - title: Paper title
+ * - class_ids: Array of class IDs
+ * - material_type_id: Paper type (DPP, NEET Paper, etc.)
+ * - difficulty_level: easy | balanced | hard
+ *
+ * Response:
+ * - paper_id: Created paper ID
+ * - sections: Array of created sections (all status='pending')
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase, supabaseAdmin } from '@/lib/supabase'
 import { randomUUID } from 'crypto'
 
-/**
- * POST /api/test-papers/create
- *
- * Creates a new test paper with selected classes and chapters
- * Called from the test paper creation form
- */
 export async function POST(request: NextRequest) {
   try {
     // Get session from request header
@@ -38,12 +51,10 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body = await request.json()
     const {
+      template_id,
       title,
-      paper_template_id,
-      material_type_id,
       class_ids,
-      chapter_ids,
-      section_configs, // Optional: Array of { subject_id, question_count } to override defaults
+      material_type_id,
       difficulty_level
     } = body
 
@@ -53,27 +64,24 @@ export async function POST(request: NextRequest) {
     if (!title || title.trim().length < 3) {
       errors.title = 'Title must be at least 3 characters'
     }
-    if (!paper_template_id) errors.paper_template_id = 'Paper template is required'
+    if (!template_id) errors.template_id = 'Paper template is required'
     if (!material_type_id) errors.material_type_id = 'Material type is required'
     if (!class_ids || !Array.isArray(class_ids) || class_ids.length === 0) {
       errors.class_ids = 'At least one class must be selected'
-    }
-    if (!chapter_ids || !Array.isArray(chapter_ids) || chapter_ids.length === 0) {
-      errors.chapter_ids = 'At least one chapter must be selected'
     }
     if (!['easy', 'balanced', 'hard'].includes(difficulty_level)) {
       errors.difficulty_level = 'Invalid difficulty level'
     }
 
     if (Object.keys(errors).length > 0) {
-      console.error('[CREATE_PAPER_VALIDATION_ERROR]', errors)
+      console.error('[CREATE_FROM_TEMPLATE_VALIDATION_ERROR]', errors)
       return NextResponse.json({
         error: 'Validation failed',
         errors
       }, { status: 400 })
     }
 
-    // Fetch paper template with stream and sections
+    // Fetch paper template with sections
     const { data: template, error: templateError } = await supabaseAdmin
       .from('paper_templates')
       .select(`
@@ -87,10 +95,12 @@ export async function POST(request: NextRequest) {
           section_type,
           section_name,
           section_order,
-          default_question_count
+          default_question_count,
+          marks_per_question,
+          negative_marks
         )
       `)
-      .eq('id', paper_template_id)
+      .eq('id', template_id)
       .single()
 
     if (templateError || !template) {
@@ -109,15 +119,12 @@ export async function POST(request: NextRequest) {
 
     // Calculate total question count from sections
     const totalQuestionCount = template.paper_template_sections.reduce((sum, section) => {
-      // Check if there's a section config override
-      const override = section_configs?.find((cfg: any) => cfg.subject_id === section.subject_id)
-      const questionCount = override?.question_count || section.default_question_count
-      return sum + questionCount
+      return sum + section.default_question_count
     }, 0)
 
-    console.log(`[CREATE_PAPER_START] paper_id=${paper_id} teacher_id=${teacher.id} template="${template.name}" sections=${template.paper_template_sections.length}`)
+    console.log(`[CREATE_FROM_TEMPLATE_START] paper_id=${paper_id} teacher_id=${teacher.id} template="${template.name}" sections=${template.paper_template_sections.length}`)
 
-    // Insert test paper
+    // Insert test paper (METADATA ONLY - NO CHAPTERS)
     const { data: testPaper, error: paperError } = await supabaseAdmin
       .from('test_papers')
       .insert({
@@ -126,7 +133,7 @@ export async function POST(request: NextRequest) {
         created_by: teacher.id,
         stream_id: template.stream_id,
         subject_id: primarySubjectId, // For compatibility
-        paper_template_id: paper_template_id,
+        paper_template_id: template_id,
         material_type_id: material_type_id,
         title: title.trim(),
         question_count: totalQuestionCount,
@@ -140,7 +147,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (paperError) {
-      console.error('[CREATE_PAPER_ERROR]', paperError)
+      console.error('[CREATE_FROM_TEMPLATE_ERROR]', paperError)
       return NextResponse.json({ error: 'Failed to create test paper' }, { status: 500 })
     }
 
@@ -155,26 +162,23 @@ export async function POST(request: NextRequest) {
       .insert(paperClasses)
 
     if (classesError) {
-      console.error('[CREATE_PAPER_CLASSES_ERROR]', classesError)
+      console.error('[CREATE_FROM_TEMPLATE_CLASSES_ERROR]', classesError)
       // Don't fail - can be fixed later
     }
 
-    // Create test_paper_sections from template
-    const paperSections = template.paper_template_sections.map((templateSection: any) => {
-      // Check if there's a section config override
-      const override = section_configs?.find((cfg: any) => cfg.subject_id === templateSection.subject_id)
-      const questionCount = override?.question_count || templateSection.default_question_count
-
-      return {
-        paper_id: paper_id,
-        subject_id: templateSection.subject_id,
-        section_type: templateSection.section_type,
-        section_name: templateSection.section_name,
-        section_order: templateSection.section_order,
-        question_count: questionCount,
-        status: 'pending'
-      }
-    })
+    // Create test_paper_sections from template (EMPTY - NO CHAPTERS ASSIGNED)
+    const paperSections = template.paper_template_sections.map((templateSection: any) => ({
+      paper_id: paper_id,
+      subject_id: templateSection.subject_id,
+      section_type: templateSection.section_type,
+      section_name: templateSection.section_name,
+      section_order: templateSection.section_order,
+      question_count: templateSection.default_question_count,
+      marks_per_question: templateSection.marks_per_question, // Copy marking scheme from template
+      negative_marks: templateSection.negative_marks, // Copy negative marks from template
+      status: 'pending', // NEW: All sections start as 'pending' (no chapters assigned)
+      chapters_assigned_at: null // NEW: No chapters assigned yet
+    }))
 
     const { data: createdSections, error: sectionsError } = await supabaseAdmin
       .from('test_paper_sections')
@@ -182,53 +186,22 @@ export async function POST(request: NextRequest) {
       .select()
 
     if (sectionsError) {
-      console.error('[CREATE_PAPER_SECTIONS_ERROR]', sectionsError)
+      console.error('[CREATE_FROM_TEMPLATE_SECTIONS_ERROR]', sectionsError)
       return NextResponse.json({ error: 'Failed to create paper sections' }, { status: 500 })
     }
 
-    // Insert section-chapter relationships (all chapters to all sections - NEET pattern)
-    const sectionChapters = createdSections.flatMap((section: any) =>
-      chapter_ids.map((chapter_id: string) => ({
-        section_id: section.id,
-        chapter_id: chapter_id.trim()
-      }))
-    )
-
-    const { error: chaptersError } = await supabaseAdmin
-      .from('section_chapters')
-      .insert(sectionChapters)
-
-    if (chaptersError) {
-      console.error('[CREATE_SECTION_CHAPTERS_ERROR]', chaptersError)
-      // Don't fail - can be fixed later
-    }
-
-    // Update sections status to 'ready' (chapters are now assigned)
-    const { error: statusError } = await supabaseAdmin
-      .from('test_paper_sections')
-      .update({
-        status: 'ready',
-        chapters_assigned_at: new Date().toISOString()
-      })
-      .in('id', createdSections.map((s: any) => s.id))
-
-    if (statusError) {
-      console.error('[UPDATE_SECTION_STATUS_ERROR]', statusError)
-      // Don't fail - can be fixed later
-    }
-
-    console.log(`[CREATE_PAPER_SUCCESS] paper_id=${paper_id} sections=${createdSections.length} classes=${class_ids.length} chapters=${chapter_ids.length} section_chapters=${sectionChapters.length}`)
+    console.log(`[CREATE_FROM_TEMPLATE_SUCCESS] paper_id=${paper_id} sections=${createdSections.length} classes=${class_ids.length}`)
 
     return NextResponse.json({
       success: true,
       paper_id: paper_id,
       status: 'draft',
       sections: createdSections,
-      message: 'Test paper created successfully with sections'
+      message: `Paper created with ${createdSections.length} sections. Assign chapters to each section to generate questions.`
     }, { status: 201 })
 
   } catch (error) {
-    console.error('[CREATE_PAPER_EXCEPTION]', error)
+    console.error('[CREATE_FROM_TEMPLATE_EXCEPTION]', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -162,7 +162,7 @@ export default function TestPapersStreamPickerPage() {
                         {stream.name}
                       </h3>
                       <p className="text-sm text-neutral-500 mt-1">
-                        Select to view subjects
+                        Select to view paper templates
                       </p>
                     </div>
                     <svg

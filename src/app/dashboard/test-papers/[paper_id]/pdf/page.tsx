@@ -132,7 +132,7 @@ export default function PDFViewerPage() {
           <div className="rounded-lg bg-red-50 border border-red-200 p-6">
             <p className="text-red-800 font-medium">{pageError || 'Paper not found'}</p>
             <Link
-              href={paper?.subject_id ? `/dashboard/test-papers/subject/${paper.subject_id}` : '/dashboard/test-papers'}
+              href={paper_id ? `/dashboard/test-papers/${paper_id}` : '/dashboard/test-papers'}
               className="mt-4 inline-block text-brand-saffron hover:underline"
             >
               ← Back to Papers
@@ -151,10 +151,10 @@ export default function PDFViewerPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link
-                href={`/dashboard/test-papers/subject/${paper.subject_id}`}
+                href={`/dashboard/test-papers/${paper_id}`}
                 className="text-brand-saffron hover:underline flex items-center gap-2"
               >
-                ← Back to Papers
+                ← Back to Paper Dashboard
               </Link>
               <div className="h-6 w-px bg-neutral-300"></div>
               <h1 className="text-xl font-bold text-neutral-900">{paper.title}</h1>

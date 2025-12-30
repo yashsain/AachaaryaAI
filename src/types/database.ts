@@ -144,6 +144,7 @@ export interface TestPaper {
   class_id: string | null // DEPRECATED: Use PaperClass junction table instead
   subject_id: string
   material_type_id: string // References material_types: DPP, JEE Mains Paper, JEE Advanced Paper, NEET Paper
+  paper_template_id: string | null // Links to paper template (for multi-section papers like REET)
   title: string
   status: 'draft' | 'review' | 'finalized'
   pdf_url: string | null
@@ -168,6 +169,56 @@ export interface PaperClass {
   created_at: string
 }
 
+// ===========================================
+// PAPER TEMPLATES (Multi-Section Papers)
+// ===========================================
+
+export interface PaperTemplate {
+  id: string
+  stream_id: string
+  name: string // e.g., "English Paper", "NEET Full Paper"
+  description: string | null
+  display_order: number
+  is_default: boolean // Auto-select for streams with one paper type (e.g., NEET)
+  created_at: string
+}
+
+export interface PaperTemplateSection {
+  id: string
+  paper_template_id: string
+  subject_id: string
+  section_type: 'common' | 'primary' | 'teaching_methods' // common: shared across papers, primary: main subject, teaching_methods: pedagogy
+  section_name: string // Display name: "Rajasthan GK", "Subject Content", "Teaching Methods"
+  section_order: number // Order in final PDF (1, 2, 3, ...)
+  default_question_count: number
+  marks_per_question: number // Marks each question is worth (e.g., 4)
+  negative_marks: number // Negative marks for wrong answers (e.g., -1 or 0)
+  created_at: string
+}
+
+export interface TestPaperSection {
+  id: string
+  paper_id: string
+  subject_id: string
+  section_type: 'common' | 'primary' | 'teaching_methods'
+  section_name: string
+  section_order: number
+  question_count: number
+  marks_per_question: number // Marks each question is worth (e.g., 4)
+  negative_marks: number // Negative marks for wrong answers (e.g., -1 or 0)
+  status: 'pending' | 'ready' | 'in_review' | 'finalized' // pending = no chapters, ready = chapters assigned, in_review = questions generated and under review, finalized = questions finalized
+  chapters_assigned_at: string | null // Timestamp when chapters were assigned
+  created_at: string
+  updated_at: string
+}
+
+export interface SectionChapter {
+  id: string
+  section_id: string
+  chapter_id: string
+  created_at: string
+}
+
 export interface ComprehensionPassage {
   id: string
   paper_id: string
@@ -183,6 +234,7 @@ export interface Question {
   paper_id: string
   chapter_id: string
   passage_id: string | null
+  section_id: string | null // Links to test_paper_sections (for multi-section papers)
   question_text: string
   question_data: QuestionData
   media_attachments: MediaAttachment[] | null
@@ -465,9 +517,11 @@ export interface TestPaperWithDetails extends TestPaper {
   class?: Class // DEPRECATED: Use classes array instead
   subject?: Subject
   material_type?: MaterialType // DPP, JEE Mains Paper, JEE Advanced Paper, NEET Paper
+  paper_template?: PaperTemplate // Template this paper was created from
   created_by_teacher?: Teacher
   chapters?: Chapter[]
   classes?: Class[] // Many-to-many relationship via PaperClass junction table
+  sections?: TestPaperSection[] // Sections in this paper (for multi-section papers)
   questions?: Question[]
 }
 
@@ -488,6 +542,29 @@ export interface ChapterWithDetails extends Chapter {
   class_level?: ClassLevel
 }
 
+export interface PaperTemplateWithDetails extends PaperTemplate {
+  stream?: Stream
+  sections?: PaperTemplateSectionWithDetails[]
+}
+
+export interface PaperTemplateSectionWithDetails extends PaperTemplateSection {
+  paper_template?: PaperTemplate
+  subject?: Subject
+}
+
+export interface SectionChapterWithDetails extends SectionChapter {
+  section?: TestPaperSection
+  chapter?: Chapter
+}
+
+export interface TestPaperSectionWithDetails extends TestPaperSection {
+  paper?: TestPaper
+  subject?: Subject
+  questions?: Question[]
+  chapters?: Chapter[] // NEW: Chapters assigned to this section via section_chapters
+  chapter_count?: number // NEW: Count of assigned chapters
+}
+
 // ===========================================
 // API REQUEST/RESPONSE TYPES
 // ===========================================
@@ -497,6 +574,7 @@ export interface CreateTestPaperRequest {
   class_ids: string[] // Multiple classes via paper_classes junction table
   subject_id: string
   material_type_id: string // Paper type: DPP, NEET Paper, etc.
+  paper_template_id?: string // Optional: For multi-section papers (REET), auto-creates sections
   title: string
   chapter_ids: string[]
   question_count: number
@@ -538,6 +616,37 @@ export interface GeneratePDFResponse {
   generation_time_ms: number
 }
 
+// Paper Template APIs
+export interface GetPaperTemplatesRequest {
+  stream_id: string
+}
+
+export interface GetPaperTemplatesResponse {
+  templates: PaperTemplateWithDetails[]
+}
+
+// Section-based generation (for multi-section papers)
+export interface GenerateSectionQuestionsRequest {
+  paper_id: string
+  section_id: string
+  chapter_ids?: string[] // Optional: specific chapters to generate from
+}
+
+export interface GenerateSectionQuestionsResponse {
+  section: TestPaperSectionWithDetails
+  questions: Question[]
+  generation_time_ms: number
+  cost_estimate: {
+    tokens_used: number
+    cost_usd: number
+  }
+}
+
+export interface UpdateSectionStatusRequest {
+  section_id: string
+  status: 'pending' | 'ready' | 'in_review' | 'finalized'
+}
+
 export interface UploadMaterialRequest {
   stream_id: string
   class_id: string
@@ -552,6 +661,107 @@ export interface UploadMaterialResponse {
   material_id: string
   file_url: string
   extracted_text_length: number
+}
+
+// ===========================================
+// NEW: SECTION-BASED PAPER CREATION FLOW
+// ===========================================
+
+// GET /api/paper-templates/[id]/papers - List papers for a template
+export interface GetTemplatePapersRequest {
+  template_id: string
+  status?: 'draft' | 'review' | 'finalized' // Optional filter
+  class_id?: string // Optional filter
+  search?: string // Optional search query
+}
+
+export interface GetTemplatePapersResponse {
+  papers: Array<{
+    id: string
+    title: string
+    created_at: string
+    status: 'draft' | 'review' | 'finalized'
+    difficulty_level: 'easy' | 'balanced' | 'hard'
+    classes: Class[]
+    sections: Array<{
+      id: string
+      section_name: string
+      section_order: number
+      status: 'pending' | 'ready' | 'in_review' | 'finalized'
+      chapter_count: number
+      question_count: number
+    }>
+  }>
+}
+
+// POST /api/test-papers/create-from-template - Simplified paper creation
+export interface CreatePaperFromTemplateRequest {
+  template_id: string
+  title: string
+  class_ids: string[]
+  material_type_id: string
+  difficulty_level: 'easy' | 'balanced' | 'hard'
+}
+
+export interface CreatePaperFromTemplateResponse {
+  success: boolean
+  paper_id: string
+  status: 'draft'
+  sections: TestPaperSection[]
+  message: string
+}
+
+// GET /api/test-papers/[id]/sections/[section_id] - Get section details
+export interface GetSectionDetailRequest {
+  paper_id: string
+  section_id: string
+}
+
+export interface GetSectionDetailResponse {
+  section: TestPaperSectionWithDetails
+  available_chapters: Chapter[] // Filtered by section's subject_id
+  assigned_chapters: Chapter[] // Currently assigned to this section
+}
+
+// POST /api/test-papers/[id]/sections/[section_id]/assign-chapters
+export interface AssignSectionChaptersRequest {
+  chapter_ids: string[]
+}
+
+export interface AssignSectionChaptersResponse {
+  success: boolean
+  section_id: string
+  chapters_assigned: number
+  message: string
+}
+
+// POST /api/test-papers/[id]/sections/[section_id]/generate
+export interface GenerateSectionQuestionsRequest {
+  // No body needed - uses chapters from section_chapters table
+}
+
+export interface GenerateSectionQuestionsResponse {
+  success: boolean
+  section_id: string
+  questions_generated: number
+  generation_time_ms: number
+  cost_estimate: {
+    tokens_used: number
+    cost_usd: number
+  }
+}
+
+// POST /api/test-papers/[id]/sections/[section_id]/regenerate
+export interface RegenerateSectionRequest {
+  clear_existing?: boolean // Default true - delete old questions
+}
+
+export interface RegenerateSectionResponse {
+  success: boolean
+  section_id: string
+  old_questions_deleted: number
+  new_questions_generated: number
+  message: string
 }
 
 // ===========================================

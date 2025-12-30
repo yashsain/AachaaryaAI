@@ -1,6 +1,7 @@
 /**
  * PDF Generator Utility
- * Core logic for generating NEET test paper PDFs
+ * Core logic for generating test paper PDFs
+ * Supports both NEET (single-section) and REET (multi-section) templates
  * Phase 6: PDF Generation
  */
 
@@ -8,6 +9,7 @@ import React from 'react'
 import { renderToStream } from '@react-pdf/renderer'
 import { TemplateConfig } from '../types'
 import { NEETTemplate } from '../templates/NEETTemplate'
+import { REETTemplate } from '../templates/REETTemplate'
 import { Readable } from 'stream'
 
 /**
@@ -19,6 +21,7 @@ export async function generatePDF(config: TemplateConfig): Promise<Readable> {
   try {
     console.log('[PDF_GENERATOR] Starting PDF generation for:', config.testTitle)
     console.log('[PDF_GENERATOR] Questions count:', config.questions.length)
+    console.log('[PDF_GENERATOR] Has sections:', config.hasSections)
     console.log('[PDF_GENERATOR] Institute:', config.instituteName)
 
     // Validate configuration
@@ -34,8 +37,15 @@ export async function generatePDF(config: TemplateConfig): Promise<Readable> {
       throw new Error('Test title is required for PDF generation')
     }
 
-    // Generate PDF using React-PDF
-    const pdfStream = await renderToStream(<NEETTemplate config={config} />)
+    // Choose template based on whether paper has sections
+    let pdfStream: any
+    if (config.hasSections && config.sections && config.sections.length > 0) {
+      console.log('[PDF_GENERATOR] Using REET template (multi-section)')
+      pdfStream = await renderToStream(<REETTemplate config={config} />)
+    } else {
+      console.log('[PDF_GENERATOR] Using NEET template (single-section)')
+      pdfStream = await renderToStream(<NEETTemplate config={config} />)
+    }
 
     console.log('[PDF_GENERATOR] PDF generation completed successfully')
 

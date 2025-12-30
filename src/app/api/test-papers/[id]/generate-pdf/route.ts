@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generatePDF, streamToBuffer, generateTestCode, formatDate, formatDuration } from '@/lib/pdf/utils/pdfGenerator'
 import { getInstituteLogo } from '@/lib/pdf/utils/imageProcessor'
-import { TemplateConfig, QuestionForPDF } from '@/lib/pdf/types'
+import { TemplateConfig, QuestionForPDF, PDFSection } from '@/lib/pdf/types'
 import { generatePaperPath, STORAGE_BUCKETS } from '@/lib/storage/storageService'
 
 interface GeneratePDFParams {
@@ -86,6 +86,7 @@ export async function POST(
         institute_id,
         subject_id,
         stream_id,
+        paper_template_id,
         subjects (
           id,
           name
@@ -131,9 +132,20 @@ export async function POST(
         question_order,
         is_selected,
         chapter_id,
+        section_id,
         chapters (
           id,
           name
+        ),
+        test_paper_sections (
+          id,
+          section_name,
+          section_order,
+          subject_id,
+          subjects (
+            id,
+            name
+          )
         )
       `)
       .eq('paper_id', paperId)
@@ -163,6 +175,10 @@ export async function POST(
       question_order: q.question_order,
       chapter_name: q.chapters?.name || 'Unknown',
       chapter_id: q.chapter_id,
+      // Section info
+      section_id: q.section_id,
+      section_name: q.test_paper_sections?.section_name || null,
+      section_order: q.test_paper_sections?.section_order || null,
     }))
 
     // Calculate total marks
@@ -170,6 +186,54 @@ export async function POST(
 
     // Get unique chapter names for topics
     const topics = [...new Set(questionsForPDF.map(q => q.chapter_name))].filter(Boolean)
+
+    // Check if paper has sections
+    const hasSections = !!paper.paper_template_id
+    console.log('[GENERATE_PDF] Has sections:', hasSections)
+
+    // Build sections array if multi-section paper
+    let sections = undefined
+    if (hasSections) {
+      // Group questions by section_id
+      const sectionGroups = questionsForPDF.reduce((groups, question) => {
+        const sectionKey = question.section_id || 'no-section'
+        if (!groups[sectionKey]) {
+          groups[sectionKey] = []
+        }
+        groups[sectionKey].push(question)
+        return groups
+      }, {} as Record<string, QuestionForPDF[]>)
+
+      // Build sections array
+      sections = Object.entries(sectionGroups).map(([sectionId, sectionQuestions]) => {
+        // Get section details from first question
+        const firstQuestion = sectionQuestions[0]
+        const sectionData: any = questions.find((q: any) => q.section_id === sectionId)?.test_paper_sections
+
+        // Extract subject name - handle both array and object responses from Supabase
+        let subjectName: string | undefined
+        if (Array.isArray(sectionData) && sectionData.length > 0) {
+          const subjects = sectionData[0]?.subjects
+          subjectName = Array.isArray(subjects) ? subjects[0]?.name : subjects?.name
+        } else if (sectionData) {
+          const subjects = sectionData.subjects
+          subjectName = Array.isArray(subjects) ? subjects[0]?.name : subjects?.name
+        }
+
+        return {
+          section_id: sectionId,
+          section_name: firstQuestion.section_name || 'Unknown Section',
+          section_order: firstQuestion.section_order || 999,
+          questions: sectionQuestions,
+          subject_name: subjectName,
+          marks_per_question: sectionQuestions.every(q => q.marks === sectionQuestions[0].marks)
+            ? sectionQuestions[0].marks
+            : undefined,
+        }
+      }).sort((a, b) => a.section_order - b.section_order)
+
+      console.log('[GENERATE_PDF] Built', sections.length, 'sections')
+    }
 
     // Process institute logo
     const institute = paper.institutes as any
@@ -230,10 +294,13 @@ export async function POST(
       testTitle: paper.title,
       testCode: testCode,
       date: formatDate(paper.finalized_at || paper.created_at),
-      duration: formatDuration(180), // Default 3 hours for NEET
+      duration: formatDuration(180), // Default 3 hours
       maxMarks: maxMarks,
       topics: topics,
       questions: questionsForPDF,
+      // Multi-section support
+      hasSections: hasSections,
+      sections: sections,
     }
 
     console.log('[GENERATE_PDF] Template config ready. Generating PDF...')

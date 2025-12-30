@@ -111,19 +111,31 @@ export async function POST(
       }, { status: 400 })
     }
 
-    // Fetch chapters for this paper
-    const { data: paperChapters, error: chaptersError } = await supabaseAdmin
-      .from('paper_chapters')
+    // Fetch chapters for this paper from section_chapters
+    const { data: sectionChapterRels, error: chaptersError } = await supabaseAdmin
+      .from('section_chapters')
       .select(`
         chapter_id,
+        section_id,
         chapters (id, name)
       `)
-      .eq('paper_id', paperId)
+      .in('section_id', await supabaseAdmin
+        .from('test_paper_sections')
+        .select('id')
+        .eq('paper_id', paperId)
+        .then(res => res.data?.map((s: any) => s.id) || [])
+      )
 
-    if (chaptersError || !paperChapters || paperChapters.length === 0) {
+    if (chaptersError || !sectionChapterRels || sectionChapterRels.length === 0) {
       console.error('[DRY_RUN_ERROR] No chapters found:', chaptersError)
       return NextResponse.json({ error: 'No chapters found for this paper' }, { status: 400 })
     }
+
+    // Get unique chapters (deduplicate since sections may share chapters)
+    const uniqueChapterIds = [...new Set(sectionChapterRels.map(sc => sc.chapter_id))]
+    const paperChapters = uniqueChapterIds.map(chapterId => {
+      return sectionChapterRels.find(sc => sc.chapter_id === chapterId)
+    }).filter((pc): pc is NonNullable<typeof pc> => Boolean(pc))
 
     const chapterIds = paperChapters.map(pc => pc.chapter_id)
     console.log(`[DRY_RUN] Chapters: ${chapterIds.length}`)
@@ -366,8 +378,8 @@ export async function POST(
             ncertFidelity: q.ncertFidelity
           },
           explanation: q.explanation,
-          marks: 4,
-          negative_marks: -1,
+          marks: 4, // Dry-run uses default marks (for preview only)
+          negative_marks: 0, // Dry-run uses default negative marks (for preview only)
           is_selected: false,
           question_order: index + 1
         }))

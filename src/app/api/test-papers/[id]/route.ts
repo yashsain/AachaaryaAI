@@ -74,7 +74,14 @@ export async function DELETE(
 
     console.log('[DELETE_PAPER] Deleting paper:', paper.title)
 
-    // Delete cascade (in order to avoid foreign key constraints):
+    /**
+     * Delete cascade (in order to avoid foreign key constraints):
+     * 1. Delete questions
+     * 2. Delete paper_classes
+     * 3. Delete test_paper_sections (CASCADE → deletes section_chapters automatically)
+     * 4. Delete test_papers
+     */
+
     // 1. Delete questions
     const { error: questionsError } = await supabase
       .from('questions')
@@ -86,18 +93,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Failed to delete questions' }, { status: 500 })
     }
 
-    // 2. Delete paper_chapters
-    const { error: chaptersError } = await supabase
-      .from('paper_chapters')
-      .delete()
-      .eq('paper_id', paperId)
-
-    if (chaptersError) {
-      console.error('[DELETE_PAPER_CHAPTERS_ERROR]', chaptersError)
-      return NextResponse.json({ error: 'Failed to delete paper chapters' }, { status: 500 })
-    }
-
-    // 3. Delete paper_classes
+    // 2. Delete paper_classes
     const { error: classesError } = await supabase
       .from('paper_classes')
       .delete()
@@ -106,6 +102,17 @@ export async function DELETE(
     if (classesError) {
       console.error('[DELETE_PAPER_CLASSES_ERROR]', classesError)
       return NextResponse.json({ error: 'Failed to delete paper classes' }, { status: 500 })
+    }
+
+    // 3. Delete test_paper_sections (CASCADE will delete section_chapters)
+    const { error: sectionsError } = await supabase
+      .from('test_paper_sections')
+      .delete()
+      .eq('paper_id', paperId)
+
+    if (sectionsError) {
+      console.error('[DELETE_PAPER_SECTIONS_ERROR]', sectionsError)
+      return NextResponse.json({ error: 'Failed to delete paper sections' }, { status: 500 })
     }
 
     // 4. Delete test_papers record

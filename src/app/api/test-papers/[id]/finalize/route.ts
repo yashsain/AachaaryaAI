@@ -2,9 +2,15 @@
  * POST /api/test-papers/[id]/finalize
  *
  * Finalize question selection for a test paper
- * Validates that exactly target question_count questions are selected
- * Updates paper status to 'finalized'
- * (Teacher Review Interface - Phase 5)
+ *
+ * For Multi-Section Papers (template-based):
+ * - Validates that ALL sections are finalized
+ * - Updates paper status to 'finalized'
+ * - Enables PDF generation
+ *
+ * For Legacy Papers (non-template):
+ * - Validates that exactly target question_count questions are selected
+ * - Updates paper status to 'finalized'
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -65,7 +71,7 @@ export async function POST(
     // Verify paper belongs to teacher's institute
     const { data: paper, error: paperError } = await supabase
       .from('test_papers')
-      .select('id, institute_id, title, question_count, status')
+      .select('id, institute_id, title, question_count, status, paper_template_id')
       .eq('id', paperId)
       .eq('institute_id', teacher.institute_id)
       .single()
@@ -79,32 +85,77 @@ export async function POST(
       return NextResponse.json({ error: 'Paper is already finalized' }, { status: 400 })
     }
 
-    console.log('[FINALIZE_SELECTION] Paper found:', paper.title, 'target_count:', paper.question_count)
+    console.log('[FINALIZE_SELECTION] Paper found:', paper.title, 'has_template:', !!paper.paper_template_id)
 
-    // Count selected questions
-    const { data: selectedQuestions, error: countError } = await supabase
-      .from('questions')
-      .select('id')
-      .eq('paper_id', paperId)
-      .eq('is_selected', true)
+    // Check if this is a multi-section paper (template-based)
+    const isMultiSection = !!paper.paper_template_id
 
-    if (countError) {
-      console.error('[FINALIZE_SELECTION_COUNT_ERROR]', countError)
-      return NextResponse.json({ error: 'Failed to count selected questions' }, { status: 500 })
-    }
+    if (isMultiSection) {
+      // NEW FLOW: Validate all sections are finalized
+      console.log('[FINALIZE_SELECTION] Multi-section paper detected, validating sections...')
 
-    const selectedCount = selectedQuestions?.length || 0
-    const targetCount = paper.question_count || 30
+      const { data: sections, error: sectionsError } = await supabase
+        .from('test_paper_sections')
+        .select('id, section_name, section_order, status')
+        .eq('paper_id', paperId)
+        .order('section_order', { ascending: true })
 
-    console.log('[FINALIZE_SELECTION] Selected:', selectedCount, 'Target:', targetCount)
+      if (sectionsError) {
+        console.error('[FINALIZE_SELECTION_SECTIONS_ERROR]', sectionsError)
+        return NextResponse.json({ error: 'Failed to fetch sections' }, { status: 500 })
+      }
 
-    // Validate selection count
-    if (selectedCount !== targetCount) {
-      return NextResponse.json({
-        error: `Selection incomplete. You have selected ${selectedCount} questions but need exactly ${targetCount} questions.`,
-        selected_count: selectedCount,
-        target_count: targetCount,
-      }, { status: 400 })
+      if (!sections || sections.length === 0) {
+        return NextResponse.json({ error: 'Paper has no sections' }, { status: 400 })
+      }
+
+      // Check if all sections are finalized
+      const unfinalizedSections = sections.filter(s => s.status !== 'finalized')
+
+      if (unfinalizedSections.length > 0) {
+        const unfinalizedNames = unfinalizedSections.map(s => s.section_name).join(', ')
+        console.log('[FINALIZE_SELECTION_VALIDATION_FAILED] Unfinalized sections:', unfinalizedNames)
+        return NextResponse.json({
+          error: `Cannot finalize paper. Please finalize all sections first.`,
+          unfinalized_sections: unfinalizedSections.map(s => ({
+            id: s.id,
+            name: s.section_name,
+            status: s.status
+          })),
+          message: `Unfinalized sections: ${unfinalizedNames}`
+        }, { status: 400 })
+      }
+
+      console.log('[FINALIZE_SELECTION] All sections finalized, proceeding with paper finalization')
+
+    } else {
+      // LEGACY FLOW: Validate question count for non-template papers
+      console.log('[FINALIZE_SELECTION] Legacy paper detected, validating question count...')
+
+      const { data: selectedQuestions, error: countError } = await supabase
+        .from('questions')
+        .select('id')
+        .eq('paper_id', paperId)
+        .eq('is_selected', true)
+
+      if (countError) {
+        console.error('[FINALIZE_SELECTION_COUNT_ERROR]', countError)
+        return NextResponse.json({ error: 'Failed to count selected questions' }, { status: 500 })
+      }
+
+      const selectedCount = selectedQuestions?.length || 0
+      const targetCount = paper.question_count || 30
+
+      console.log('[FINALIZE_SELECTION] Selected:', selectedCount, 'Target:', targetCount)
+
+      // Validate selection count
+      if (selectedCount !== targetCount) {
+        return NextResponse.json({
+          error: `Selection incomplete. You have selected ${selectedCount} questions but need exactly ${targetCount} questions.`,
+          selected_count: selectedCount,
+          target_count: targetCount,
+        }, { status: 400 })
+      }
     }
 
     // Update paper status to finalized
@@ -123,12 +174,14 @@ export async function POST(
       return NextResponse.json({ error: 'Failed to finalize paper' }, { status: 500 })
     }
 
-    console.log('[FINALIZE_SELECTION_SUCCESS] paper_id:', paperId, 'status: finalized')
+    console.log('[FINALIZE_SELECTION_SUCCESS] paper_id:', paperId, 'status: finalized', 'multi_section:', isMultiSection)
 
     return NextResponse.json({
       success: true,
       paper: updatedPaper,
-      message: `Successfully finalized ${selectedCount} questions`,
+      message: isMultiSection
+        ? 'Paper finalized successfully. You can now generate the final PDF.'
+        : `Successfully finalized ${paper.question_count} questions.`,
     })
   } catch (error) {
     console.error('[FINALIZE_SELECTION_ERROR]', error)

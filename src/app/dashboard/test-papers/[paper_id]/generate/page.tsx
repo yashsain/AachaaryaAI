@@ -93,33 +93,55 @@ export default function GenerateQuestionsPage() {
 
       setPaper(paperData as any)
 
-      // Fetch chapters
-      const { data: chaptersData, error: chaptersError } = await supabase
-        .from('paper_chapters')
-        .select(`
-          chapter_id,
-          chapters (id, name)
-        `)
+      // Fetch chapters from section_chapters
+      // First get section IDs for this paper
+      const { data: sections, error: sectionsError } = await supabase
+        .from('test_paper_sections')
+        .select('id')
         .eq('paper_id', paper_id)
 
-      if (chaptersError) {
-        console.error('[FETCH_CHAPTERS_ERROR]', chaptersError)
+      let chaptersData: any[] = []
+
+      if (sectionsError) {
+        console.error('[FETCH_SECTIONS_ERROR]', sectionsError)
       } else {
-        setChapters(chaptersData as any || [])
+        const sectionIds = sections?.map(s => s.id) || []
 
-        // Fetch material count for these chapters
-        const chapterIds = chaptersData?.map((c: any) => c.chapter_id) || []
-        if (chapterIds.length > 0) {
-          const { data: materials } = await supabase
-            .from('material_chapters')
-            .select('material_id')
-            .in('chapter_id', chapterIds)
+        if (sectionIds.length > 0) {
+          // Fetch chapters for all sections
+          const { data: sectionChaptersData, error: chaptersError } = await supabase
+            .from('section_chapters')
+            .select(`
+              chapter_id,
+              chapters (id, name)
+            `)
+            .in('section_id', sectionIds)
 
-          const uniqueMaterialIds = new Set(materials?.map(m => m.material_id) || [])
-          setMaterialCount(uniqueMaterialIds.size)
-        } else {
-          setMaterialCount(0)
+          if (chaptersError) {
+            console.error('[FETCH_CHAPTERS_ERROR]', chaptersError)
+          } else {
+            // Deduplicate chapters (sections may share chapters)
+            const uniqueChapters = Array.from(
+              new Map(sectionChaptersData?.map(sc => [sc.chapter_id, sc]) || []).values()
+            )
+            chaptersData = uniqueChapters
+            setChapters(uniqueChapters as any || [])
+          }
         }
+      }
+
+      // Fetch material count for these chapters
+      const chapterIds = chaptersData?.map((c: any) => c.chapter_id) || []
+      if (chapterIds.length > 0) {
+        const { data: materials } = await supabase
+          .from('material_chapters')
+          .select('material_id')
+          .in('chapter_id', chapterIds)
+
+        const uniqueMaterialIds = new Set(materials?.map(m => m.material_id) || [])
+        setMaterialCount(uniqueMaterialIds.size)
+      } else {
+        setMaterialCount(0)
       }
     } catch (err) {
       console.error('[FETCH_PAPER_ERROR]', err)
@@ -211,7 +233,7 @@ export default function GenerateQuestionsPage() {
           <div className="rounded-lg bg-red-50 border border-red-200 p-6">
             <p className="text-red-800 font-medium">{pageError || 'Test paper not found'}</p>
             <Link
-              href={paper?.subjects?.id ? `/dashboard/test-papers/subject/${paper.subjects.id}` : '/dashboard/test-papers'}
+              href={paper_id ? `/dashboard/test-papers/${paper_id}` : '/dashboard/test-papers'}
               className="mt-4 inline-block text-brand-saffron hover:underline"
             >
               ← Back to Papers
@@ -227,8 +249,8 @@ export default function GenerateQuestionsPage() {
       <main className="mx-auto max-w-4xl px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <Link href={`/dashboard/test-papers/subject/${paper.subjects.id}`} className="text-brand-saffron hover:underline mb-4 inline-block">
-            ← Back to Papers
+          <Link href={`/dashboard/test-papers/${paper_id}`} className="text-brand-saffron hover:underline mb-4 inline-block">
+            ← Back to Paper Dashboard
           </Link>
           <h1 className="text-3xl font-bold text-neutral-900">{paper.title}</h1>
           <p className="text-neutral-600 mt-2">Review details and generate questions</p>

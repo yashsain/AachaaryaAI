@@ -19,6 +19,10 @@ export interface QuestionForPDF {
   question_order: number
   chapter_name: string
   chapter_id: string
+  // Section info (for multi-section papers)
+  section_id?: string | null
+  section_name?: string | null
+  section_order?: number | null
 }
 
 export interface ContactInfo {
@@ -26,6 +30,15 @@ export interface ContactInfo {
   phone?: string
   address?: string
   email?: string
+}
+
+export interface PDFSection {
+  section_id: string
+  section_name: string
+  section_order: number
+  questions: QuestionForPDF[]
+  subject_name?: string
+  marks_per_question?: number
 }
 
 export interface TemplateConfig {
@@ -46,6 +59,10 @@ export interface TemplateConfig {
 
   // Questions
   questions: QuestionForPDF[]
+
+  // Multi-section support (for REET-style papers)
+  hasSections?: boolean
+  sections?: PDFSection[]
 
   // Optional settings
   showSolutions?: boolean         // Future: Phase 6.2
