@@ -5,6 +5,8 @@
  */
 
 import sharp from 'sharp'
+import fs from 'fs'
+import path from 'path'
 
 /**
  * Fetches and converts an image to base64 data URI
@@ -45,6 +47,49 @@ export async function convertImageToBase64(imageUrl: string): Promise<string | n
     console.error('[IMAGE_PROCESSOR] Error converting image:', error)
     return null
   }
+}
+
+/**
+ * Converts local file to base64 data URI
+ * @param filePath - Absolute path to the local image file
+ * @returns Base64 data URI string or null if conversion fails
+ */
+export async function convertLocalImageToBase64(filePath: string): Promise<string | null> {
+  try {
+    console.log('[IMAGE_PROCESSOR] Converting local image:', filePath)
+
+    // Read file from filesystem
+    const buffer = fs.readFileSync(filePath)
+
+    // Convert to PNG with Sharp (standardize format)
+    const pngBuffer = await sharp(buffer)
+      .resize(200, 200, {
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .png()
+      .toBuffer()
+
+    // Convert to base64 data URI
+    const base64String = pngBuffer.toString('base64')
+    const dataUri = `data:image/png;base64,${base64String}`
+
+    console.log('[IMAGE_PROCESSOR] Local image converted successfully')
+    return dataUri
+  } catch (error) {
+    console.error('[IMAGE_PROCESSOR] Error converting local image:', error)
+    return null
+  }
+}
+
+/**
+ * Gets the default logo from /public/logo.png
+ * @returns Base64 data URI or null
+ */
+export async function getDefaultLogo(): Promise<string | null> {
+  const defaultLogoPath = path.join(process.cwd(), 'public', 'logo.png')
+  console.log('[IMAGE_PROCESSOR] Using default logo from:', defaultLogoPath)
+  return await convertLocalImageToBase64(defaultLogoPath)
 }
 
 /**

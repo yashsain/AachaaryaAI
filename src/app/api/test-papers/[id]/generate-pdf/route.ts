@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generatePDF, streamToBuffer, generateTestCode, formatDate, formatDuration } from '@/lib/pdf/utils/pdfGenerator'
-import { getInstituteLogo } from '@/lib/pdf/utils/imageProcessor'
+import { getInstituteLogo, getDefaultLogo } from '@/lib/pdf/utils/imageProcessor'
 import { TemplateConfig, QuestionForPDF, PDFSection } from '@/lib/pdf/types'
 import { generatePaperPath, STORAGE_BUCKETS } from '@/lib/storage/storageService'
 
@@ -72,7 +72,7 @@ export async function POST(
 
     console.log('[GENERATE_PDF] Teacher:', teacher.id, 'Institute:', teacher.institute_id)
 
-    // Fetch test paper with institute and subject details
+    // Fetch test paper with institute, subject, and template details (including duration)
     const { data: paper, error: paperError } = await supabase
       .from('test_papers')
       .select(`
@@ -106,6 +106,11 @@ export async function POST(
           logo_url,
           primary_color,
           tagline
+        ),
+        paper_templates (
+          id,
+          name,
+          duration
         )
       `)
       .eq('id', paperId)
@@ -119,7 +124,7 @@ export async function POST(
 
     console.log('[GENERATE_PDF] Paper found:', paper.title, 'Status:', paper.status)
 
-    // Check if paper has selected questions
+    // Check if paper has selected questions (including passages)
     const { data: questions, error: questionsError } = await supabase
       .from('questions')
       .select(`
@@ -133,6 +138,7 @@ export async function POST(
         is_selected,
         chapter_id,
         section_id,
+        passage_id,
         chapters (
           id,
           name
@@ -146,6 +152,11 @@ export async function POST(
             id,
             name
           )
+        ),
+        comprehension_passages (
+          id,
+          passage_text,
+          passage_order
         )
       `)
       .eq('paper_id', paperId)
@@ -163,7 +174,7 @@ export async function POST(
 
     console.log('[GENERATE_PDF] Found', questions.length, 'selected questions')
 
-    // Parse questions for PDF
+    // Parse questions for PDF (including passage data)
     const questionsForPDF: QuestionForPDF[] = questions.map((q: any) => ({
       id: q.id,
       question_text: q.question_text,
@@ -179,6 +190,10 @@ export async function POST(
       section_id: q.section_id,
       section_name: q.test_paper_sections?.section_name || null,
       section_order: q.test_paper_sections?.section_order || null,
+      // Passage info (for passage-based questions)
+      passage_id: q.passage_id || null,
+      passage_text: q.comprehension_passages?.passage_text || null,
+      passage_order: q.comprehension_passages?.passage_order || null,
     }))
 
     // Calculate total marks
@@ -235,9 +250,11 @@ export async function POST(
       console.log('[GENERATE_PDF] Built', sections.length, 'sections')
     }
 
-    // Process institute logo
+    // Process institute logo with fallback to default logo
     const institute = paper.institutes as any
     let instituteLogo: string | null = null
+
+    // Try to get institute logo if available
     if (institute.logo_url) {
       console.log('[GENERATE_PDF] Processing logo from:', institute.logo_url)
 
@@ -271,13 +288,42 @@ export async function POST(
         instituteLogo = await getInstituteLogo(institute.logo_url)
       }
 
-      console.log('[GENERATE_PDF] Logo processed:', instituteLogo ? 'Success' : 'Failed')
+      console.log('[GENERATE_PDF] Institute logo processed:', instituteLogo ? 'Success' : 'Failed')
+    }
+
+    // Fallback to default logo if institute logo not available or failed
+    if (!instituteLogo) {
+      console.log('[GENERATE_PDF] Using default logo as fallback')
+      instituteLogo = await getDefaultLogo()
+      console.log('[GENERATE_PDF] Default logo loaded:', instituteLogo ? 'Success' : 'Failed')
     }
 
     // Generate test code
     const stream = paper.streams as any
     const subject = paper.subjects as any
     const testCode = generateTestCode(stream.name, subject.name, new Date())
+
+    // Determine duration (from template → stream defaults → global default)
+    let durationMinutes = 180 // Global fallback
+    const template = paper.paper_templates as any
+
+    // Priority 1: Template duration (if paper uses template and template has duration)
+    if (template?.duration) {
+      durationMinutes = template.duration
+      console.log('[GENERATE_PDF] Using duration from template:', template.name, ':', durationMinutes, 'minutes')
+    }
+    // Priority 2: Stream-based defaults (if template doesn't have duration)
+    else {
+      const streamName = stream?.name?.toLowerCase() || ''
+      if (streamName.includes('reet')) {
+        durationMinutes = 150 // REET: 2.5 hours
+      } else if (streamName.includes('neet')) {
+        durationMinutes = 180 // NEET: 3 hours
+      } else if (streamName.includes('jee')) {
+        durationMinutes = 180 // JEE: 3 hours
+      }
+      console.log('[GENERATE_PDF] Using stream-based default duration for', streamName, ':', durationMinutes, 'minutes')
+    }
 
     // Build template configuration
     const config: TemplateConfig = {
@@ -294,9 +340,11 @@ export async function POST(
       testTitle: paper.title,
       testCode: testCode,
       date: formatDate(paper.finalized_at || paper.created_at),
-      duration: formatDuration(180), // Default 3 hours
+      duration: formatDuration(durationMinutes),
       maxMarks: maxMarks,
       topics: topics,
+      examType: stream?.name || 'Practice Test',
+      streamName: stream?.name || undefined,
       questions: questionsForPDF,
       // Multi-section support
       hasSections: hasSections,

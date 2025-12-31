@@ -132,10 +132,11 @@ export async function POST(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    // Verify section status is 'ready' (has chapters assigned)
-    if (section.status !== 'ready') {
+    // Verify section status is 'ready' or 'in_review' (has chapters assigned)
+    // Allow 'in_review' to support regeneration when fixing protocol issues
+    if (section.status !== 'ready' && section.status !== 'in_review') {
       return NextResponse.json({
-        error: `Section must have status 'ready' to generate questions. Current status: ${section.status}`,
+        error: `Section must have status 'ready' or 'in_review' to generate questions. Current status: ${section.status}`,
         hint: section.status === 'pending' ? 'Assign chapters to this section first' : undefined
       }, { status: 400 })
     }
@@ -161,6 +162,28 @@ export async function POST(
         error: `No question generation protocol available for ${streamName} ${subjectName}`,
         details: protocolError instanceof Error ? protocolError.message : 'Unknown error'
       }, { status: 400 })
+    }
+
+    // If regenerating (status was 'in_review'), delete existing questions first
+    if (section.status === 'in_review') {
+      console.log('[GENERATE_SECTION] Regenerating - deleting existing questions for section:', sectionId)
+
+      const { data: deletedQuestions, error: deleteError } = await supabaseAdmin
+        .from('questions')
+        .delete()
+        .eq('section_id', sectionId)
+        .select('id')
+
+      if (deleteError) {
+        console.error('[GENERATE_SECTION_ERROR] Failed to delete existing questions:', deleteError)
+        return NextResponse.json(
+          { error: 'Failed to delete existing questions for regeneration' },
+          { status: 500 }
+        )
+      }
+
+      const questionsDeleted = deletedQuestions?.length || 0
+      console.log(`[GENERATE_SECTION] Deleted ${questionsDeleted} existing questions for regeneration`)
     }
 
     // Update section status to 'generating'
@@ -350,28 +373,79 @@ export async function POST(
           allValidationWarnings.push(...validation.warnings)
         }
 
-        // Step 8: Insert questions into database WITH section_id
-        const questionsToInsert = questions.map((q, index) => ({
-          institute_id: teacher.institute_id,
-          paper_id: paperId,
-          chapter_id: chapterId,
-          section_id: sectionId,
-          question_text: q.questionText,
-          question_data: {
-            options: q.options,
-            correctAnswer: q.correctAnswer,
-            archetype: q.archetype,
-            structuralForm: q.structuralForm,
-            cognitiveLoad: q.cognitiveLoad,
-            difficulty: q.difficulty,
-            ncertFidelity: q.ncertFidelity
-          },
-          explanation: q.explanation,
-          marks: section.marks_per_question || 4,
-          negative_marks: section.negative_marks || 0,
-          is_selected: false,
-          question_order: questionsGenerated + index + 1
-        }))
+        // Step 8A: Extract and store passages for passage-based questions
+        // Group questions by passage text and insert unique passages
+        const passageMap = new Map<string, string>() // passage_text -> passage_id
+        const passagesToInsert: Array<{ paper_id: string; passage_text: string; passage_order: number }> = []
+
+        // Extract unique passages
+        questions.forEach((q) => {
+          if (q.archetype === 'passageComprehension' && q.passage && q.passage.trim().length > 0) {
+            const passageText = q.passage.trim()
+            if (!passageMap.has(passageText)) {
+              passageMap.set(passageText, '') // placeholder, will be filled with ID after insert
+              passagesToInsert.push({
+                paper_id: paperId,
+                passage_text: passageText,
+                passage_order: passagesToInsert.length + 1
+              })
+            }
+          }
+        })
+
+        // Insert passages and get IDs
+        if (passagesToInsert.length > 0) {
+          console.log(`[GENERATE_SECTION_PASSAGES] Inserting ${passagesToInsert.length} unique passages`)
+
+          const { data: insertedPassages, error: passageInsertError } = await supabaseAdmin
+            .from('comprehension_passages')
+            .insert(passagesToInsert)
+            .select('id, passage_text')
+
+          if (passageInsertError) {
+            console.error('[GENERATE_SECTION_ERROR] Failed to insert passages:', passageInsertError)
+            return NextResponse.json({ error: 'Failed to save passages to database' }, { status: 500 })
+          }
+
+          // Map passage text to passage ID
+          insertedPassages?.forEach((passage: any) => {
+            passageMap.set(passage.passage_text.trim(), passage.id)
+          })
+
+          console.log(`[GENERATE_SECTION_PASSAGES_SUCCESS] Inserted ${insertedPassages?.length} passages`)
+        }
+
+        // Step 8B: Insert questions into database WITH section_id AND passage_id
+        const questionsToInsert = questions.map((q, index) => {
+          // Find passage_id for this question if it has a passage
+          let passageId: string | null = null
+          if (q.archetype === 'passageComprehension' && q.passage && q.passage.trim().length > 0) {
+            passageId = passageMap.get(q.passage.trim()) || null
+          }
+
+          return {
+            institute_id: teacher.institute_id,
+            paper_id: paperId,
+            chapter_id: chapterId,
+            section_id: sectionId,
+            passage_id: passageId, // Link to passage
+            question_text: q.questionText,
+            question_data: {
+              options: q.options,
+              correctAnswer: q.correctAnswer,
+              archetype: q.archetype,
+              structuralForm: q.structuralForm,
+              cognitiveLoad: q.cognitiveLoad,
+              difficulty: q.difficulty,
+              ncertFidelity: q.ncertFidelity
+            },
+            explanation: q.explanation,
+            marks: section.marks_per_question || 4,
+            negative_marks: section.negative_marks || 0,
+            is_selected: false,
+            question_order: questionsGenerated + index + 1
+          }
+        })
 
         const { error: insertError } = await supabaseAdmin
           .from('questions')

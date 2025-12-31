@@ -21,6 +21,7 @@ export interface Question {
   difficulty?: string
   ncertFidelity?: string
   language?: string  // e.g., 'hindi', 'english', 'bilingual'
+  passage?: string  // Full passage text for passageComprehension questions (100-250 words or 10-30 lines for poems)
 }
 
 export interface ValidationResult {

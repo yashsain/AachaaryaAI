@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
         stream_id,
         name,
         description,
+        duration,
         paper_template_sections (
           id,
           subject_id,

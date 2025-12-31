@@ -23,6 +23,10 @@ export interface QuestionForPDF {
   section_id?: string | null
   section_name?: string | null
   section_order?: number | null
+  // Passage info (for passage-based comprehension questions)
+  passage_id?: string | null
+  passage_text?: string | null
+  passage_order?: number | null
 }
 
 export interface ContactInfo {
@@ -56,6 +60,8 @@ export interface TemplateConfig {
   duration: string                // e.g., "03:00 Hrs"
   maxMarks: number                // Sum of all selected questions marks
   topics: string[]                // Array of chapter names
+  examType?: string               // e.g., "REET Mains Level 2", "NEET"
+  streamName?: string             // e.g., "REET", "NEET", "JEE"
 
   // Questions
   questions: QuestionForPDF[]

@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
         description,
         display_order,
         is_default,
+        duration,
         created_at,
         streams:stream_id (
           id,

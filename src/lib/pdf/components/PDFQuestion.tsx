@@ -10,7 +10,7 @@ import { neetStyles } from '../styles/neetStyles'
 import { QuestionForPDF } from '../types'
 
 interface PDFQuestionProps {
-  question: QuestionForPDF
+  question: QuestionForPDF & { isFirstInPassage?: boolean }
   displayNumber?: number  // Optional display number (different from question_order)
 }
 
@@ -19,6 +19,33 @@ export const PDFQuestion: React.FC<PDFQuestionProps> = ({ question, displayNumbe
 
   return (
     <View style={neetStyles.questionContainer}>
+      {/* Passage text (only for first question in passage group) */}
+      {question.isFirstInPassage && question.passage_text && (
+        <View style={{
+          marginBottom: 8,
+          padding: 8,
+          backgroundColor: '#F8F9FA',
+          border: '1pt solid #DDDDDD',
+          borderRadius: 4
+        }}>
+          <Text style={{
+            fontSize: 8,
+            fontWeight: 'bold',
+            marginBottom: 4,
+            color: '#495057'
+          }}>
+            PASSAGE:
+          </Text>
+          <Text style={{
+            fontSize: 8.5,
+            lineHeight: 1.4,
+            color: '#212529'
+          }}>
+            {question.passage_text}
+          </Text>
+        </View>
+      )}
+
       {/* Question header with number and text */}
       <View style={neetStyles.questionHeader}>
         <Text style={neetStyles.questionNumber}>Q{questionNum}.</Text>

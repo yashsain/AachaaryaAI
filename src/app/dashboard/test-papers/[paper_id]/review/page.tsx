@@ -13,7 +13,7 @@
  */
 
 import { useRequireAuth } from '@/contexts/AuthContext'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
@@ -75,11 +75,14 @@ export default function ReviewQuestionsPage() {
   const { teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireAuth()
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const paper_id = params.paper_id as string
+  const section_id = searchParams.get('section_id') // Extract section_id from URL query params
 
   const [paper, setPaper] = useState<PaperInfo | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
-  const [sections, setSections] = useState<Section[]>([]) // NEW: Section data with statuses
+  const [sections, setSections] = useState<Section[]>([]) // Section data with statuses
+  const [currentSection, setCurrentSection] = useState<Section | null>(null) // Current section being viewed
   const [statistics, setStatistics] = useState<Statistics | null>(null)
   const [loadingData, setLoadingData] = useState(true)
   const [pageError, setPageError] = useState<string | null>(null)
@@ -115,6 +118,19 @@ export default function ReviewQuestionsPage() {
     }
   }, [teacher, loading, teacherLoading, paper_id])
 
+  // Validate section_id for multi-section papers
+  useEffect(() => {
+    if (!loadingData && paper) {
+      // For multi-section papers, require section_id parameter
+      if (paper.has_sections && !section_id) {
+        setPageError('This paper has multiple sections. Please select a specific section to review from the dashboard.')
+        setTimeout(() => {
+          router.push(`/dashboard/test-papers/${paper_id}`)
+        }, 3000)
+      }
+    }
+  }, [loadingData, paper, section_id, paper_id, router])
+
   const fetchQuestions = async () => {
     try {
       setLoadingData(true)
@@ -125,7 +141,12 @@ export default function ReviewQuestionsPage() {
         return
       }
 
-      const response = await fetch(`/api/test-papers/${paper_id}/questions`, {
+      // Build API URL with section_id if provided
+      const apiUrl = section_id
+        ? `/api/test-papers/${paper_id}/questions?section_id=${section_id}`
+        : `/api/test-papers/${paper_id}/questions`
+
+      const response = await fetch(apiUrl, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },
@@ -137,11 +158,12 @@ export default function ReviewQuestionsPage() {
         throw new Error(data.error || 'Failed to fetch questions')
       }
 
-      console.log('[REVIEW_QUESTIONS_UI] Fetched', data.questions.length, 'questions')
+      console.log('[REVIEW_QUESTIONS_UI] Fetched', data.questions.length, 'questions', section_id ? `for section ${section_id}` : 'for all sections')
 
       setPaper(data.paper)
       setQuestions(data.questions)
       setSections(data.sections || []) // Set sections if available
+      setCurrentSection(data.current_section || null) // Set current section if viewing specific section
       setStatistics(data.statistics)
     } catch (err) {
       console.error('[FETCH_QUESTIONS_ERROR]', err)
@@ -452,10 +474,30 @@ export default function ReviewQuestionsPage() {
           <Link href={`/dashboard/test-papers/${paper_id}`} className="text-brand-saffron hover:underline mb-4 inline-block">
             ← Back to Paper Dashboard
           </Link>
+
+          {/* Section Context Banner (shown when viewing specific section) */}
+          {section_id && currentSection && (
+            <div className="mb-6 bg-white rounded-lg shadow-sm border-l-4 border-brand-saffron p-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Section {currentSection.section_order}: {currentSection.section_name}
+                </h2>
+                <SectionStatusBadge status={currentSection.status} size="sm" />
+              </div>
+              <p className="text-sm text-gray-600 mt-1">
+                Reviewing questions for this section only
+              </p>
+            </div>
+          )}
+
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-3xl font-bold text-neutral-900">{paper.title}</h1>
-              <p className="text-neutral-600 mt-2">Review and select questions for your test paper</p>
+              <p className="text-neutral-600 mt-2">
+                {section_id && currentSection
+                  ? `Reviewing ${currentSection.section_name}`
+                  : 'Review and select questions for your test paper'}
+              </p>
             </div>
             <div className="flex flex-col items-end gap-2">
               <div className={`px-4 py-2 rounded-lg ${
@@ -494,7 +536,36 @@ export default function ReviewQuestionsPage() {
 
         {/* Statistics */}
         <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6 mb-6">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-4">Statistics</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-neutral-900">
+              {section_id && currentSection ? `Section Statistics` : 'Statistics'}
+            </h2>
+            {/* Finalize Section Button (for single section view) */}
+            {section_id && currentSection && currentSection.status !== 'finalized' && (
+              <button
+                onClick={() => handleFinalizeSection(section_id, currentSection.section_name)}
+                disabled={
+                  !statistics ||
+                  statistics.selected_count < statistics.target_count ||
+                  finalizingSectionId === section_id
+                }
+                className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                  statistics && statistics.selected_count >= statistics.target_count
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {finalizingSectionId === section_id ? (
+                  <span className="flex items-center gap-2">
+                    <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
+                    Finalizing...
+                  </span>
+                ) : (
+                  'Finalize Section ✓'
+                )}
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-4 gap-4">
             <div>
               <p className="text-sm text-neutral-600">Total Generated</p>
@@ -587,8 +658,23 @@ export default function ReviewQuestionsPage() {
           <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-12 text-center">
             <p className="text-neutral-600">No questions match your filters</p>
           </div>
+        ) : section_id ? (
+          // Single section view: Show flat list (already filtered by API)
+          <div className="space-y-4">
+            {filteredQuestions.map((question, index) => (
+              <QuestionCard
+                key={question.id}
+                question={question}
+                index={index + 1}
+                onToggleSelection={toggleSelection}
+                onEdit={setEditingQuestion}
+                onRegenerate={setRegeneratingQuestion}
+                canSelect={!!question.is_selected || (statistics ? statistics.selected_count < statistics.target_count : false)}
+              />
+            ))}
+          </div>
         ) : paper?.has_sections ? (
-          // Multi-section paper: Group by sections
+          // Multi-section paper (all sections view): Group by sections
           <div className="space-y-8">
             {(() => {
               // Group questions by section
@@ -675,7 +761,7 @@ export default function ReviewQuestionsPage() {
                         onToggleSelection={toggleSelection}
                         onEdit={setEditingQuestion}
                         onRegenerate={setRegeneratingQuestion}
-                        canSelect={question.is_selected || selectedInSection < expectedCount}
+                        canSelect={!!question.is_selected || selectedInSection < expectedCount}
                       />
                     ))}
                   </div>
@@ -696,7 +782,7 @@ export default function ReviewQuestionsPage() {
                 onToggleSelection={toggleSelection}
                 onEdit={setEditingQuestion}
                 onRegenerate={setRegeneratingQuestion}
-                canSelect={question.is_selected || statistics!.selected_count < statistics!.target_count}
+                canSelect={!!question.is_selected || (statistics ? statistics.selected_count < statistics.target_count : false)}
               />
             ))}
           </div>

@@ -241,7 +241,6 @@ export const neetStyles = StyleSheet.create({
     fontSize: 8,
     color: '#666666',
     marginTop: 3,
-    fontStyle: 'italic',
   },
 
   // Footer

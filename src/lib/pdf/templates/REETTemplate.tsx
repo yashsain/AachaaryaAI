@@ -18,6 +18,23 @@ interface REETTemplateProps {
   config: TemplateConfig
 }
 
+/**
+ * Helper to mark first question in each passage group
+ * This allows PDFQuestion component to render passage text before the first question
+ */
+function markFirstQuestionInPassageGroups(questions: any[]) {
+  const passageGroups = new Map<string, boolean>()
+
+  return questions.map((q) => {
+    if (q.passage_id && q.passage_text) {
+      const isFirst = !passageGroups.has(q.passage_id)
+      passageGroups.set(q.passage_id, true)
+      return { ...q, isFirstInPassage: isFirst }
+    }
+    return { ...q, isFirstInPassage: false }
+  })
+}
+
 export const REETTemplate: React.FC<REETTemplateProps> = ({ config }) => {
   // Ensure sections exist
   if (!config.hasSections || !config.sections || config.sections.length === 0) {
@@ -31,8 +48,8 @@ export const REETTemplate: React.FC<REETTemplateProps> = ({ config }) => {
     <Document
       title={config.testTitle}
       author={config.instituteName}
-      subject="REET Practice Test"
-      creator="Aachaarya AI"
+      subject={config.examType || 'Practice Test'}
+      creator={config.instituteName}
     >
       {/* Page 1: Front Page with Instructions */}
       <Page size="A4" style={neetStyles.page}>
@@ -121,8 +138,10 @@ export const REETTemplate: React.FC<REETTemplateProps> = ({ config }) => {
         {/* Sections with Questions */}
         <View>
           {sortedSections.map((section, sectionIndex) => {
-            // Sort questions within each section by question_order
-            const sortedQuestions = [...section.questions].sort((a, b) => a.question_order - b.question_order)
+            // Sort questions within each section by question_order and mark first questions in passage groups
+            const sortedQuestions = markFirstQuestionInPassageGroups(
+              [...section.questions].sort((a, b) => a.question_order - b.question_order)
+            )
 
             // Calculate question number offset (cumulative from previous sections)
             let questionOffset = 0
@@ -131,7 +150,7 @@ export const REETTemplate: React.FC<REETTemplateProps> = ({ config }) => {
             }
 
             return (
-              <View key={section.section_id} style={{ marginBottom: 15 }} wrap={false}>
+              <View key={section.section_id} style={{ marginBottom: 15 }}>
                 {/* Section Header */}
                 <View style={neetStyles.sectionHeader}>
                   <Text>
@@ -147,7 +166,7 @@ export const REETTemplate: React.FC<REETTemplateProps> = ({ config }) => {
                 {/* Section Instructions (if marks per question is uniform) */}
                 {section.marks_per_question && (
                   <View style={{ marginBottom: 8, paddingLeft: 8 }}>
-                    <Text style={{ fontSize: 9, color: '#666666', fontStyle: 'italic' }}>
+                    <Text style={{ fontSize: 9, color: '#666666' }}>
                       Each question carries {section.marks_per_question} mark{section.marks_per_question > 1 ? 's' : ''}
                     </Text>
                   </View>

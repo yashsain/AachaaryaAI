@@ -10,7 +10,7 @@
  */
 
 import { useRequireAuth } from '@/contexts/AuthContext'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase, supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
@@ -46,7 +46,9 @@ export default function UploadMaterialPage() {
   const { teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireAuth()
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const subject_id = params.subject_id as string
+  const preselectedChapterId = searchParams.get('chapter_id')
 
   // Form state
   const [title, setTitle] = useState('')
@@ -133,7 +135,16 @@ export default function UploadMaterialPage() {
       }
 
       const chaptersData = await chaptersResponse.json()
-      setChapters(chaptersData.chapters || [])
+      const fetchedChapters = chaptersData.chapters || []
+      setChapters(fetchedChapters)
+
+      // Pre-select chapter if chapter_id is in URL
+      if (preselectedChapterId) {
+        const chapterExists = fetchedChapters.some((ch: Chapter) => ch.id === preselectedChapterId)
+        if (chapterExists) {
+          setSelectedChapterIds([preselectedChapterId])
+        }
+      }
 
       // Fetch classes filtered by stream_id
       const classesResponse = await fetch(`/api/classes?stream_id=${subjectStreamId}`, {

@@ -324,28 +324,57 @@ FORMATTING REQUIREMENTS:
 PROHIBITIONS:
 ${config.prohibitions.map((p: string) => `- ${p}`).join('\n')}
 
-OUTPUT FORMAT:
-Return a JSON array of question objects. ALL CONTENT MUST BE IN DEVANAGARI (HINDI):
-[
-  {
-    "question": "Question text in Devanagari (Hindi) only",
-    "options": {
-      "A": "Option A in Devanagari only",
-      "B": "Option B in Devanagari only",
-      "C": "Option C in Devanagari only",
-      "D": "Option D in Devanagari only"
-    },
-    "correctAnswer": "A",
-    "explanation": "Explanation in Devanagari (Hindi) only",
-    "archetype": "directRecall",
-    "difficulty": "medium",
-    "cognitiveLoad": "low",
-    "tags": ["grammar_topic", "specific_concept"],
-    "passage": "Full poem/passage text (only for passage comprehension questions)"
-  }
-]
+OUTPUT FORMAT (JSON Schema):
 
-REMEMBER: All generated content (questions, options, explanations) MUST be in Devanagari script (Hindi) ONLY.
+CRITICAL: Return ONLY valid JSON. No markdown, no code blocks, no explanation text.
+ALL CONTENT MUST BE IN DEVANAGARI (HINDI) - No English or Roman transliteration.
+
+\`\`\`json
+{
+  "questions": [
+    {
+      "questionText": "प्रश्न पाठ देवनागरी में (केवल हिंदी)",
+      "options": {
+        "A": "विकल्प A देवनागरी में",
+        "B": "विकल्प B देवनागरी में",
+        "C": "विकल्प C देवनागरी में",
+        "D": "विकल्प D देवनागरी में"
+      },
+      "correctAnswer": "A",
+      "explanation": "व्याख्या देवनागरी में (हिंदी में)",
+      "archetype": "directRecall",
+      "difficulty": "medium",
+      "cognitiveLoad": "low",
+      "tags": ["vyakaran", "visheshan"]
+    },
+    {
+      "questionText": "निम्नलिखित पद्यांश के आधार पर प्रश्न का उत्तर दीजिए:",
+      "options": {
+        "A": "विकल्प A",
+        "B": "विकल्प B",
+        "C": "विकल्प C",
+        "D": "विकल्प D"
+      },
+      "correctAnswer": "C",
+      "explanation": "व्याख्या",
+      "archetype": "passageComprehension",
+      "difficulty": "medium",
+      "cognitiveLoad": "high",
+      "tags": ["sahitya", "kavya"],
+      "passage": "कोई न कोई पद्यांश यहाँ आएगा (पूर्ण पद्यांश देवनागरी में)"
+    }
+  ]
+}
+\`\`\`
+
+IMPORTANT NOTES:
+1. The "passage" field should ONLY be included for questions with archetype "passageComprehension"
+2. When multiple questions share the same passage/poem, include the full text in EACH question
+3. All passages must be in Devanagari script (Hindi only)
+4. Return pure JSON wrapped in {"questions": [...]} structure
+5. Use "questionText" field name (not "question")
+6. ALL content (questions, options, explanations, passages) MUST be in Devanagari (Hindi) ONLY
+
 Generate questions now.`
 }
 
@@ -387,8 +416,7 @@ export const reetMainsLevel2HindiProtocol: Protocol = {
     (questions: Question[]) => {
       const errors: string[] = []
       questions.forEach((q, idx) => {
-        const qWithPassage = q as any
-        if (q.archetype === 'passageComprehension' && (!qWithPassage.passage || qWithPassage.passage.trim().length < 50)) {
+        if (q.archetype === 'passageComprehension' && (!q.passage || q.passage.trim().length < 50)) {
           errors.push(`Question ${idx + 1}: Passage comprehension must include full passage text (Devanagari)`)
         }
       })

@@ -329,26 +329,54 @@ FORMATTING REQUIREMENTS:
 PROHIBITIONS:
 ${config.prohibitions.map((p: string) => `- ${p}`).join('\n')}
 
-OUTPUT FORMAT:
-Return a JSON array of question objects with this structure:
-[
-  {
-    "question": "Question text here",
-    "options": {
-      "A": "Option A text",
-      "B": "Option B text",
-      "C": "Option C text",
-      "D": "Option D text"
+OUTPUT FORMAT (JSON Schema):
+
+CRITICAL: Return ONLY valid JSON. No markdown, no code blocks, no explanation text.
+
+\`\`\`json
+{
+  "questions": [
+    {
+      "questionText": "Question text here",
+      "options": {
+        "A": "Option A text",
+        "B": "Option B text",
+        "C": "Option C text",
+        "D": "Option D text"
+      },
+      "correctAnswer": "A",
+      "explanation": "Why this answer is correct",
+      "archetype": "grammarApplication",
+      "difficulty": "medium",
+      "cognitiveLoad": "medium",
+      "tags": ["grammar", "tenses"]
     },
-    "correctAnswer": "A",
-    "explanation": "Why this answer is correct",
-    "archetype": "grammarApplication",
-    "difficulty": "medium",
-    "cognitiveLoad": "medium",
-    "tags": ["grammar", "tenses"],
-    "passage": "Full passage text (only for passage comprehension questions)"
-  }
-]
+    {
+      "questionText": "According to the passage, reading is described primarily as:",
+      "options": {
+        "A": "A simple visual exercise",
+        "B": "A mechanism for decoding ink marks",
+        "C": "A complex cognitive process",
+        "D": "A cultural tradition only"
+      },
+      "correctAnswer": "C",
+      "explanation": "The first sentence explicitly states that reading 'is a complex cognitive process'.",
+      "archetype": "passageComprehension",
+      "difficulty": "medium",
+      "cognitiveLoad": "high",
+      "tags": ["comprehension", "inference"],
+      "passage": "Reading is not just a mechanism of decoding symbols; it is a complex cognitive process. When we read, our brains translate visual information into meaning, connecting new ideas with existing knowledge. This interaction transforms simple ink marks into vivid worlds, profound emotions, and rigorous arguments. Therefore, a decline in reading habits among youth is not merely a cultural loss but a potential cognitive deficit."
+    }
+  ]
+}
+\`\`\`
+
+IMPORTANT NOTES:
+1. The "passage" field should ONLY be included for questions with archetype "passageComprehension"
+2. When multiple questions share the same passage, include the full passage text in EACH question
+3. All passages must be 100-250 words (or 10-30 lines for poems)
+4. Return pure JSON wrapped in {"questions": [...]} structure
+5. Use "questionText" field name (not "question")
 
 Generate questions now.`
 }
@@ -479,8 +507,7 @@ export const reetMainsLevel2EnglishProtocol: Protocol = {
     (questions: Question[]) => {
       const errors: string[] = []
       questions.forEach((q, idx) => {
-        const qWithPassage = q as any
-        if (q.archetype === 'passageComprehension' && (!qWithPassage.passage || qWithPassage.passage.trim().length < 50)) {
+        if (q.archetype === 'passageComprehension' && (!q.passage || q.passage.trim().length < 50)) {
           errors.push(`Question ${idx + 1}: Passage comprehension must include full passage text`)
         }
       })

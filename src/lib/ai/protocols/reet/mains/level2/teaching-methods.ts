@@ -215,22 +215,49 @@ FORMATTING:
 3. One unambiguously correct answer
 4. For negative phrasing: 3 TRUE statements + 1 FALSE statement
 
-OUTPUT FORMAT:
+OUTPUT FORMAT (JSON Schema):
+
+CRITICAL: Return ONLY valid JSON. No markdown, no code blocks, no explanation text.
+${isHindi ? 'ALL CONTENT MUST BE IN DEVANAGARI (HINDI) - No English or Roman transliteration.' : ''}
+
+\`\`\`json
 {
-  "question": "${isHindi ? '[प्रश्न पाठ]' : '[Question text]'}",
-  "options": {
-    "A": "${isHindi ? '[विकल्प]' : '[Option]'}",
-    "B": "${isHindi ? '[विकल्प]' : '[Option]'}",
-    "C": "${isHindi ? '[विकल्प]' : '[Option]'}",
-    "D": "${isHindi ? '[विकल्प]' : '[Option]'}"
-  },
-  "correctAnswer": "${isHindi ? '[सही उत्तर: A/B/C/D]' : '[Correct answer: A/B/C/D]'}",
-  "explanation": "${isHindi ? '[स्पष्टीकरण]' : '[Explanation]'}",
-  "archetype": "[exceptionNegative/directRecall/theoryAttribution/classificatory]",
-  "difficulty": "medium",
-  "cognitiveLoad": "[low/medium]",
-  "tags": ["teaching-methods"]
+  "questions": [
+    {
+      "questionText": "${isHindi ? 'प्रश्न पाठ देवनागरी में (केवल हिंदी)' : 'Question text here'}",
+      "options": {
+        "A": "${isHindi ? 'विकल्प A देवनागरी में' : 'Option A text'}",
+        "B": "${isHindi ? 'विकल्प B देवनागरी में' : 'Option B text'}",
+        "C": "${isHindi ? 'विकल्प C देवनागरी में' : 'Option C text'}",
+        "D": "${isHindi ? 'विकल्प D देवनागरी में' : 'Option D text'}"
+      },
+      "correctAnswer": "A",
+      "explanation": "${isHindi ? 'व्याख्या देवनागरी में (हिंदी में)' : 'Why this answer is correct'}",
+      "archetype": "exceptionNegative",
+      "difficulty": "medium",
+      "cognitiveLoad": "medium",
+      "tags": ["teaching-methods"]
+    }
+  ]
 }
+\`\`\`
+
+CRITICAL FORMATTING RULES:
+1. ✅ MUST wrap questions in { "questions": [...] } object
+2. ✅ Field name is "questionText" (NOT "question")
+3. ✅ correctAnswer is ONLY the letter: "A", "B", "C", or "D" (NO brackets, NO text like "[Correct answer: A]")
+4. ✅ All option keys must be exactly: "A", "B", "C", "D"
+5. ✅ archetype must be one of: exceptionNegative, directRecall, theoryAttribution, classificatory
+6. ✅ cognitiveLoad must be: "low" or "medium"
+${isHindi ? '7. ✅ ALL text content (questionText, options, explanation) MUST be in Devanagari script ONLY' : ''}
+
+VALIDATION CHECKLIST (before submitting):
+□ Response starts with { "questions": [ and ends with ] }
+□ Every question uses "questionText" field (not "question")
+□ Every correctAnswer is just a single letter: "A", "B", "C", or "D"
+□ No markdown code blocks (\`\`\`json) in the actual response
+□ No explanatory text outside the JSON structure
+${isHindi ? '□ All content is in Devanagari (Hindi) script' : ''}
 
 Generate questions now.`
 }
@@ -324,6 +351,41 @@ export const reetMainsLevel2EnglishTeachingMethodsProtocol: Protocol = {
         const optionKeys = Object.keys(q.options)
         if (optionKeys.length !== 4 || !optionKeys.every(key => ['A', 'B', 'C', 'D'].includes(key))) {
           errors.push(`Question ${idx + 1}: Must have exactly 4 options (A, B, C, D)`)
+        }
+      })
+      return errors
+    },
+
+    // Validate questionText field exists (not "question")
+    (questions: Question[]) => {
+      const errors: string[] = []
+      questions.forEach((q, idx) => {
+        if (!q.questionText || typeof q.questionText !== 'string' || q.questionText.trim().length === 0) {
+          errors.push(`Question ${idx + 1}: Missing or invalid "questionText" field`)
+        }
+      })
+      return errors
+    },
+
+    // Validate correctAnswer is single letter (A/B/C/D)
+    (questions: Question[]) => {
+      const errors: string[] = []
+      const validAnswers = ['A', 'B', 'C', 'D']
+      questions.forEach((q, idx) => {
+        if (!validAnswers.includes(q.correctAnswer)) {
+          errors.push(`Question ${idx + 1}: correctAnswer must be exactly "A", "B", "C", or "D" (got: "${q.correctAnswer}")`)
+        }
+      })
+      return errors
+    },
+
+    // Validate archetype is valid for teaching methods
+    (questions: Question[]) => {
+      const errors: string[] = []
+      const validArchetypes = ['exceptionNegative', 'directRecall', 'theoryAttribution', 'classificatory']
+      questions.forEach((q, idx) => {
+        if (!validArchetypes.includes(q.archetype)) {
+          errors.push(`Question ${idx + 1}: archetype must be one of: ${validArchetypes.join(', ')} (got: "${q.archetype}")`)
         }
       })
       return errors
@@ -430,6 +492,41 @@ export const reetMainsLevel2HindiTeachingMethodsProtocol: Protocol = {
         const optionKeys = Object.keys(q.options)
         if (optionKeys.length !== 4 || !optionKeys.every(key => ['A', 'B', 'C', 'D'].includes(key))) {
           errors.push(`Question ${idx + 1}: Must have exactly 4 options (A, B, C, D)`)
+        }
+      })
+      return errors
+    },
+
+    // Validate questionText field exists (not "question")
+    (questions: Question[]) => {
+      const errors: string[] = []
+      questions.forEach((q, idx) => {
+        if (!q.questionText || typeof q.questionText !== 'string' || q.questionText.trim().length === 0) {
+          errors.push(`Question ${idx + 1}: Missing or invalid "questionText" field`)
+        }
+      })
+      return errors
+    },
+
+    // Validate correctAnswer is single letter (A/B/C/D)
+    (questions: Question[]) => {
+      const errors: string[] = []
+      const validAnswers = ['A', 'B', 'C', 'D']
+      questions.forEach((q, idx) => {
+        if (!validAnswers.includes(q.correctAnswer)) {
+          errors.push(`Question ${idx + 1}: correctAnswer must be exactly "A", "B", "C", or "D" (got: "${q.correctAnswer}")`)
+        }
+      })
+      return errors
+    },
+
+    // Validate archetype is valid for teaching methods
+    (questions: Question[]) => {
+      const errors: string[] = []
+      const validArchetypes = ['exceptionNegative', 'directRecall', 'theoryAttribution', 'classificatory']
+      questions.forEach((q, idx) => {
+        if (!validArchetypes.includes(q.archetype)) {
+          errors.push(`Question ${idx + 1}: archetype must be one of: ${validArchetypes.join(', ')} (got: "${q.archetype}")`)
         }
       })
       return errors

@@ -21,6 +21,12 @@ export async function GET(
   try {
     const paperId = (await params).id
 
+    // Extract section_id from query parameters (for section-isolated review)
+    const url = new URL(request.url)
+    const sectionId = url.searchParams.get('section_id')
+
+    console.log('[GET_QUESTIONS] Request params:', { paperId, sectionId })
+
     // Validate authorization header
     const authHeader = request.headers.get('Authorization')
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -76,7 +82,7 @@ export async function GET(
     console.log('[GET_QUESTIONS] Paper found:', paper.title, 'status:', paper.status, 'has_sections:', hasSections)
 
     // Fetch all questions for this paper with chapter and section details
-    const { data: questions, error: questionsError } = await supabase
+    let questionsQuery = supabase
       .from('questions')
       .select(`
         id,
@@ -101,6 +107,14 @@ export async function GET(
         )
       `)
       .eq('paper_id', paperId)
+
+    // Filter by section_id if provided (section-isolated review)
+    if (sectionId) {
+      questionsQuery = questionsQuery.eq('section_id', sectionId)
+      console.log('[GET_QUESTIONS] Filtering questions by section_id:', sectionId)
+    }
+
+    const { data: questions, error: questionsError } = await questionsQuery
       .order('question_order', { ascending: true })
 
     if (questionsError) {
@@ -142,32 +156,9 @@ export async function GET(
       }
     }) || []
 
-    // Calculate selection statistics
-    const selectedCount = parsedQuestions.filter(q => q.is_selected).length
-    const totalGenerated = parsedQuestions.length
-
-    // Calculate target count based on paper type
-    let targetCount = paper.question_count || 30
-
-    // For template-based papers, calculate actual question count from sections
-    if (hasSections) {
-      const { data: sections, error: sectionsError } = await supabase
-        .from('test_paper_sections')
-        .select('question_count')
-        .eq('paper_id', paperId)
-
-      if (!sectionsError && sections && sections.length > 0) {
-        // Sum up actual questions from all sections (question_count is the actual count)
-        targetCount = sections.reduce((total, section) => {
-          return total + section.question_count
-        }, 0)
-
-        console.log('[GET_QUESTIONS] Template-based paper: calculated target from sections:', targetCount)
-      }
-    }
-
-    // Fetch section statuses for multi-section papers
+    // Fetch section data for multi-section papers (needed for validation and statistics)
     let sectionsData = null
+    let currentSection = null
     if (hasSections) {
       const { data: sections, error: sectionsError } = await supabase
         .from('test_paper_sections')
@@ -177,7 +168,39 @@ export async function GET(
 
       if (!sectionsError && sections) {
         sectionsData = sections
+
+        // If section_id provided, validate and get current section
+        if (sectionId) {
+          currentSection = sections.find(s => s.id === sectionId)
+          if (!currentSection) {
+            return NextResponse.json(
+              { error: 'Section not found or does not belong to this paper' },
+              { status: 404 }
+            )
+          }
+          console.log('[GET_QUESTIONS] Current section:', currentSection.section_name)
+        }
       }
+    }
+
+    // Calculate selection statistics
+    const selectedCount = parsedQuestions.filter(q => q.is_selected).length
+    const totalGenerated = parsedQuestions.length
+
+    // Calculate target count based on paper type and scope
+    let targetCount = paper.question_count || 30
+
+    // For section-specific view, use that section's target count
+    if (sectionId && currentSection) {
+      targetCount = currentSection.question_count
+      console.log('[GET_QUESTIONS] Section-specific target count:', targetCount)
+    }
+    // For multi-section papers (all sections view), sum up all section targets
+    else if (hasSections && sectionsData) {
+      targetCount = sectionsData.reduce((total, section) => {
+        return total + section.question_count
+      }, 0)
+      console.log('[GET_QUESTIONS] Template-based paper: calculated target from sections:', targetCount)
     }
 
     return NextResponse.json({
@@ -193,7 +216,8 @@ export async function GET(
         has_sections: hasSections,
       },
       questions: parsedQuestions,
-      sections: sectionsData, // NEW: Section data with statuses
+      sections: sectionsData, // Section data with statuses
+      current_section: currentSection, // Current section being viewed (if section_id provided)
       statistics: {
         total_generated: totalGenerated,
         selected_count: selectedCount,

@@ -197,6 +197,55 @@ Focus on these key areas for Information Technology (10 marks, Common Section):
 
 ---
 
+## STRUCTURAL FORM TEMPLATES (Use Exact Formats)
+
+### Match-the-Following Template:
+**FROZEN RULE**: The questionText field MUST contain the COMPLETE matrix showing Column I and Column II items, followed by the exact ending phrase.
+
+Display Format (what students see):
+\`\`\`
+Match Column I with Column II:
+
+Column I                          Column II
+A. [IT Concept 1]                 I. [Description/Technology 1]
+B. [IT Concept 2]                 II. [Description/Technology 2]
+C. [IT Concept 3]                 III. [Description/Technology 3]
+D. [IT Concept 4]                 IV. [Description/Technology 4]
+
+Choose the correct answer from the options given below:
+(1) A-III, B-I, C-IV, D-II
+(2) A-I, B-II, C-III, D-IV
+(3) A-II, B-IV, C-I, D-III
+(4) A-IV, B-III, C-II, D-I
+\`\`\`
+
+**CRITICAL**: Put the ENTIRE matrix (Column I, Column II, all A-D and I-IV items) INSIDE questionText. Options field ONLY contains coded combinations like "A-III, B-I, C-IV, D-II".
+
+Example Match Question for IT:
+\`\`\`
+Match Column I with Column II:
+
+Column I (Computer Generation)    Column II (Underlying Technology)
+A. First Generation               I. Integrated Circuits
+B. Second Generation              II. Vacuum Tubes
+C. Third Generation               III. VLSI
+D. Fourth Generation              IV. Transistors
+
+Choose the correct answer from the options given below:
+(1) A-II, B-IV, C-I, D-III
+(2) A-I, B-II, C-III, D-IV
+(3) A-IV, B-I, C-II, D-III
+(4) A-III, B-IV, C-I, D-II
+\`\`\`
+
+**JSON Structure for Match Questions**:
+- **questionText**: Contains the COMPLETE matrix with Column I items (A-D), Column II items (I-IV), and ending phrase
+- **options**: Contains ONLY coded answer combinations like "(1)": "A-II, B-IV, C-I, D-III"
+- **correctAnswer**: One of the coded options, e.g., "(1)"
+- **structuralForm**: "matchFollowing"
+
+---
+
 ## COGNITIVE LOAD SEQUENCING
 
 - **First ${config.cognitiveLoad.warmupCount} questions**: WARM-UP ZONE - Use low-density, Direct Recall only (short stems, simple IT concepts)
@@ -298,6 +347,21 @@ Generate ${questionCount} questions now following ALL rules above.
 2. Return ONLY valid JSON - no explanations, no comments, no text before/after
 3. Follow the exact JSON format shown in the examples above - COPY the structure exactly
 4. **NEVER reference sources in questions** - No "according to study material", "as per the notes", etc. Write questions as direct, authoritative statements like a real REET Mains exam
+
+**FOR MATCH-THE-FOLLOWING QUESTIONS** (${structuralCounts.matchFollowing || 0} required):
+- Only generate if count > 0
+- Put the COMPLETE matrix (Column I items A-D, Column II items I-IV) in questionText
+- End questionText with: "Choose the correct answer from the options given below:"
+- Put ONLY coded combinations (e.g., "A-III, B-I, C-IV, D-II") in options
+- If you omit the matrix or ending phrase, the question will be rejected
+
+Example IT Match Question topics:
+- Computer Generations with Underlying Technologies
+- Input/Output Devices with their Primary Functions
+- MS Office Tools with their Main Uses
+- Network Protocols with their Purposes
+- Storage Devices with their Storage Capacities
+- Programming Languages with their Application Domains
 
 **JSON OUTPUT**:
 - Do NOT wrap JSON in markdown code blocks (\`\`\`json)

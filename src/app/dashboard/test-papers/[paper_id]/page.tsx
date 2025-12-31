@@ -150,7 +150,8 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
         router.push(`/dashboard/test-papers/${paperId}/section/${sectionId}/generate`)
         break
       case 'view':
-        router.push(`/dashboard/test-papers/${paperId}/review`)
+        // Navigate to review page with section_id for isolated section review
+        router.push(`/dashboard/test-papers/${paperId}/review?section_id=${sectionId}`)
         break
     }
   }
@@ -345,14 +346,12 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
               </Button>
             )}
             {paper.status === 'finalized' && paper.pdf_url && (
-              <a
-                href={paper.pdf_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-4 py-2 bg-brand-saffron text-white rounded-lg font-medium hover:bg-brand-saffron/90 transition-colors"
+              <Button
+                onClick={() => router.push(`/dashboard/test-papers/${paperId}/pdf`)}
+                className="px-6 py-2 bg-brand-saffron text-white rounded-lg font-medium hover:bg-brand-saffron/90 transition-colors"
               >
                 View PDF
-              </a>
+              </Button>
             )}
           </div>
         </div>
