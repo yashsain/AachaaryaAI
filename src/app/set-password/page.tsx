@@ -115,16 +115,15 @@ function SetPasswordContent() {
         }
 
         try {
-          // Manually set session using main PKCE client
-          // Key insight: setSession() is flow-agnostic and works with tokens from ANY source
-          // The PKCE client can accept implicit flow tokens via setSession()
-          console.log('[SetPassword] Setting session manually with tokens from hash...')
+          // Set session using tokens from invitation link
+          // StateManager will handle JWT claims waiting and teacher fetch automatically
+          console.log('[SetPassword] Setting session with tokens from hash...')
           const { data, error: sessionError } = await supabase.auth.setSession({
             access_token: tokens.access_token!,
             refresh_token: tokens.refresh_token!
           })
 
-          console.log('[SetPassword] setSession completed', { hasError: !!sessionError, hasSession: !!data?.session, data, error: sessionError })
+          console.log('[SetPassword] setSession completed', { hasError: !!sessionError, hasSession: !!data?.session })
 
           if (sessionError) {
             console.error('[SetPassword] Error setting session:', sessionError)
@@ -142,33 +141,17 @@ function SetPasswordContent() {
 
           console.log('[SetPassword] Session established successfully:', data.session.user.email)
 
-          // CRITICAL: Refresh session to get fresh JWT with custom claims
-          // Why: inviteUserByEmail() generates tokens BEFORE teacher record exists
-          // So initial JWT lacks custom claims (institute_id, app_role, name)
-          // Refreshing now (after teacher record exists) re-triggers JWT hook
-          // This ensures RLS policies work correctly when AuthContext fetches teacher
-          console.log('[SetPassword] Refreshing session to get JWT with custom claims...')
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+          // Session established! StateManager will automatically:
+          // 1. Receive SIGNED_IN event from onAuthStateChange
+          // 2. Queue teacher fetch for async processing
+          // 3. Wait for JWT claims via ensureJWTReady()
+          // 4. Fetch teacher without RLS hang
+          // No manual refresh needed - event queue prevents deadlock!
 
-          if (refreshError) {
-            console.error('[SetPassword] Error refreshing session:', refreshError)
-            setError('Failed to complete authentication. Please try the invitation link again.')
-            setSessionReady(true)
-            return
-          }
-
-          if (!refreshData.session) {
-            console.error('[SetPassword] No session after refresh')
-            setError('Failed to complete authentication. Please try the invitation link again.')
-            setSessionReady(true)
-            return
-          }
-
-          console.log('[SetPassword] Session refreshed successfully with claims')
           setSessionReady(true)
           setError('')
 
-          // Clear hash from URL for cleaner UX (optional)
+          // Clear hash from URL for cleaner UX
           window.history.replaceState(null, '', window.location.pathname + window.location.search)
         } catch (err) {
           console.error('[SetPassword] Unexpected error setting session:', err)

@@ -20,7 +20,7 @@ import type { Institute } from '@/types/database'
 export default function LoginPage() {
   const supabase = createBrowserClient()
   const router = useRouter()
-  const { user, loading: authLoading } = useSession()
+  const { user, teacher, loading: authLoading, teacherLoading } = useSession()
 
   // Check for invitation token in URL hash (in case Site URL is set to /login)
   useEffect(() => {
@@ -32,12 +32,14 @@ export default function LoginPage() {
   }, [])
 
   // Redirect authenticated users to dashboard
+  // FIX: Wait for COMPLETE auth data (session + teacher + institute) before redirecting
+  // Prevents "Missing data" errors on dashboard from premature navigation
   useEffect(() => {
-    if (!authLoading && user) {
-      console.log('[LoginPage] User already authenticated, redirecting to dashboard')
+    if (!authLoading && !teacherLoading && user && teacher) {
+      console.log('[LoginPage] Auth complete (user + teacher loaded), redirecting to dashboard')
       router.push('/dashboard')
     }
-  }, [authLoading, user, router])
+  }, [authLoading, teacherLoading, user, teacher, router])
 
   // Flow control
   const [step, setStep] = useState<'code' | 'login'>('code')
@@ -165,7 +167,8 @@ export default function LoginPage() {
 
   // Show loading state while checking authentication
   // Prevents flash of login form before redirect
-  if (authLoading) {
+  // FIX: Also check teacherLoading to prevent flash during teacher data fetch
+  if (authLoading || (user && teacherLoading)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-neutral-50 via-white to-blue-50">
         <div className="text-center">

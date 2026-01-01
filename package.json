@@ -20,6 +20,7 @@
     "@tailwindcss/postcss": "^4.1.18",
     "@tailwindcss/typography": "^0.5.19",
     "ai": "^5.0.99",
+    "jwt-decode": "^4.0.0",
     "katex": "^0.16.27",
     "next": "^16.0.0",
     "react": "^19.2.0",
