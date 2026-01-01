@@ -57,7 +57,7 @@ interface Template {
 export default function TemplatePapersPage({ params }: TemplatePapersPageProps) {
   const resolvedParams = use(params)
   const templateId = resolvedParams.template_id
-  const { session } = useRequireSession()
+  const { session, loading, teacherLoading } = useRequireSession()
   const router = useRouter()
 
   const [template, setTemplate] = useState<Template | null>(null)
@@ -68,16 +68,18 @@ export default function TemplatePapersPage({ params }: TemplatePapersPageProps) 
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    fetchTemplate()
-    fetchPapers()
-  }, [templateId])
+    // Only fetch when auth is fully loaded
+    // Prevents race condition with useRequireSession redirect logic
+    if (session && !loading && !teacherLoading) {
+      fetchTemplate()
+      fetchPapers()
+    }
+  }, [session, loading, teacherLoading, templateId])
 
   const fetchTemplate = async () => {
     try {
-      if (!session) {
-        router.push('/auth/login')
-        return
-      }
+      // Session is guaranteed to exist here due to useEffect guard above
+      // No need for manual redirect - useRequireSession handles it
 
       const response = await fetch(`/api/paper-templates/${templateId}`, {
         headers: {
@@ -100,10 +102,9 @@ export default function TemplatePapersPage({ params }: TemplatePapersPageProps) 
   const fetchPapers = async () => {
     try {
       setIsLoading(true)
-      if (!session) {
-        router.push('/auth/login')
-        return
-      }
+
+      // Session is guaranteed to exist here due to useEffect guard above
+      // No need for manual redirect - useRequireSession handles it
 
       // Build query parameters
       const params = new URLSearchParams()

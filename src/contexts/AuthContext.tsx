@@ -42,6 +42,9 @@ interface AuthContextType {
   teacher: Teacher | null
   institute: Institute | null
 
+  // State machine status
+  status: 'INITIALIZING' | 'LOADING' | 'AUTHENTICATED' | 'UNAUTHENTICATED' | 'ERROR'
+
   // Loading states
   loading: boolean
   teacherLoading: boolean
@@ -112,6 +115,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session: authState.session,
       teacher: authState.teacher,
       institute: authState.institute,
+
+      // State machine status
+      status: authState.status,
 
       // Loading states
       loading: isLoading,

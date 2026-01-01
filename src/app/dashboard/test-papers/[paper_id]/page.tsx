@@ -51,7 +51,7 @@ interface Paper {
 export default function PaperDashboardPage({ params }: PaperDashboardProps) {
   const resolvedParams = use(params)
   const paperId = resolvedParams.paper_id
-  const { session } = useRequireSession()
+  const { session, loading, teacherLoading } = useRequireSession()
   const router = useRouter()
   const supabase = createBrowserClient()
 
@@ -61,16 +61,19 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchPaperData()
-  }, [paperId])
+    // Only fetch when auth is fully loaded
+    // Prevents race condition with useRequireSession redirect logic
+    if (session && !loading && !teacherLoading) {
+      fetchPaperData()
+    }
+  }, [session, loading, teacherLoading, paperId])
 
   const fetchPaperData = async () => {
     try {
       setIsLoading(true)
-      if (!session) {
-        router.push('/auth/login')
-        return
-      }
+
+      // Session is guaranteed to exist here due to useEffect guard above
+      // No need for manual redirect - useRequireSession handles it
 
       // Fetch paper details
       const { data: paperData, error: paperError } = await supabase
@@ -177,11 +180,7 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
     try {
       setGeneratingPDF(true)
 
-      if (!session) {
-        router.push('/auth/login')
-        return
-      }
-
+      // Session is guaranteed to exist here - useRequireSession handles auth
       console.log('[GENERATE_FINAL_PDF] Step 1: Finalizing paper...')
 
       // Step 1: Finalize paper (validates all sections are finalized)

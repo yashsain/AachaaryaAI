@@ -41,7 +41,7 @@ export default function SectionChaptersPage({ params }: SectionChaptersPageProps
   const resolvedParams = use(params)
   const paperId = resolvedParams.paper_id
   const sectionId = resolvedParams.section_id
-  const { session } = useRequireSession()
+  const { session, loading, teacherLoading } = useRequireSession()
   const router = useRouter()
 
   const [section, setSection] = useState<SectionDetails | null>(null)
@@ -52,16 +52,19 @@ export default function SectionChaptersPage({ params }: SectionChaptersPageProps
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchSectionDetails()
-  }, [sectionId])
+    // Only fetch when auth is fully loaded
+    // Prevents race condition with useRequireSession redirect logic
+    if (session && !loading && !teacherLoading) {
+      fetchSectionDetails()
+    }
+  }, [session, loading, teacherLoading, sectionId])
 
   const fetchSectionDetails = async () => {
     try {
       setIsLoading(true)
-      if (!session) {
-        router.push('/auth/login')
-        return
-      }
+
+      // Session is guaranteed to exist here due to useEffect guard above
+      // No need for manual redirect - useRequireSession handles it
 
       const response = await fetch(`/api/test-papers/${paperId}/sections/${sectionId}`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` }

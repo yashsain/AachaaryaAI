@@ -183,10 +183,19 @@ export function useSession(options: UseSessionOptions = {}): SessionResult {
 
   // Derive authentication state
   const isAuthenticated = !!auth.session
-  const isAdmin = auth.session?.user?.app_metadata?.role === 'admin'
+  // FIX: Check role from teacher record (loaded from database), not app_metadata
+  // The role is stored in the teachers table, not in Supabase auth metadata
+  const isAdmin = auth.teacher?.role === 'admin'
 
   // Handle required authentication
   useEffect(() => {
+    // WAIT for state machine to reach terminal state
+    // Prevents race condition during INITIALIZING → LOADING → AUTHENTICATED transitions
+    // This ensures redirects only happen when auth state is definitively determined
+    if (auth.status !== 'AUTHENTICATED' && auth.status !== 'UNAUTHENTICATED') {
+      return  // Don't redirect during state transitions
+    }
+
     // Don't redirect while still loading
     if (auth.loading || auth.teacherLoading) {
       return
@@ -211,6 +220,7 @@ export function useSession(options: UseSessionOptions = {}): SessionResult {
       return
     }
   }, [
+    auth.status,  // Added to prevent race conditions
     auth.loading,
     auth.teacherLoading,
     isAuthenticated,

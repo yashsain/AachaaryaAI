@@ -72,7 +72,7 @@ interface MaterialType {
 export default function CreatePaperFromTemplatePage({ params }: CreatePaperPageProps) {
   const resolvedParams = use(params)
   const templateId = resolvedParams.template_id
-  const { session } = useRequireSession()
+  const { session, loading, teacherLoading } = useRequireSession()
   const router = useRouter()
 
   // Form state
@@ -93,16 +93,19 @@ export default function CreatePaperFromTemplatePage({ params }: CreatePaperPageP
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    fetchData()
-  }, [templateId])
+    // Only fetch when auth is fully loaded
+    // Prevents race condition with useRequireSession redirect logic
+    if (session && !loading && !teacherLoading) {
+      fetchData()
+    }
+  }, [session, loading, teacherLoading, templateId])
 
   const fetchData = async () => {
     try {
       setIsLoading(true)
-      if (!session) {
-        router.push('/auth/login')
-        return
-      }
+
+      // Session is guaranteed to exist here due to useEffect guard above
+      // No need for manual redirect - useRequireSession handles it
 
       // Fetch template
       const templateResponse = await fetch(`/api/paper-templates/${templateId}`, {

@@ -13,7 +13,6 @@ import { useRequireSession } from '@/hooks/useSession'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createBrowserClient } from '@/lib/supabase/client'
-import { supabaseAdmin } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/MultiSelect'
@@ -89,17 +88,19 @@ export default function UploadMaterialPage() {
         return
       }
 
-      // Query subject directly to get stream_id
-      const { data: subjectData, error: subjectError } = await supabaseAdmin
-        .from('subjects')
-        .select('id, name, stream_id')
-        .eq('id', subject_id)
-        .single()
+      // Fetch subject via API to get stream_id
+      // FIX: Using API endpoint instead of direct supabaseAdmin query (client-side security)
+      const subjectResponse = await fetch(`/api/subjects/${subject_id}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      })
 
-      if (subjectError || !subjectData) {
+      if (!subjectResponse.ok) {
         throw new Error('Failed to fetch subject')
       }
 
+      const { subject: subjectData } = await subjectResponse.json()
       const subjectStreamId = subjectData.stream_id
 
       if (!subjectStreamId) {
