@@ -9,10 +9,11 @@
  * - Redirects to materials browse after success
  */
 
-import { useRequireAuth } from '@/contexts/AuthContext'
+import { useRequireSession } from '@/hooks/useSession'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { supabase, supabaseAdmin } from '@/lib/supabase'
+import { createBrowserClient } from '@/lib/supabase/client'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/MultiSelect'
@@ -43,7 +44,8 @@ interface Class {
 }
 
 export default function UploadMaterialPage() {
-  const { teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireAuth()
+  const supabase = createBrowserClient()
+  const { session, teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireSession()
   const router = useRouter()
   const params = useParams()
   const searchParams = useSearchParams()
@@ -82,7 +84,6 @@ export default function UploadMaterialPage() {
     try {
       setLoadingData(true)
 
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         setUploadError('Session expired. Please sign in again.')
         return
@@ -237,7 +238,6 @@ export default function UploadMaterialPage() {
       setUploadError(null)
       setUploadProgress(0)
 
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         setUploadError('Session expired. Please sign in again.')
         return

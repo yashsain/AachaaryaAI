@@ -8,12 +8,12 @@
  * No edit functionality (edit button is on papers list)
  */
 
-import { useRequireAuth } from '@/contexts/AuthContext'
+import { useRequireSession } from '@/hooks/useSession'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
+import { createBrowserClient } from '@/lib/supabase/client'
 
 interface PaperInfo {
   id: string
@@ -29,10 +29,11 @@ interface SignedUrlResponse {
 }
 
 export default function PDFViewerPage() {
-  const { teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireAuth()
+  const { session, teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireSession()
   const router = useRouter()
   const params = useParams()
   const paper_id = params.paper_id as string
+  const supabase = createBrowserClient()
 
   const [paper, setPaper] = useState<PaperInfo | null>(null)
   const [signedPdfUrl, setSignedPdfUrl] = useState<string | null>(null)
@@ -49,7 +50,6 @@ export default function PDFViewerPage() {
     try {
       setLoadingData(true)
 
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         setPageError('Session expired. Please sign in again.')
         return

@@ -5,7 +5,7 @@
  * Groups materials by chapter for badge-by-badge processing
  */
 
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { Material } from '@/types/database'
 
 export interface MaterialWithChapter {

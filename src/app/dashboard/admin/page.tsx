@@ -1,6 +1,6 @@
 'use client'
 
-import { useRequireAdmin } from '@/contexts/AuthContext'
+import { useRequireAdmin } from '@/hooks/useSession'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { AuthLoadingState } from '@/components/auth/AuthLoadingState'

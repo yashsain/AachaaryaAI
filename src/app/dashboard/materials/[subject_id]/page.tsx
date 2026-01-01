@@ -11,10 +11,9 @@
  * - Role-based access control enforced
  */
 
-import { useRequireAuth } from '@/contexts/AuthContext'
+import { useRequireSession } from '@/hooks/useSession'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { ChapterSection } from '@/components/chapters/ChapterSection'
@@ -44,7 +43,7 @@ interface Subject {
 }
 
 export default function MaterialsBrowsePage() {
-  const { teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireAuth()
+  const { session, teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireSession()
   const router = useRouter()
   const params = useParams()
   const subject_id = params.subject_id as string
@@ -66,7 +65,7 @@ export default function MaterialsBrowsePage() {
 
   const fetchSubjectInfo = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      // Using centralized session (no redundant getSession call)
       if (!session) return
 
       const response = await fetch(`/api/subjects/${subject_id}`, {
@@ -89,7 +88,7 @@ export default function MaterialsBrowsePage() {
       setLoadingChapters(true)
       setChaptersError(null)
 
-      const { data: { session } } = await supabase.auth.getSession()
+      // Using centralized session (no redundant getSession call)
       if (!session) {
         setChaptersError('Session expired. Please sign in again.')
         return
@@ -118,7 +117,7 @@ export default function MaterialsBrowsePage() {
 
   const checkSubjectCount = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      // Using centralized session (no redundant getSession call)
       if (!session) return
 
       const response = await fetch('/api/subjects', {
@@ -171,6 +170,7 @@ export default function MaterialsBrowsePage() {
         isOpen={isAddChapterModalOpen}
         onClose={() => setIsAddChapterModalOpen(false)}
         subjectId={subject_id}
+        session={session}
         onSuccess={handleChapterCreated}
       />
 

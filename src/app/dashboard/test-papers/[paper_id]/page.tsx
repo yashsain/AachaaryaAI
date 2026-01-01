@@ -12,9 +12,10 @@
 
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { useRequireSession } from '@/hooks/useSession'
 import { SectionTile } from '@/components/ui/SectionTile'
 import { Button } from '@/components/ui/Button'
+import { createBrowserClient } from '@/lib/supabase/client'
 
 interface PaperDashboardProps {
   params: Promise<{
@@ -50,7 +51,9 @@ interface Paper {
 export default function PaperDashboardPage({ params }: PaperDashboardProps) {
   const resolvedParams = use(params)
   const paperId = resolvedParams.paper_id
+  const { session } = useRequireSession()
   const router = useRouter()
+  const supabase = createBrowserClient()
 
   const [paper, setPaper] = useState<Paper | null>(null)
   const [sections, setSections] = useState<Section[]>([])
@@ -64,7 +67,6 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
   const fetchPaperData = async () => {
     try {
       setIsLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         router.push('/auth/login')
         return
@@ -175,7 +177,6 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
     try {
       setGeneratingPDF(true)
 
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         router.push('/auth/login')
         return

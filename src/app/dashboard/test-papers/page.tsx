@@ -8,10 +8,9 @@
  * Streams are filtered by institute via institute_streams table
  */
 
-import { useRequireAuth } from '@/contexts/AuthContext'
+import { useRequireSession } from '@/hooks/useSession'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 
@@ -22,7 +21,7 @@ interface Stream {
 }
 
 export default function TestPapersStreamPickerPage() {
-  const { teacher, institute, loading, teacherLoading, error, retry, clearError, signOut } = useRequireAuth()
+  const { session, teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireSession()
   const router = useRouter()
   const [streams, setStreams] = useState<Stream[]>([])
   const [loadingStreams, setLoadingStreams] = useState(true)
@@ -39,7 +38,6 @@ export default function TestPapersStreamPickerPage() {
       setLoadingStreams(true)
       setStreamsError(null)
 
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         setStreamsError('Session expired. Please sign in again.')
         return

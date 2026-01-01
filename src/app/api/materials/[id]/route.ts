@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase, supabaseAdmin } from '@/lib/supabase'
+import { cookies } from 'next/headers'
+import { createServerClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { deleteFile, extractPathFromUrl, STORAGE_BUCKETS } from '@/lib/storage/storageService'
 
 // Type definitions for Supabase joins
@@ -56,14 +58,9 @@ export async function GET(
 ) {
   try {
     const { id: material_id } = await params
-    // Get session from request header
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    // Get session from cookies
+    const supabase = createServerClient(await cookies())
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
@@ -207,14 +204,9 @@ export async function PATCH(
   try {
     const { id: material_id } = await params
 
-    // Get session from request header
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    // Get session from cookies
+    const supabase = createServerClient(await cookies())
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
@@ -335,14 +327,9 @@ export async function DELETE(
   try {
     const { id: material_id } = await params
 
-    // Get session from request header
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    // Get session from cookies
+    const supabase = createServerClient(await cookies())
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 })

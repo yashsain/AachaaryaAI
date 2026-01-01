@@ -10,7 +10,7 @@
 
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { useRequireSession } from '@/hooks/useSession'
 import { PaperCard } from '@/components/ui/PaperCard'
 import { Button } from '@/components/ui/Button'
 
@@ -57,6 +57,7 @@ interface Template {
 export default function TemplatePapersPage({ params }: TemplatePapersPageProps) {
   const resolvedParams = use(params)
   const templateId = resolvedParams.template_id
+  const { session } = useRequireSession()
   const router = useRouter()
 
   const [template, setTemplate] = useState<Template | null>(null)
@@ -73,7 +74,6 @@ export default function TemplatePapersPage({ params }: TemplatePapersPageProps) 
 
   const fetchTemplate = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         router.push('/auth/login')
         return
@@ -100,7 +100,6 @@ export default function TemplatePapersPage({ params }: TemplatePapersPageProps) 
   const fetchPapers = async () => {
     try {
       setIsLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         router.push('/auth/login')
         return

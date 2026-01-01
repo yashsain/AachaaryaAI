@@ -1,6 +1,6 @@
 'use client'
 
-import { useRequireAdmin } from '@/contexts/AuthContext'
+import { useRequireAdmin } from '@/hooks/useSession'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { TeacherForm } from '@/components/admin/TeacherForm'
@@ -8,7 +8,7 @@ import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { AuthLoadingState } from '@/components/auth/AuthLoadingState'
 
 export default function NewTeacherPage() {
-  const { teacher, institute, loading, teacherLoading, loadingStage, loadingProgress, error: authError, retry, clearError, signOut } = useRequireAdmin()
+  const { session, teacher, institute, loading, teacherLoading, loadingStage, loadingProgress, error: authError, retry, clearError, signOut } = useRequireAdmin()
   const router = useRouter()
 
   const handleSuccess = () => {
@@ -73,6 +73,7 @@ export default function NewTeacherPage() {
 
           <TeacherForm
             mode="create"
+            session={session}
             onSuccess={handleSuccess}
             onCancel={handleCancel}
           />

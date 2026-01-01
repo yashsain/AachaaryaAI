@@ -18,12 +18,15 @@
  */
 
 import { createContext, useContext, useEffect, useState, useMemo, useRef, type ReactNode } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createBrowserClient } from '@/lib/supabase/client'
 import type { User, Session } from '@supabase/supabase-js'
 import type { Teacher, Institute } from '@/types/database'
 import { AuthError, AuthErrorCode, LoadingStage } from '@/lib/auth/types'
 import { AuthErrorService } from '@/lib/auth/errorService'
 import { AuthRetryService } from '@/lib/auth/retryService'
+
+// Create singleton Supabase client
+const supabase = createBrowserClient()
 
 interface AuthContextType {
   // Core auth state
@@ -74,6 +77,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Error state
   const [error, setError] = useState<AuthError | null>(null)
 
+  // Pending auth event: Queues auth state changes to be processed asynchronously
+  // This prevents blocking onAuthStateChange callback with async operations (RLS fix)
+  const [pendingAuthEvent, setPendingAuthEvent] = useState<{
+    event: string
+    userId: string
+    session: Session
+  } | null>(null)
+
   // Request deduplication: Track ongoing teacher fetch requests
   const fetchingTeacherRef = useRef<string | null>(null)
   const fetchTeacherPromiseRef = useRef<Promise<void> | null>(null)
@@ -92,57 +103,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     teacherRef.current = teacher
   }, [teacher])
 
-  // Timeout protection: If loading states get stuck, set error state after 30 seconds
-  // (Longer timeout accounts for retry logic with exponential backoff)
-  useEffect(() => {
-    if (loading || teacherLoading) {
-      console.log('[AuthContext] Loading state active, setting 30s timeout protection')
-
-      // Clear any existing timeout
-      if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current)
-      }
-
-      // Set new timeout
-      loadingTimeoutRef.current = setTimeout(() => {
-        console.error('[AuthContext] TIMEOUT: Loading state stuck for 30s')
-
-        // Create timeout error with proper recovery actions
-        const timeoutError = AuthErrorService.createNetworkTimeoutError(
-          loadingStage || 'authentication',
-          30000
-        )
-
-        AuthErrorService.logError(timeoutError, {
-          loadingStage,
-          user: !!user,
-          teacher: !!teacher,
-          institute: !!institute,
-        })
-
-        // Set error state instead of just clearing loading
-        setError(timeoutError)
-        setLoading(false)
-        setTeacherLoading(false)
-        setLoadingStage(null)
-        setLoadingProgress(0)
-        fetchingTeacherRef.current = null
-        fetchTeacherPromiseRef.current = null
-      }, 30000)
-
-      return () => {
-        if (loadingTimeoutRef.current) {
-          clearTimeout(loadingTimeoutRef.current)
-          loadingTimeoutRef.current = null
-        }
-      }
-    }
-  }, [loading, teacherLoading, loadingStage, user, teacher, institute])
+  // Timeout protection moved to TimeoutCoordinator (Phase 2.1)
+  // Old 30s timeout removed - now using unified 45s timeout via timeoutCoordinator.withTimeout()
 
   // Memoized derived properties for performance
   const instituteId = useMemo(() => teacher?.institute_id || null, [teacher?.institute_id])
   const role = useMemo(() => teacher?.role || null, [teacher?.role])
   const isAdmin = useMemo(() => role === 'admin', [role])
+
+  /**
+   * Ensure JWT has custom claims before making RLS queries
+   *
+   * PROBLEM: JWT custom_access_token_hook queries teachers table to add claims
+   * But RLS policies check JWT claims that don't exist yet → circular dependency
+   *
+   * SOLUTION: Wait for JWT to have required claims before querying teachers table
+   * This prevents RLS queries from hanging while waiting for claims
+   *
+   * @param session - Current session with JWT
+   * @param maxWaitMs - Maximum time to wait (default 5000ms)
+   * @returns true if JWT has claims, false if timeout
+   */
+  async function ensureJWTReady(session: Session | null, maxWaitMs = 5000): Promise<boolean> {
+    if (!session) return false
+
+    const startTime = Date.now()
+    const checkInterval = 200 // Check every 200ms
+
+    while (Date.now() - startTime < maxWaitMs) {
+      // Check if JWT has app_metadata.role claim
+      const { data: { user } } = await supabase.auth.getUser()
+      const hasRoleClaim = user?.app_metadata?.role || user?.app_metadata?.app_role
+
+      if (hasRoleClaim) {
+        console.log('[AuthContext] JWT ready with role claim:', hasRoleClaim)
+        return true
+      }
+
+      console.log('[AuthContext] Waiting for JWT claims... (elapsed:', Date.now() - startTime, 'ms)')
+      await new Promise(resolve => setTimeout(resolve, checkInterval))
+    }
+
+    console.warn('[AuthContext] JWT claims not ready after', maxWaitMs, 'ms - proceeding anyway')
+    return false
+  }
 
   // Fetch teacher profile with request deduplication and retry logic
   async function fetchTeacher(userId: string, force = false) {
@@ -349,6 +353,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initializeAuth = async () => {
       try {
         console.log('[AuthContext] Initializing auth...')
+
         const { data: { session }, error } = await supabase.auth.getSession()
 
         if (!mounted) {
@@ -411,19 +416,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         console.log('[AuthContext] Session exists, checking if need to fetch teacher data')
 
-        // CRITICAL: Skip auto-fetch during invitation setup to prevent race condition
-        // Why: set-password page manually calls setSession() which fires SIGNED_IN synchronously
-        // If we fetch teacher here, the query hangs (waiting for JWT claims refresh)
-        // This prevents setSession() from resolving and refreshSession() from running
-        // Result: Deadlock → 30s timeout
-        if (typeof window !== 'undefined' && window.location.pathname === '/set-password') {
-          const params = new URLSearchParams(window.location.search)
-          if (params.get('invite') === 'true') {
-            console.log('[AuthContext] Skipping auto-fetch during invitation setup - set-password page will handle session')
-            return
-          }
-        }
-
         // Fetch teacher data if:
         // 1. We don't have teacher data yet (use ref for current value), OR
         // 2. Token was refreshed (need to ensure permissions are current), OR
@@ -440,15 +432,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('[AuthContext] Should fetch teacher?', shouldFetchTeacher, '(hasTeacherData:', hasTeacherData, 'teacher:', teacherRef.current?.name || 'none', 'event:', event, ')')
 
         if (shouldFetchTeacher) {
-          console.log('[AuthContext] Fetching teacher data for event:', event)
-          try {
-            await fetchTeacher(session.user.id)
-            console.log('[AuthContext] Teacher data fetch completed successfully')
-          } catch (error) {
-            console.error('[AuthContext] Error fetching teacher in onAuthStateChange:', error)
-            // Don't leave loading states stuck on error
-            setTeacherLoading(false)
-          }
+          console.log('[AuthContext] Queuing teacher fetch for event:', event)
+          // CRITICAL FIX: Don't call fetchTeacher directly (causes RLS circular dependency)
+          // Instead, queue the event to be processed asynchronously in a useEffect
+          // This prevents blocking the onAuthStateChange callback
+          setPendingAuthEvent({
+            event,
+            userId: session.user.id,
+            session
+          })
         } else {
           console.log('[AuthContext] Skipping teacher fetch - already have data for event:', event)
         }
@@ -468,6 +460,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe()
     }
   }, [])
+
+  // Process pending auth events asynchronously
+  // This is the RLS circular dependency fix - we process auth events in a separate effect
+  // instead of blocking the onAuthStateChange callback with async operations
+  useEffect(() => {
+    if (!pendingAuthEvent) return
+
+    const processPendingEvent = async () => {
+      console.log('[AuthContext] Processing pending auth event:', pendingAuthEvent.event)
+
+      try {
+        // CRITICAL FIX: Ensure JWT has claims before making RLS queries
+        // This prevents the circular dependency:
+        // 1. JWT hook queries teachers table for claims
+        // 2. RLS policy checks JWT claims that don't exist yet
+        // 3. Query hangs waiting for claims → 45s timeout
+        console.log('[AuthContext] Ensuring JWT is ready before fetching teacher...')
+        await ensureJWTReady(pendingAuthEvent.session)
+
+        // Now fetch teacher data - JWT should have claims, so RLS won't hang
+        console.log('[AuthContext] JWT ready, fetching teacher data')
+        await fetchTeacher(pendingAuthEvent.userId)
+        console.log('[AuthContext] Teacher data fetch completed successfully')
+      } catch (error) {
+        console.error('[AuthContext] Error processing pending auth event:', error)
+        // Don't leave loading states stuck on error
+        setTeacherLoading(false)
+      } finally {
+        // Clear the pending event
+        setPendingAuthEvent(null)
+      }
+    }
+
+    processPendingEvent()
+  }, [pendingAuthEvent])
 
   // Note: Session persistence is now handled by Supabase client configuration
   // - autoRefreshToken: automatically refreshes tokens before expiry
@@ -593,6 +620,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 /**
  * Hook to access auth context
  *
+ * @deprecated For internal use only. External consumers should use useSession() from '@/hooks/useSession'
+ * @internal
+ *
+ * This hook is kept for internal use by the useSession hooks.
+ * Direct usage outside of hooks/useSession.ts is discouraged.
+ *
+ * Migration guide:
+ * - For optional auth: import { useSession } from '@/hooks/useSession'
+ * - For required auth: import { useRequireSession } from '@/hooks/useSession'
+ * - For admin auth: import { useRequireAdmin } from '@/hooks/useSession'
+ *
  * @throws Error if used outside AuthProvider
  * @returns Auth context value
  */
@@ -605,46 +643,28 @@ export function useAuth() {
 }
 
 /**
- * Hook to require authentication
+ * ============================================================================
+ * DEPRECATED HOOKS - REMOVED
+ * ============================================================================
  *
- * Redirects to login if not authenticated
- * Shows loading state while checking
+ * The following hooks have been removed in favor of centralized hooks:
  *
- * @returns Auth context (guaranteed to have user/teacher)
+ * - useRequireAuth() → Use useRequireSession() from '@/hooks/useSession'
+ * - useRequireAdmin() → Use useRequireAdmin() from '@/hooks/useSession'
+ *
+ * These hooks have been fully migrated across the codebase. If you see
+ * TypeScript errors about missing exports, update your imports to use
+ * the hooks from '@/hooks/useSession' instead.
+ *
+ * Migration:
+ * ```typescript
+ * // OLD:
+ * import { useRequireAuth } from '@/contexts/AuthContext'
+ * const { teacher, session, ... } = useRequireAuth()
+ *
+ * // NEW:
+ * import { useRequireSession } from '@/hooks/useSession'
+ * const { teacher, session, ... } = useRequireSession()
+ * ```
+ * ============================================================================
  */
-export function useRequireAuth() {
-  const auth = useAuth()
-
-  useEffect(() => {
-    if (!auth.loading && !auth.user) {
-      // Redirect to login
-      window.location.href = '/login'
-    }
-  }, [auth.loading, auth.user])
-
-  return auth
-}
-
-/**
- * Hook to require admin role
- *
- * Redirects to dashboard if not admin
- * Shows loading state while checking
- *
- * @returns Auth context (guaranteed to have admin teacher)
- */
-export function useRequireAdmin() {
-  const auth = useAuth()
-
-  useEffect(() => {
-    if (!auth.loading && !auth.teacherLoading) {
-      if (!auth.user) {
-        window.location.href = '/login'
-      } else if (!auth.isAdmin) {
-        window.location.href = '/dashboard'
-      }
-    }
-  }, [auth.loading, auth.teacherLoading, auth.user, auth.isAdmin])
-
-  return auth
-}

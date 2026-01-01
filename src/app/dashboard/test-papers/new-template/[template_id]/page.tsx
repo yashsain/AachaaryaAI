@@ -15,7 +15,7 @@
 
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { useRequireSession } from '@/hooks/useSession'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/MultiSelect'
@@ -72,6 +72,7 @@ interface MaterialType {
 export default function CreatePaperFromTemplatePage({ params }: CreatePaperPageProps) {
   const resolvedParams = use(params)
   const templateId = resolvedParams.template_id
+  const { session } = useRequireSession()
   const router = useRouter()
 
   // Form state
@@ -98,7 +99,6 @@ export default function CreatePaperFromTemplatePage({ params }: CreatePaperPageP
   const fetchData = async () => {
     try {
       setIsLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         router.push('/auth/login')
         return
@@ -169,7 +169,6 @@ export default function CreatePaperFromTemplatePage({ params }: CreatePaperPageP
       setIsCreating(true)
       setError(null)
 
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         setError('Session expired. Please sign in again.')
         return

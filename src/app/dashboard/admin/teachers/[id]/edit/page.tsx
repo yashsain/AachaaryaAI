@@ -1,11 +1,10 @@
 'use client'
 
-import { useRequireAdmin } from '@/contexts/AuthContext'
+import { useRequireAdmin } from '@/hooks/useSession'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState, use } from 'react'
 import { TeacherForm } from '@/components/admin/TeacherForm'
-import { supabase } from '@/lib/supabase'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { AuthLoadingState } from '@/components/auth/AuthLoadingState'
 
@@ -20,7 +19,7 @@ interface TeacherData {
 
 export default function EditTeacherPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: teacherId } = use(params)
-  const { teacher, institute, loading, teacherLoading, loadingStage, loadingProgress, error: authError, retry, clearError, signOut } = useRequireAdmin()
+  const { session, teacher, institute, loading, teacherLoading, loadingStage, loadingProgress, error: authError, retry, clearError, signOut } = useRequireAdmin()
   const router = useRouter()
 
   const [teacherData, setTeacherData] = useState<TeacherData | null>(null)
@@ -34,7 +33,7 @@ export default function EditTeacherPage({ params }: { params: Promise<{ id: stri
         setIsLoadingData(true)
         setFetchError('')
 
-        const { data: { session } } = await supabase.auth.getSession()
+        // Using centralized session (no redundant getSession call)
         if (!session) {
           setFetchError('No active session')
           return
@@ -161,6 +160,7 @@ export default function EditTeacherPage({ params }: { params: Promise<{ id: stri
           ) : teacherData ? (
             <TeacherForm
               mode="edit"
+              session={session}
               teacherId={teacherId}
               initialData={teacherData}
               onSuccess={handleSuccess}

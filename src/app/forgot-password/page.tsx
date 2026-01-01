@@ -9,14 +9,15 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/contexts/AuthContext'
+import { createBrowserClient } from '@/lib/supabase/client'
+import { useSession } from '@/hooks/useSession'
 import Image from 'next/image'
 import Link from 'next/link'
 
 export default function ForgotPasswordPage() {
+  const supabase = createBrowserClient()
   const router = useRouter()
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading } = useSession()
 
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')

@@ -1,3 +1,41 @@
+/**
+ * DEPRECATED: This file is deprecated in favor of SSR-compliant clients.
+ *
+ * Migration Guide:
+ * ==============
+ *
+ * BROWSER/CLIENT COMPONENTS:
+ * OLD: import { supabase } from '@/lib/supabase'
+ * NEW: import { createBrowserClient } from '@/lib/supabase/client'
+ *      const supabase = createBrowserClient()
+ *
+ * API ROUTES / SERVER COMPONENTS:
+ * OLD: import { supabase } from '@/lib/supabase'
+ * NEW: import { cookies } from 'next/headers'
+ *      import { createServerClient } from '@/lib/supabase/server'
+ *      const supabase = createServerClient(cookies())
+ *
+ * ADMIN OPERATIONS:
+ * OLD: import { supabaseAdmin } from '@/lib/supabase'
+ * NEW: import { supabaseAdmin } from '@/lib/supabase/admin'
+ *
+ * WHY MIGRATE:
+ * - Cookie-based session storage (prevents middleware/client divergence)
+ * - Proper SSR support (enables authenticated server components)
+ * - Eliminates 45s RLS hangs (better session sync)
+ * - Follows official Supabase SSR pattern
+ *
+ * @see https://supabase.com/docs/guides/auth/server-side/nextjs
+ * @deprecated Use @/lib/supabase/client or @/lib/supabase/server instead
+ */
+
+// Re-export new SSR-compliant clients for backward compatibility
+// This prevents breaking existing imports during migration
+export { supabase, createBrowserClient } from './supabase/client'
+export { createServerClient, getServerUser, getServerSession } from './supabase/server'
+export { supabaseAdmin, isAdminConfigured, withAdminClient } from './supabase/admin'
+
+// Legacy deprecated exports (will be removed after migration complete)
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
@@ -8,41 +46,29 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Supabase credentials not found. Check .env.local file.')
 }
 
-// Regular client for frontend operations (respects RLS)
-// Configured with proper session persistence and auto-refresh
-// Note: While PKCE flow is used for normal auth, inviteUserByEmail() generates
-// implicit flow tokens (hash fragments). These are handled by manually calling
-// setSession() which is flow-agnostic and works with tokens from any source.
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+/**
+ * @deprecated Use createBrowserClient() from '@/lib/supabase/client' instead
+ */
+export const legacySupabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // Enable automatic token refresh before expiry
     autoRefreshToken: true,
-
-    // Persist session in browser localStorage
     persistSession: true,
-
-    // Detect session from URL (for email confirmations, password resets)
-    // Note: This only auto-detects PKCE codes (?code=), not implicit tokens (#access_token=)
-    // Invitation tokens must be extracted manually and passed to setSession()
     detectSessionInUrl: true,
-
-    // Use localStorage for session storage (survives tab close/refresh)
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-
-    // Flow type for authentication
     flowType: 'pkce'
   }
 })
 
-// Admin client for backend operations (bypasses RLS)
-// Only use server-side where service key is available
-export const supabaseAdmin = supabaseServiceKey
+/**
+ * @deprecated Use supabaseAdmin from '@/lib/supabase/admin' instead
+ */
+export const legacySupabaseAdmin = supabaseServiceKey
   ? createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false
       }
     })
-  : supabase // Fallback to regular client
+  : legacySupabase
 
 // Database types are defined in src/types/database.ts

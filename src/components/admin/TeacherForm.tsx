@@ -4,10 +4,11 @@ import { useState, useEffect, FormEvent } from 'react'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/MultiSelect'
-import { supabase } from '@/lib/supabase'
+import type { Session } from '@supabase/supabase-js'
 
 interface TeacherFormProps {
   mode: 'create' | 'edit'
+  session: Session // Session from parent (centralized)
   teacherId?: string
   initialData?: {
     name: string
@@ -36,6 +37,7 @@ interface Class {
 
 export function TeacherForm({
   mode,
+  session,
   teacherId,
   initialData,
   onSuccess,
@@ -63,7 +65,7 @@ export function TeacherForm({
   useEffect(() => {
     async function fetchData() {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        // Using centralized session passed from parent (no redundant getSession call)
         if (!session) {
           setError('No active session')
           return
@@ -127,7 +129,7 @@ export function TeacherForm({
     setIsLoading(true)
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      // Using centralized session passed from parent (no redundant getSession call)
       if (!session) {
         setError('No active session. Please log in again.')
         return

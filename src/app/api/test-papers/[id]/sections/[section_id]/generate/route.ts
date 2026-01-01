@@ -15,8 +15,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { supabaseAdmin } from '@/lib/supabase'
+import { cookies } from 'next/headers'
+import { createServerClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { ai, GEMINI_MODEL, GENERATION_CONFIG } from '@/lib/ai/geminiClient'
 import { fetchMaterialsForChapter } from '@/lib/ai/materialFetcher'
 import { uploadPDFToGemini } from '@/lib/ai/pdfUploader'
@@ -45,31 +46,7 @@ export async function POST(
 
     console.log(`[GENERATE_SECTION_START] paper_id=${paperId} section_id=${sectionId}`)
 
-    // Validate authorization header
-    const authHeader = request.headers.get('Authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Missing or invalid authorization header' },
-        { status: 401 }
-      )
-    }
-
-    const token = authHeader.substring(7)
-
-    // Create Supabase client with user token
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      }
-    )
-
-    // Fetch teacher profile
+    const supabase = createServerClient(await cookies())
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 })

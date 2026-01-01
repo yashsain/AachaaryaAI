@@ -53,6 +53,27 @@ export async function middleware(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession()
 
+  // Add auth state to response for client sync (Phase 2.3)
+  // BUGFIX: Use cookie instead of header so client can actually read it
+  if (session) {
+    const sessionId = session.access_token.substring(0, 20)
+    response.cookies.set('auth-sync-state', sessionId, {
+      path: '/',
+      httpOnly: false, // Must be false so client JS can read it
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    })
+  } else {
+    response.cookies.set('auth-sync-state', 'none', {
+      path: '/',
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+    })
+  }
+
   const path = request.nextUrl.pathname
 
   // Public routes that don't require authentication

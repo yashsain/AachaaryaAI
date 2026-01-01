@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
-import { supabase } from '@/lib/supabase'
+import type { Session } from '@supabase/supabase-js'
 
 interface AddChapterModalProps {
   isOpen: boolean
   onClose: () => void
   subjectId: string
+  session: Session  // Session from parent (centralized)
   onSuccess: (chapter: any) => void
 }
 
@@ -17,6 +18,7 @@ export function AddChapterModal({
   isOpen,
   onClose,
   subjectId,
+  session,
   onSuccess
 }: AddChapterModalProps) {
   const [chapterName, setChapterName] = useState('')
@@ -60,7 +62,6 @@ export function AddChapterModal({
     setIsSubmitting(true)
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         throw new Error('Session expired. Please sign in again.')
       }

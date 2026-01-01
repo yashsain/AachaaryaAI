@@ -8,10 +8,9 @@
  * Templates define the structure and sections of the paper
  */
 
-import { useRequireAuth } from '@/contexts/AuthContext'
+import { useRequireSession } from '@/hooks/useSession'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 
@@ -41,7 +40,7 @@ interface PaperTemplate {
 }
 
 export default function TestPapersTemplatePickerPage() {
-  const { teacher, institute, loading, teacherLoading, error, retry, clearError, signOut } = useRequireAuth()
+  const { session, teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireSession()
   const router = useRouter()
   const params = useParams()
   const streamId = params?.stream_id as string
@@ -62,7 +61,6 @@ export default function TestPapersTemplatePickerPage() {
       setLoadingTemplates(true)
       setTemplatesError(null)
 
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         setTemplatesError('Session expired. Please sign in again.')
         return

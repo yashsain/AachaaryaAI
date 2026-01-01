@@ -1,11 +1,10 @@
 'use client'
 
-import { useRequireAdmin } from '@/contexts/AuthContext'
+import { useRequireAdmin } from '@/hooks/useSession'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { TeacherTable } from '@/components/admin/TeacherTable'
 import { Button } from '@/components/ui/Button'
-import { supabase } from '@/lib/supabase'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { AuthLoadingState } from '@/components/auth/AuthLoadingState'
 
@@ -28,7 +27,7 @@ interface Teacher {
 }
 
 export default function TeachersListPage() {
-  const { teacher, institute, loading, teacherLoading, loadingStage, loadingProgress, error: authError, retry, clearError, signOut } = useRequireAdmin()
+  const { session, teacher, institute, loading, teacherLoading, loadingStage, loadingProgress, error: authError, retry, clearError, signOut } = useRequireAdmin()
 
   const [teachers, setTeachers] = useState<Teacher[]>([])
   const [isLoadingTeachers, setIsLoadingTeachers] = useState(true)
@@ -40,7 +39,6 @@ export default function TeachersListPage() {
       setIsLoadingTeachers(true)
       setError('')
 
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         setError('No active session')
         return
@@ -157,7 +155,7 @@ export default function TeachersListPage() {
             </div>
           </div>
         ) : (
-          <TeacherTable teachers={teachers} onDeleteSuccess={fetchTeachers} />
+          <TeacherTable teachers={teachers} session={session} onDeleteSuccess={fetchTeachers} />
         )}
       </main>
     </div>

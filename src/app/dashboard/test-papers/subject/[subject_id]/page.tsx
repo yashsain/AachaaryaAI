@@ -14,12 +14,12 @@
  */
 
 import React from 'react'
-import { useRequireAuth } from '@/contexts/AuthContext'
+import { useRequireSession } from '@/hooks/useSession'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
+import { createBrowserClient } from '@/lib/supabase/client'
 
 interface Paper {
   id: string
@@ -41,10 +41,11 @@ type StatusFilter = 'all' | 'draft' | 'review' | 'finalized'
 type SortOption = 'recent' | 'oldest' | 'title'
 
 export default function PapersListPage() {
-  const { teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireAuth()
+  const { session, teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireSession()
   const router = useRouter()
   const params = useParams()
   const subject_id = params.subject_id as string
+  const supabase = createBrowserClient()
 
   const [papers, setPapers] = useState<Paper[]>([])
   const [subjectName, setSubjectName] = useState<string>('')
@@ -70,7 +71,7 @@ export default function PapersListPage() {
     try {
       setLoadingData(true)
 
-      const { data: { session } } = await supabase.auth.getSession()
+      // Using centralized session from useRequireSession hook (no redundant getSession call)
       if (!session) {
         setPageError('Session expired. Please sign in again.')
         return
@@ -127,7 +128,7 @@ export default function PapersListPage() {
     try {
       setDeleting(true)
 
-      const { data: { session } } = await supabase.auth.getSession()
+      // Using centralized session (no redundant getSession call)
       if (!session) {
         setPageError('Session expired')
         return
@@ -336,6 +337,7 @@ export default function PapersListPage() {
               <PaperCard
                 key={paper.id}
                 paper={paper}
+                session={session}
                 onDelete={setDeletingPaper}
                 formatDate={formatDate}
                 getStatusBadge={getStatusBadge}
@@ -384,12 +386,13 @@ export default function PapersListPage() {
 // Paper Card Component
 interface PaperCardProps {
   paper: Paper
+  session: any // Session from parent (centralized)
   onDelete: (paper: Paper) => void
   formatDate: (date: string) => string
   getStatusBadge: (status: string) => React.ReactElement
 }
 
-function PaperCard({ paper, onDelete, formatDate, getStatusBadge }: PaperCardProps) {
+function PaperCard({ paper, session, onDelete, formatDate, getStatusBadge }: PaperCardProps) {
   const router = useRouter()
   const [editingPaper, setEditingPaper] = useState(false)
   const [downloadingPdf, setDownloadingPdf] = useState(false)
@@ -470,7 +473,7 @@ function PaperCard({ paper, onDelete, formatDate, getStatusBadge }: PaperCardPro
     try {
       setEditingPaper(true)
 
-      const { data: { session } } = await supabase.auth.getSession()
+      // Using centralized session passed from parent (no redundant getSession call)
       if (!session) {
         alert('Session expired. Please sign in again.')
         return
@@ -508,7 +511,7 @@ function PaperCard({ paper, onDelete, formatDate, getStatusBadge }: PaperCardPro
     try {
       setDownloadingPdf(true)
 
-      const { data: { session } } = await supabase.auth.getSession()
+      // Using centralized session passed from parent (no redundant getSession call)
       if (!session) {
         alert('Session expired. Please sign in again.')
         return

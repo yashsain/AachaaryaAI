@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
-import { supabase } from '@/lib/supabase'
+import type { Session } from '@supabase/supabase-js'
 
 interface TeacherSubject {
   subject_id: string
@@ -26,10 +26,11 @@ interface Teacher {
 
 interface TeacherTableProps {
   teachers: Teacher[]
+  session: Session  // Session from parent (centralized)
   onDeleteSuccess: () => void
 }
 
-export function TeacherTable({ teachers, onDeleteSuccess }: TeacherTableProps) {
+export function TeacherTable({ teachers, session, onDeleteSuccess }: TeacherTableProps) {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [teacherToDelete, setTeacherToDelete] = useState<Teacher | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -56,7 +57,6 @@ export function TeacherTable({ teachers, onDeleteSuccess }: TeacherTableProps) {
     setDeleteError('')
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         setDeleteError('No active session')
         return

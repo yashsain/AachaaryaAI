@@ -6,8 +6,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { supabaseAdmin } from '@/lib/supabase'
+import { cookies } from 'next/headers'
+import { createServerClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { ai, GEMINI_MODEL } from '@/lib/ai/geminiClient'
 import { uploadPDFToGemini } from '@/lib/ai/pdfUploader'
 import { parseGeminiJSON } from '@/lib/ai/jsonCleaner'
@@ -37,26 +38,8 @@ export async function POST(
       return NextResponse.json({ error: 'Instruction is required' }, { status: 400 })
     }
 
-    // Validate authorization header
-    const authHeader = request.headers.get('Authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Missing or invalid authorization header' }, { status: 401 })
-    }
-
-    const token = authHeader.substring(7)
-
-    // Create Supabase client with user token
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      }
-    )
+    // Create Supabase client with SSR
+    const supabase = createServerClient(await cookies())
 
     // Fetch teacher profile to get institute_id
     const { data: { user }, error: userError } = await supabase.auth.getUser()

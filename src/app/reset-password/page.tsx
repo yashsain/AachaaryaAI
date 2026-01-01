@@ -9,11 +9,12 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createBrowserClient } from '@/lib/supabase/client'
 import Image from 'next/image'
 import Link from 'next/link'
 
 function ResetPasswordContent() {
+  const supabase = createBrowserClient()
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')

@@ -5,7 +5,7 @@
  * Ensures synchronization between auth.users and teachers table
  */
 
-import { supabase, supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import type { Teacher } from '@/types/database'
 
 export interface CreateTeacherData {
@@ -363,7 +363,7 @@ export async function changeTeacherRole(
  * @returns Teacher record or null
  */
 export async function getTeacher(teacherId: string): Promise<Teacher | null> {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('teachers')
     .select('*')
     .eq('id', teacherId)
@@ -385,7 +385,7 @@ export async function getTeacher(teacherId: string): Promise<Teacher | null> {
  * @returns Array of teachers
  */
 export async function getInstituteTeachers(instituteId: string): Promise<Teacher[]> {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('teachers')
     .select('*')
     .eq('institute_id', instituteId)
@@ -407,7 +407,7 @@ export async function getInstituteTeachers(instituteId: string): Promise<Teacher
  * @returns True if available, false if taken
  */
 export async function isEmailAvailable(email: string): Promise<boolean> {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('teachers')
     .select('id')
     .eq('email', email)

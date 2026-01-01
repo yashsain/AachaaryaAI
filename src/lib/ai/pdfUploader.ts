@@ -5,7 +5,7 @@
  * Handles file processing state and returns file URI for question generation
  */
 
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { ai } from './geminiClient'
 
 export interface UploadedFile {

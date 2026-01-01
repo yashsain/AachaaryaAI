@@ -10,9 +10,10 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createBrowserClient } from '@/lib/supabase/client'
 
 function AuthCallbackContent() {
+  const supabase = createBrowserClient()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [error, setError] = useState<string | null>(null)

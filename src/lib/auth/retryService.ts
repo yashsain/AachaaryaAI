@@ -218,31 +218,36 @@ export class AuthRetryService {
 
   /**
    * Wait for network to come online
+   * Uses Promise.race to implement timeout without external coordinator
    */
-  static async waitForOnline(timeoutMs: number = 30000): Promise<boolean> {
+  static async waitForOnline(timeoutMs: number = 45000): Promise<boolean> {
     if (typeof window === 'undefined') {
       return true
     }
 
-    return new Promise((resolve) => {
-      if (window.navigator.onLine) {
-        resolve(true)
-        return
-      }
+    if (window.navigator.onLine) {
+      return true
+    }
 
-      const timeout = setTimeout(() => {
-        window.removeEventListener('online', onlineHandler)
-        resolve(false)
-      }, timeoutMs)
-
+    // Create online promise
+    const onlinePromise = new Promise<boolean>((resolve) => {
       const onlineHandler = () => {
-        clearTimeout(timeout)
         window.removeEventListener('online', onlineHandler)
         resolve(true)
       }
-
       window.addEventListener('online', onlineHandler)
     })
+
+    // Create timeout promise
+    const timeoutPromise = new Promise<boolean>((resolve) => {
+      setTimeout(() => {
+        console.warn('[RetryService] Gave up waiting for network after', timeoutMs, 'ms')
+        resolve(false)
+      }, timeoutMs)
+    })
+
+    // Race between online event and timeout
+    return Promise.race([onlinePromise, timeoutPromise])
   }
 
   /**

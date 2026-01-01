@@ -12,14 +12,14 @@
  * - Finalize selection when exactly targetCount questions selected
  */
 
-import { useRequireAuth } from '@/contexts/AuthContext'
+import { useRequireSession } from '@/hooks/useSession'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { Modal } from '@/components/ui/Modal'
 import { SectionStatusBadge } from '@/components/ui/SectionStatusBadge'
+import { createBrowserClient } from '@/lib/supabase/client'
 
 interface Question {
   id: string
@@ -72,12 +72,13 @@ interface Section {
 }
 
 export default function ReviewQuestionsPage() {
-  const { teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireAuth()
+  const { session, teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireSession()
   const router = useRouter()
   const params = useParams()
   const searchParams = useSearchParams()
   const paper_id = params.paper_id as string
   const section_id = searchParams.get('section_id') // Extract section_id from URL query params
+  const supabase = createBrowserClient()
 
   const [paper, setPaper] = useState<PaperInfo | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
@@ -135,7 +136,7 @@ export default function ReviewQuestionsPage() {
     try {
       setLoadingData(true)
 
-      const { data: { session } } = await supabase.auth.getSession()
+      // Using centralized session from useRequireSession hook (no redundant getSession call)
       if (!session) {
         setPageError('Session expired. Please sign in again.')
         return
@@ -219,7 +220,7 @@ export default function ReviewQuestionsPage() {
         remaining: Math.max(0, prev.target_count - newSelectedCount),
       } : null)
 
-      const { data: { session } } = await supabase.auth.getSession()
+      // Using centralized session (no redundant getSession call)
       if (!session) {
         setPageError('Session expired')
         return
@@ -292,7 +293,7 @@ export default function ReviewQuestionsPage() {
     try {
       setFinalizingSectionId(sectionId)
 
-      const { data: { session } } = await supabase.auth.getSession()
+      // Using centralized session (no redundant getSession call)
       if (!session) {
         setPageError('Session expired')
         return
@@ -346,7 +347,7 @@ export default function ReviewQuestionsPage() {
     try {
       setFinalizing(true)
 
-      const { data: { session } } = await supabase.auth.getSession()
+      // Using centralized session (no redundant getSession call)
       if (!session) {
         setPageError('Session expired')
         return
@@ -793,6 +794,7 @@ export default function ReviewQuestionsPage() {
       {editingQuestion && (
         <EditQuestionModal
           question={editingQuestion}
+          session={session}
           onClose={() => setEditingQuestion(null)}
           onSave={() => {
             setEditingQuestion(null)
@@ -805,6 +807,7 @@ export default function ReviewQuestionsPage() {
       {regeneratingQuestion && (
         <RegenerateQuestionModal
           question={regeneratingQuestion}
+          session={session}
           onClose={() => {
             setRegeneratingQuestion(null)
             setRegenerationInstruction('')
@@ -988,11 +991,12 @@ function QuestionCard({ question, index, onToggleSelection, onEdit, onRegenerate
 // Edit Question Modal Component
 interface EditQuestionModalProps {
   question: Question
+  session: any // Session from parent (centralized)
   onClose: () => void
   onSave: () => void
 }
 
-function EditQuestionModal({ question, onClose, onSave }: EditQuestionModalProps) {
+function EditQuestionModal({ question, session, onClose, onSave }: EditQuestionModalProps) {
   const [questionText, setQuestionText] = useState(question.question_text)
   const [options, setOptions] = useState(question.options)
   const [correctAnswer, setCorrectAnswer] = useState(question.correct_answer)
@@ -1003,7 +1007,7 @@ function EditQuestionModal({ question, onClose, onSave }: EditQuestionModalProps
     try {
       setSaving(true)
 
-      const { data: { session } } = await supabase.auth.getSession()
+      // Using centralized session passed from parent (no redundant getSession call)
       if (!session) {
         alert('Session expired')
         return
@@ -1118,11 +1122,12 @@ function EditQuestionModal({ question, onClose, onSave }: EditQuestionModalProps
 // Regenerate Question Modal Component
 interface RegenerateQuestionModalProps {
   question: Question
+  session: any // Session from parent (centralized)
   onClose: () => void
   onRegenerate: () => void
 }
 
-function RegenerateQuestionModal({ question, onClose, onRegenerate }: RegenerateQuestionModalProps) {
+function RegenerateQuestionModal({ question, session, onClose, onRegenerate }: RegenerateQuestionModalProps) {
   const [instruction, setInstruction] = useState('')
   const [regenerating, setRegenerating] = useState(false)
 
@@ -1135,7 +1140,7 @@ function RegenerateQuestionModal({ question, onClose, onRegenerate }: Regenerate
     try {
       setRegenerating(true)
 
-      const { data: { session } } = await supabase.auth.getSession()
+      // Using centralized session passed from parent (no redundant getSession call)
       if (!session) {
         alert('Session expired')
         return

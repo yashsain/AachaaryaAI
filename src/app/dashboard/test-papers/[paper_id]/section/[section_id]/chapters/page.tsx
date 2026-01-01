@@ -12,7 +12,7 @@
 
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { useRequireSession } from '@/hooks/useSession'
 import { Button } from '@/components/ui/Button'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/MultiSelect'
 
@@ -41,6 +41,7 @@ export default function SectionChaptersPage({ params }: SectionChaptersPageProps
   const resolvedParams = use(params)
   const paperId = resolvedParams.paper_id
   const sectionId = resolvedParams.section_id
+  const { session } = useRequireSession()
   const router = useRouter()
 
   const [section, setSection] = useState<SectionDetails | null>(null)
@@ -57,7 +58,6 @@ export default function SectionChaptersPage({ params }: SectionChaptersPageProps
   const fetchSectionDetails = async () => {
     try {
       setIsLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         router.push('/auth/login')
         return
@@ -106,7 +106,6 @@ export default function SectionChaptersPage({ params }: SectionChaptersPageProps
       setIsAssigning(true)
       setError(null)
 
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         setError('Session expired. Please sign in again.')
         return

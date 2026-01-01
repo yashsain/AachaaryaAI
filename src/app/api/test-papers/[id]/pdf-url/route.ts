@@ -6,8 +6,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { supabaseAdmin } from '@/lib/supabase'
+import { cookies } from 'next/headers'
+import { createServerClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { STORAGE_BUCKETS } from '@/lib/storage/storageService'
 
 interface PDFUrlParams {
@@ -25,37 +26,17 @@ export async function GET(
 
     console.log('[PDF_URL] Generating signed URL for paper:', paperId)
 
-    // Validate authorization header
-    const authHeader = request.headers.get('Authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Missing or invalid authorization header' }, { status: 401 })
-    }
-
-    const token = authHeader.substring(7)
-
-    // Create Supabase client with user token
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      }
-    )
-
-    // Fetch teacher profile
+    const supabase = createServerClient(await cookies())
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
     }
 
-    const { data: teacher, error: teacherError } = await supabase
+    const { data: teacher, error: teacherError } = await supabaseAdmin
       .from('teachers')
       .select('id, institute_id, role')
-      .eq('email', user.email)
+      .eq('id', user.id)
+      .is('deleted_at', null)
       .single()
 
     if (teacherError || !teacher) {

@@ -13,13 +13,14 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/contexts/AuthContext'
+import { createBrowserClient } from '@/lib/supabase/client'
+import { useSession } from '@/hooks/useSession'
 import type { Institute } from '@/types/database'
 
 export default function LoginPage() {
+  const supabase = createBrowserClient()
   const router = useRouter()
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading } = useSession()
 
   // Check for invitation token in URL hash (in case Site URL is set to /login)
   useEffect(() => {

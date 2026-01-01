@@ -9,8 +9,12 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createBrowserClient } from '@/lib/supabase/client'
+import { useSession } from '@/hooks/useSession'
 import Image from 'next/image'
+
+// Create Supabase client
+const supabase = createBrowserClient()
 
 /**
  * Parse tokens from URL hash fragment
@@ -41,6 +45,7 @@ function SetPasswordContent() {
   const [sessionReady, setSessionReady] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
+  const auth = useSession()
 
   // Handle auth session from URL hash (for invitation emails)
   useEffect(() => {

@@ -8,13 +8,13 @@
  * Shows institute-branded UI with teacher profile
  */
 
-import { useRequireAuth } from '@/contexts/AuthContext'
+import { useRequireSession } from '@/hooks/useSession'
 import Image from 'next/image'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 
 export default function DashboardPage() {
-  const { teacher, institute, loading, teacherLoading, error, retry, clearError, signOut } = useRequireAuth()
+  const { session, teacher, institute, loading, teacherLoading, error, retry, clearError, signOut } = useRequireSession()
 
   // Show error screen if there's an auth error
   if (error) {

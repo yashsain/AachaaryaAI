@@ -9,11 +9,12 @@
  * Final: Display coming soon with all selections
  */
 
-import { useRequireAuth } from '@/contexts/AuthContext'
+import { useRequireSession } from '@/hooks/useSession'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { supabase, supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
+import { createBrowserClient } from '@/lib/supabase/client'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/MultiSelect'
 import { Input } from '@/components/ui/Input'
@@ -53,10 +54,11 @@ interface MaterialType {
 type Step = 'classes' | 'format' | 'chapters' | 'review'
 
 export default function CreateTestPaperPage() {
-  const { teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireAuth()
+  const { session, teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireSession()
   const router = useRouter()
   const params = useParams()
   const subject_id = params.subject_id as string
+  const supabase = createBrowserClient()
 
   // Step state
   const [currentStep, setCurrentStep] = useState<Step>('classes')
@@ -99,7 +101,7 @@ export default function CreateTestPaperPage() {
     try {
       setLoadingMaterialCount(true)
 
-      const { data: { session } } = await supabase.auth.getSession()
+      // Using centralized session (no redundant getSession call)
       if (!session || !teacher) return
 
       // Query materials via material_chapters junction
@@ -127,7 +129,7 @@ export default function CreateTestPaperPage() {
     try {
       setLoadingData(true)
 
-      const { data: { session } } = await supabase.auth.getSession()
+      // Using centralized session (no redundant getSession call)
       if (!session) {
         setFormError('Session expired. Please sign in again.')
         return
@@ -284,7 +286,7 @@ export default function CreateTestPaperPage() {
       setCreating(true)
       setFormError(null)
 
-      const { data: { session } } = await supabase.auth.getSession()
+      // Using centralized session (no redundant getSession call)
       if (!session) {
         setFormError('Session expired. Please sign in again.')
         return

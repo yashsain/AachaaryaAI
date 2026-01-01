@@ -9,10 +9,9 @@
  * - Admins: see all subjects for the stream
  */
 
-import { useRequireAuth } from '@/contexts/AuthContext'
+import { useRequireSession } from '@/hooks/useSession'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 
@@ -27,7 +26,7 @@ interface Subject {
 }
 
 export default function MaterialsSubjectPickerPage() {
-  const { teacher, institute, loading, teacherLoading, error, retry, clearError, signOut } = useRequireAuth()
+  const { session, teacher, loading, teacherLoading, error, retry, clearError, signOut } = useRequireSession()
   const router = useRouter()
   const params = useParams()
   const streamId = params?.stream_id as string
@@ -48,7 +47,6 @@ export default function MaterialsSubjectPickerPage() {
       setLoadingSubjects(true)
       setSubjectsError(null)
 
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         setSubjectsError('Session expired. Please sign in again.')
         return

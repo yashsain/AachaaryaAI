@@ -7,7 +7,7 @@
 
 import { Protocol, ProtocolKey } from './types'
 import { neetBiologyProtocol } from './neet/biology'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 
 // REET Mains Level 2 Protocols
 import { reetMainsLevel2ScienceMathematicsProtocol } from './reet/mains/level2/science-mathematics'
