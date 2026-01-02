@@ -9,6 +9,7 @@
 
 import { SectionStatusBadge } from './SectionStatusBadge'
 import { useRouter } from 'next/navigation'
+import { Calendar, ChevronRight, FileText } from 'lucide-react'
 
 interface PaperCardProps {
   paper: {
@@ -53,11 +54,11 @@ export function PaperCard({ paper }: PaperCardProps) {
   const getPaperStatusStyles = () => {
     switch (paper.status) {
       case 'draft':
-        return 'bg-gray-100 text-gray-700 border-gray-300'
+        return 'bg-gradient-to-br from-neutral-50 to-neutral-100 text-neutral-700 border-neutral-200/80'
       case 'review':
-        return 'bg-yellow-100 text-yellow-700 border-yellow-300'
+        return 'bg-gradient-to-br from-warning-50 to-warning-100 text-warning-700 border-warning-200/80'
       case 'finalized':
-        return 'bg-green-100 text-green-700 border-green-300'
+        return 'bg-gradient-to-br from-success-50 to-success-100 text-success-700 border-success-200/80'
     }
   }
 
@@ -65,11 +66,11 @@ export function PaperCard({ paper }: PaperCardProps) {
   const getDifficultyStyles = () => {
     switch (paper.difficulty_level) {
       case 'easy':
-        return 'bg-green-50 text-green-700 border-green-200'
+        return 'bg-gradient-to-br from-success-50 to-success-100 text-success-700 border-success-200/80'
       case 'balanced':
-        return 'bg-blue-50 text-blue-700 border-blue-200'
+        return 'bg-gradient-to-br from-primary-50 to-primary-100 text-primary-700 border-primary-200/80'
       case 'hard':
-        return 'bg-red-50 text-red-700 border-red-200'
+        return 'bg-gradient-to-br from-error-50 to-error-100 text-error-700 border-error-200/80'
     }
   }
 
@@ -80,85 +81,84 @@ export function PaperCard({ paper }: PaperCardProps) {
 
   return (
     <div
-      className="border border-gray-200 rounded-lg p-5 hover:border-gray-300 hover:shadow-md transition-all bg-white cursor-pointer"
+      className="group relative bg-white border border-neutral-200/60 rounded-2xl p-6 hover:border-primary-300 hover:shadow-xl hover:shadow-primary-500/10 transition-all duration-300 cursor-pointer"
       onClick={() => router.push(`/dashboard/test-papers/${paper.id}`)}
     >
       {/* Header */}
-      <div className="flex items-start justify-between mb-3">
+      <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">
+          <h3 className="text-xl font-bold text-neutral-900 mb-2 group-hover:text-primary-600 transition-colors">
             {paper.title}
           </h3>
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <span>{formatDate(paper.created_at)}</span>
+          <div className="flex items-center gap-2 text-sm text-neutral-500">
+            <Calendar className="w-4 h-4" />
+            <span className="font-medium">{formatDate(paper.created_at)}</span>
           </div>
         </div>
 
         {/* Paper Status Badge */}
-        <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${getPaperStatusStyles()}`}>
+        <span className={`px-3 py-1.5 text-xs font-semibold rounded-xl border ${getPaperStatusStyles()}`}>
           {paper.status.charAt(0).toUpperCase() + paper.status.slice(1)}
         </span>
       </div>
 
       {/* Classes and Difficulty */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
+      <div className="flex flex-wrap items-center gap-2 mb-5">
         {/* Classes */}
         {paper.classes.slice(0, 3).map((cls) => (
           <span
             key={cls.id}
-            className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded border border-gray-200"
+            className="px-3 py-1.5 text-xs font-medium bg-gradient-to-br from-neutral-50 to-neutral-100/80 text-neutral-700 rounded-lg border border-neutral-200/60"
           >
             {cls.class_levels?.name} - {cls.batch_name}
           </span>
         ))}
         {paper.classes.length > 3 && (
-          <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded border border-gray-200">
+          <span className="px-3 py-1.5 text-xs font-medium bg-gradient-to-br from-neutral-50 to-neutral-100/80 text-neutral-700 rounded-lg border border-neutral-200/60">
             +{paper.classes.length - 3} more
           </span>
         )}
 
         {/* Difficulty */}
-        <span className={`px-2 py-1 text-xs font-medium rounded border ${getDifficultyStyles()}`}>
+        <span className={`px-3 py-1.5 text-xs font-semibold rounded-lg border ${getDifficultyStyles()}`}>
           {paper.difficulty_level.charAt(0).toUpperCase() + paper.difficulty_level.slice(1)}
         </span>
       </div>
 
       {/* Progress Bar */}
-      <div className="mb-3">
-        <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+      <div className="mb-5">
+        <div className="flex items-center justify-between text-xs font-semibold text-neutral-600 mb-2">
           <span>Section Progress</span>
-          <span>{completedSections} / {totalSections} completed</span>
+          <span className="text-primary-600">{completedSections} / {totalSections} completed</span>
         </div>
-        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+        <div className="w-full h-2.5 bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-full overflow-hidden">
           <div
-            className="h-full bg-green-500 transition-all duration-300"
+            className="h-full bg-gradient-to-r from-success-500 to-success-600 transition-all duration-500 rounded-full"
             style={{ width: `${progressPercentage}%` }}
           />
         </div>
       </div>
 
       {/* Section Status Grid */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-3 mb-5">
         {paper.sections.map((section) => (
           <div
             key={section.id}
-            className="p-2.5 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+            className="p-3 bg-gradient-to-br from-neutral-50 to-neutral-100/50 rounded-xl border border-neutral-200/60 hover:border-primary-300 hover:shadow-md hover:from-primary-50/30 hover:to-primary-100/30 transition-all duration-300"
             onClick={(e) => {
               e.stopPropagation()
               router.push(`/dashboard/test-papers/${paper.id}`)
             }}
           >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-gray-700 truncate">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-neutral-900 truncate">
                 {section.section_name}
               </span>
               <SectionStatusBadge status={section.status} size="sm" showIcon={false} />
             </div>
-            <div className="flex items-center gap-3 text-xs text-gray-500">
+            <div className="flex items-center gap-3 text-xs font-medium text-neutral-600">
               <span>{section.chapter_count} ch</span>
+              <span className="text-neutral-300">•</span>
               <span>{section.question_count} q</span>
             </div>
           </div>
@@ -166,31 +166,27 @@ export function PaperCard({ paper }: PaperCardProps) {
       </div>
 
       {/* Footer Actions */}
-      <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between">
+      <div className="pt-4 border-t border-neutral-200/60 flex items-center justify-between">
         <button
-          className="text-sm text-gray-600 hover:text-gray-900 font-medium flex items-center gap-1"
+          className="text-sm font-semibold text-neutral-600 hover:text-primary-600 flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-gradient-to-br hover:from-primary-50 hover:to-primary-100/50 transition-all duration-300"
           onClick={(e) => {
             e.stopPropagation()
             router.push(`/dashboard/test-papers/${paper.id}`)
           }}
         >
           Open Dashboard
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+          <ChevronRight className="w-4 h-4" />
         </button>
 
         {paper.status === 'finalized' && (
           <button
-            className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+            className="text-sm font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-br from-primary-50 to-primary-100/50 hover:from-primary-100 hover:to-primary-200/50 border border-primary-200/50 hover:border-primary-300 transition-all duration-300"
             onClick={(e) => {
               e.stopPropagation()
               router.push(`/dashboard/test-papers/${paper.id}/pdf`)
             }}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
+            <FileText className="w-4 h-4" />
             View PDF
           </button>
         )}

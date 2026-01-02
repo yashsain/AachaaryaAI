@@ -14,9 +14,11 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createBrowserClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/MultiSelect'
-import { Input } from '@/components/ui/Input'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ArrowLeft, Upload as UploadIcon, FileText, CheckCircle, AlertCircle, Lightbulb } from 'lucide-react'
 
 interface MaterialType {
   id: string
@@ -349,10 +351,13 @@ export default function UploadMaterialPage() {
   // Show loading state
   if (loading || teacherLoading || loadingData) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-brand-saffron border-r-transparent"></div>
-          <p className="mt-4 text-neutral-600">Loading...</p>
+      <div className="space-y-6">
+        <Skeleton className="h-24 w-full" />
+        <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-8 space-y-6">
+          <Skeleton className="h-12 w-48" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-32 w-full" />
         </div>
       </div>
     )
@@ -374,80 +379,101 @@ export default function UploadMaterialPage() {
   })
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-blue-50">
-      {/* Header */}
-      <header className="bg-white border-b border-neutral-200 shadow-sm">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href={`/dashboard/materials/${subject_id}`}>
-                <button className="p-2 hover:bg-neutral-100 rounded-lg transition-colors">
-                  <svg className="w-5 h-5 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-neutral-800">Upload Material</h1>
-                <p className="text-sm text-neutral-600 mt-0.5">Add a new study material</p>
-              </div>
-            </div>
+    <div className="space-y-8">
+      {/* Header Section */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="space-y-2"
+      >
+        <div className="flex items-center gap-3 text-neutral-600">
+          <Link
+            href={`/dashboard/materials/${subject_id}`}
+            className="inline-flex items-center gap-2 text-sm font-medium hover:text-primary-600 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Materials
+          </Link>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <UploadIcon className="h-8 w-8 text-white" />
+          </div>
+          <div>
+            <h1 className="text-4xl font-bold text-neutral-900">Upload Material</h1>
+            <p className="text-lg text-neutral-600 mt-1">Add a new study material</p>
           </div>
         </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Error Alert */}
-        {uploadError && (
-          <div className="bg-error/10 border border-error/30 rounded-lg p-4 mb-6">
-            <div className="flex items-start gap-3">
-              <span className="text-error text-xl">⚠️</span>
-              <div className="flex-1">
-                <p className="text-error font-medium">Upload Failed</p>
-                <p className="text-error/80 text-sm mt-1">{uploadError}</p>
+      </motion.div>
+      {/* Error Alert */}
+      {uploadError && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-error-50 border border-error-200 rounded-xl p-6"
+        >
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0">
+              <div className="w-10 h-10 bg-error-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="h-5 w-5 text-error-600" />
               </div>
             </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-error-900 mb-1">Upload Failed</h3>
+              <p className="text-error-700 text-sm">{uploadError}</p>
+            </div>
           </div>
-        )}
+        </motion.div>
+      )}
 
-        {/* Upload Form */}
-        <div className="bg-white rounded-xl shadow-md p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Title */}
-            <Input
-              label="Material Title"
+      {/* Upload Form */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+        className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden"
+      >
+        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          {/* Title */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-neutral-700">
+              Material Title <span className="text-error-600">*</span>
+            </label>
+            <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., Chapter 1 Notes - Cell Biology"
               required
-              error={fieldErrors.title}
-              helperText="Give a descriptive title for this material"
+              className="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-neutral-900 placeholder:text-neutral-400"
             />
+            <p className="text-xs text-neutral-600">Give a descriptive title for this material</p>
+            {fieldErrors.title && (
+              <p className="text-sm text-error-600">{fieldErrors.title}</p>
+            )}
+          </div>
 
-            {/* Material Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Material Type <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={materialTypeId}
-                onChange={(e) => setMaterialTypeId(e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-saffron focus:border-transparent transition-colors ${
-                  fieldErrors.materialTypeId ? 'border-error' : 'border-gray-300'
-                }`}
-                required
-              >
-                <option value="">Select material type...</option>
-                {materialTypes.map(type => (
-                  <option key={type.id} value={type.id}>{type.name}</option>
-                ))}
-              </select>
-              {fieldErrors.materialTypeId && (
-                <p className="mt-1 text-sm text-error">{fieldErrors.materialTypeId}</p>
-              )}
-            </div>
+          {/* Material Type */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-neutral-700">
+              Material Type <span className="text-error-600">*</span>
+            </label>
+            <select
+              value={materialTypeId}
+              onChange={(e) => setMaterialTypeId(e.target.value)}
+              className="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-neutral-900"
+              required
+            >
+              <option value="">Select material type...</option>
+              {materialTypes.map(type => (
+                <option key={type.id} value={type.id}>{type.name}</option>
+              ))}
+            </select>
+            {fieldErrors.materialTypeId && (
+              <p className="text-sm text-error-600">{fieldErrors.materialTypeId}</p>
+            )}
+          </div>
 
             {/* Classes */}
             <MultiSelect
@@ -477,101 +503,135 @@ export default function UploadMaterialPage() {
               <p className="text-sm text-warning">No chapters found for this subject. Please contact your administrator.</p>
             )}
 
-            {/* File Upload */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                PDF File <span className="text-red-500">*</span>
-              </label>
-              <div className={`border-2 border-dashed rounded-lg p-6 text-center ${
-                fieldErrors.file ? 'border-error bg-error/5' : 'border-gray-300 hover:border-brand-saffron'
-              } transition-colors`}>
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  id="file-upload"
-                  required
-                />
-                <label htmlFor="file-upload" className="cursor-pointer">
-                  {file ? (
-                    <div className="space-y-2">
-                      <svg className="mx-auto h-12 w-12 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <p className="text-sm font-medium text-neutral-800">{file.name}</p>
-                      <p className="text-xs text-neutral-600">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                      <p className="text-xs text-brand-blue hover:underline">Click to change file</p>
+          {/* File Upload */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-neutral-700">
+              PDF File <span className="text-error-600">*</span>
+            </label>
+            <div className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
+              fieldErrors.file ? 'border-error-300 bg-error-50' : 'border-neutral-300 hover:border-primary-400 hover:bg-primary-50/50'
+            }`}>
+              <input
+                type="file"
+                accept="application/pdf"
+                onChange={handleFileChange}
+                className="hidden"
+                id="file-upload"
+                required
+              />
+              <label htmlFor="file-upload" className="cursor-pointer">
+                {file ? (
+                  <div className="space-y-3">
+                    <div className="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center">
+                      <CheckCircle className="h-8 w-8 text-green-600" />
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                      <p className="text-sm text-gray-600">
-                        <span className="text-brand-blue hover:underline">Click to upload</span> or drag and drop
+                    <div>
+                      <p className="text-base font-semibold text-neutral-900">{file.name}</p>
+                      <p className="text-sm text-neutral-600 mt-1">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                    <p className="text-sm text-primary-600 hover:underline font-medium">Click to change file</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="w-16 h-16 mx-auto bg-neutral-100 rounded-full flex items-center justify-center">
+                      <FileText className="h-8 w-8 text-neutral-400" />
+                    </div>
+                    <div>
+                      <p className="text-base text-neutral-700">
+                        <span className="text-primary-600 hover:underline font-semibold">Click to upload</span> or drag and drop
                       </p>
-                      <p className="text-xs text-gray-500">PDF files only, max 50MB</p>
+                      <p className="text-sm text-neutral-500 mt-1">PDF files only, max 50MB</p>
                     </div>
-                  )}
-                </label>
-              </div>
-              {fieldErrors.file && (
-                <p className="mt-1 text-sm text-error">{fieldErrors.file}</p>
-              )}
+                  </div>
+                )}
+              </label>
             </div>
-
-            {/* Upload Progress */}
-            {uploading && uploadProgress > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-neutral-600">Uploading...</span>
-                  <span className="text-neutral-800 font-medium">{uploadProgress}%</span>
-                </div>
-                <div className="w-full bg-neutral-200 rounded-full h-2">
-                  <div
-                    className="bg-orange-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
-                  ></div>
-                </div>
-              </div>
+            {fieldErrors.file && (
+              <p className="text-sm text-error-600">{fieldErrors.file}</p>
             )}
+          </div>
 
-            {/* Submit Button */}
-            <div className="flex items-center gap-4 pt-4">
-              <button
-                type="submit"
-                disabled={uploading}
-                className="flex-1 px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="text-white">{uploading ? 'Uploading...' : 'Upload Material'}</span>
-              </button>
-              <Link
-                href={`/dashboard/materials/${subject_id}`}
-                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-              >
-                Cancel
-              </Link>
+          {/* Upload Progress */}
+          {uploading && uploadProgress > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-blue-900">Uploading...</span>
+                <span className="text-sm font-bold text-blue-900">{uploadProgress}%</span>
+              </div>
+              <div className="w-full bg-blue-200 rounded-full h-2.5">
+                <div
+                  className="bg-gradient-to-r from-primary-500 to-primary-600 h-2.5 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
             </div>
-          </form>
-        </div>
+          )}
 
-        {/* Info Card */}
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex gap-3">
-            <span className="text-blue-600 text-xl">💡</span>
-            <div>
-              <p className="text-sm text-blue-800 font-medium">Tips for Uploading Materials</p>
-              <ul className="text-sm text-blue-700 mt-2 space-y-1 list-disc list-inside">
-                <li>Use clear, descriptive titles to easily find materials later</li>
-                <li>Select all chapters that this material covers</li>
-                <li>Only one file per upload to maintain data accuracy</li>
-                <li>Materials are used by AI for generating test questions</li>
-              </ul>
+          {/* Submit Button */}
+          <div className="flex items-center gap-4 pt-4 border-t border-neutral-100">
+            <button
+              type="submit"
+              disabled={uploading}
+              className="flex-1 px-6 py-3.5 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg flex items-center justify-center gap-2"
+            >
+              {uploading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Uploading...</span>
+                </>
+              ) : (
+                <>
+                  <UploadIcon className="h-5 w-5" />
+                  <span>Upload Material</span>
+                </>
+              )}
+            </button>
+            <Link
+              href={`/dashboard/materials/${subject_id}`}
+              className="px-6 py-3.5 border-2 border-neutral-300 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-colors font-semibold"
+            >
+              Cancel
+            </Link>
+          </div>
+        </form>
+      </motion.div>
+
+      {/* Info Card */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+        className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100"
+      >
+        <div className="flex gap-4">
+          <div className="flex-shrink-0">
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+              <Lightbulb className="h-5 w-5 text-blue-600" />
             </div>
           </div>
+          <div>
+            <h3 className="text-sm font-semibold text-blue-900 mb-2">Tips for Uploading Materials</h3>
+            <ul className="text-sm text-blue-700 space-y-1.5">
+              <li className="flex items-start gap-2">
+                <span className="text-blue-500 mt-0.5">•</span>
+                <span>Use clear, descriptive titles to easily find materials later</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-blue-500 mt-0.5">•</span>
+                <span>Select all chapters that this material covers</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-blue-500 mt-0.5">•</span>
+                <span>Only one file per upload to maintain data accuracy</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-blue-500 mt-0.5">•</span>
+                <span>Materials are used by AI for generating test questions</span>
+              </li>
+            </ul>
+          </div>
         </div>
-      </main>
+      </motion.div>
     </div>
   )
 }

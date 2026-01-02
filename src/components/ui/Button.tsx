@@ -1,61 +1,282 @@
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
-  size?: 'sm' | 'md' | 'lg'
+/**
+ * Modern Button Component
+ *
+ * Professional, accessible button with 7 variants, 3 sizes, and smooth animations.
+ * Built with class-variance-authority for type-safe variant management.
+ *
+ * Features:
+ * - 7 variants: primary, secondary, ghost, destructive, soft, ai, icon
+ * - 3 sizes: sm (32px), md (40px), lg (48px)
+ * - Loading state with spinner
+ * - Disabled state
+ * - Smooth hover/press animations (Framer Motion)
+ * - Full keyboard accessibility
+ *
+ * @example
+ * <Button variant="primary" size="md" onClick={handleClick}>
+ *   Click Me
+ * </Button>
+ *
+ * @example
+ * <Button variant="destructive" isLoading>
+ *   Deleting...
+ * </Button>
+ */
+
+import * as React from 'react'
+import { Slot } from '@radix-ui/react-slot'
+import { cva, type VariantProps } from 'class-variance-authority'
+import { motion, type HTMLMotionProps } from 'framer-motion'
+import { Loader2 } from 'lucide-react'
+
+import { cn } from '@/lib/utils'
+import { buttonTapAnimation, buttonHoverAnimation } from '@/styles/animations'
+
+// ============================================================================
+// BUTTON VARIANTS
+// ============================================================================
+
+const buttonVariants = cva(
+  // Base styles (applied to all buttons)
+  [
+    'inline-flex items-center justify-center gap-2',
+    'rounded-lg font-medium',
+    'transition-colors duration-200',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+    'disabled:pointer-events-none disabled:opacity-50',
+    'whitespace-nowrap',
+  ],
+  {
+    variants: {
+      // ======================================================================
+      // VARIANT - 7 button styles
+      // ======================================================================
+      variant: {
+        // Primary: Bold gradient button (main CTAs)
+        primary: [
+          'bg-gradient-to-r from-primary-500 to-primary-600',
+          'text-white shadow-md',
+          'hover:from-primary-600 hover:to-primary-700 hover:shadow-lg',
+          'focus-visible:ring-primary-500',
+        ],
+
+        // Secondary: Outlined button (secondary actions)
+        secondary: [
+          'border-2 border-primary-500',
+          'bg-white text-primary-900',
+          'hover:bg-primary-50 hover:border-primary-600 hover:text-primary-900',
+          'focus-visible:ring-primary-500',
+          'active:bg-primary-100',
+        ],
+
+        // Ghost: Minimal button (tertiary actions, navs)
+        ghost: [
+          'bg-white text-neutral-800',
+          'hover:bg-neutral-200 hover:text-neutral-900',
+          'focus-visible:ring-neutral-400',
+          'active:bg-neutral-300',
+        ],
+
+        // Destructive: Warning/delete actions
+        destructive: [
+          'bg-gradient-to-r from-error-500 to-error-600',
+          'text-white shadow-md',
+          'hover:from-error-600 hover:to-error-700 hover:shadow-lg',
+          'focus-visible:ring-error-500',
+        ],
+
+        // Soft: Subtle colored background (info, non-critical actions)
+        soft: [
+          'bg-primary-50 text-primary-700',
+          'hover:bg-primary-100',
+          'focus-visible:ring-primary-400',
+          'active:bg-primary-200',
+        ],
+
+        // AI: Purple gradient for AI-related actions
+        ai: [
+          'bg-gradient-to-r from-ai-500 to-ai-600',
+          'text-white shadow-md',
+          'hover:from-ai-600 hover:to-ai-700 hover:shadow-lg',
+          'focus-visible:ring-ai-500',
+        ],
+
+        // Icon: Minimal icon-only button
+        icon: [
+          'bg-white text-neutral-800',
+          'hover:bg-neutral-200 hover:text-neutral-900',
+          'focus-visible:ring-neutral-400',
+          'active:bg-neutral-300',
+          'rounded-md', // Override to square corners for icons
+        ],
+      },
+
+      // ======================================================================
+      // SIZE - 3 button sizes
+      // ======================================================================
+      size: {
+        sm: 'h-8 px-3 text-sm',
+        md: 'h-10 px-4 text-base',
+        lg: 'h-12 px-6 text-lg',
+      },
+
+      // ======================================================================
+      // FULL WIDTH - Expands to container
+      // ======================================================================
+      fullWidth: {
+        true: 'w-full',
+      },
+    },
+
+    // Default variant and size
+    defaultVariants: {
+      variant: 'primary',
+      size: 'md',
+    },
+  }
+)
+
+// ============================================================================
+// COMPONENT TYPES
+// ============================================================================
+
+export interface ButtonProps
+  extends Omit<HTMLMotionProps<'button'>, 'onAnimationStart' | 'onDragStart' | 'onDragEnd' | 'onDrag'>,
+    VariantProps<typeof buttonVariants> {
+  /**
+   * Renders as child component (for composition with Next.js Link, etc.)
+   * @see https://www.radix-ui.com/primitives/docs/utilities/slot
+   */
+  asChild?: boolean
+
+  /**
+   * Show loading spinner and disable interaction
+   */
   isLoading?: boolean
+
+  /**
+   * Loading text (replaces children when loading)
+   */
+  loadingText?: string
+
+  /**
+   * Icon to show before text
+   */
+  leftIcon?: React.ReactNode
+
+  /**
+   * Icon to show after text
+   */
+  rightIcon?: React.ReactNode
 }
 
-export function Button({
-  variant = 'primary',
-  size = 'md',
-  isLoading = false,
-  children,
-  className = '',
-  disabled,
-  ...props
-}: ButtonProps) {
-  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed'
+// ============================================================================
+// BUTTON COMPONENT
+// ============================================================================
 
-  const variantStyles = {
-    primary: 'bg-gray-900 text-white hover:bg-gray-800 focus:ring-gray-900',
-    secondary: 'bg-white text-gray-900 border border-gray-300 hover:bg-gray-50 focus:ring-gray-500',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-600',
-    ghost: 'bg-transparent text-gray-700 hover:bg-gray-100 focus:ring-gray-500',
-  }
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  (
+    {
+      className,
+      variant,
+      size,
+      fullWidth,
+      asChild = false,
+      isLoading = false,
+      loadingText,
+      leftIcon,
+      rightIcon,
+      disabled,
+      children,
+      ...props
+    },
+    ref
+  ) => {
+    // Determine button content based on loading state
+    const buttonContent = React.useMemo(() => {
+      if (isLoading) {
+        return (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {loadingText || children}
+          </>
+        )
+      }
 
-  const sizeStyles = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-sm',
-    lg: 'px-6 py-3 text-base',
-  }
+      return (
+        <>
+          {leftIcon && <span className="inline-flex">{leftIcon}</span>}
+          {children}
+          {rightIcon && <span className="inline-flex">{rightIcon}</span>}
+        </>
+      )
+    }, [isLoading, loadingText, children, leftIcon, rightIcon])
 
-  return (
-    <button
-      className={`${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
-      disabled={disabled || isLoading}
-      {...props}
-    >
-      {isLoading && (
-        <svg
-          className="animate-spin -ml-1 mr-2 h-4 w-4"
-          fill="none"
-          viewBox="0 0 24 24"
+    const baseClassName = cn(buttonVariants({ variant, size, fullWidth, className }))
+
+    if (asChild) {
+      return (
+        <Slot
+          className={baseClassName}
+          ref={ref}
+          {...(props as any)}
         >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          />
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          />
-        </svg>
-      )}
-      {children}
-    </button>
-  )
+          {buttonContent}
+        </Slot>
+      )
+    }
+
+    return (
+      <motion.button
+        className={baseClassName}
+        ref={ref}
+        disabled={disabled || isLoading}
+        whileHover={!disabled && !isLoading ? buttonHoverAnimation : undefined}
+        whileTap={!disabled && !isLoading ? buttonTapAnimation : undefined}
+        {...props}
+      >
+        {buttonContent}
+      </motion.button>
+    )
+  }
+)
+
+Button.displayName = 'Button'
+
+// ============================================================================
+// ICON BUTTON VARIANT (specialized for icon-only buttons)
+// ============================================================================
+
+export interface IconButtonProps extends Omit<ButtonProps, 'leftIcon' | 'rightIcon' | 'children'> {
+  /**
+   * Icon element (required)
+   */
+  icon: React.ReactNode
+
+  /**
+   * Accessible label (required for screen readers)
+   */
+  'aria-label': string
 }
+
+const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
+  ({ icon, size = 'md', ...props }, ref) => {
+    const iconSize = size === 'sm' ? 16 : size === 'lg' ? 24 : 20
+
+    return (
+      <Button ref={ref} variant="icon" size={size} {...props}>
+        <span className="inline-flex" style={{ width: iconSize, height: iconSize }}>
+          {icon}
+        </span>
+      </Button>
+    )
+  }
+)
+
+IconButton.displayName = 'IconButton'
+
+// ============================================================================
+// EXPORTS
+// ============================================================================
+
+export { Button, IconButton, buttonVariants }

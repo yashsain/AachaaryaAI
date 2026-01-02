@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { createBrowserClient } from '@/lib/supabase/client'
+import { toast } from '@/components/ui/toast'
 
 interface TestPaper {
   id: string
@@ -189,7 +190,10 @@ export default function GenerateQuestionsPage() {
 
       if (dryRun) {
         // Show success message for dry run
-        alert(`Dry Run Complete!\n\nChapters processed: ${data.summary.chaptersProcessed}/${data.summary.totalChapters}\nQuestions generated: ${data.summary.totalQuestionsGenerated}\nValidation errors: ${data.summary.validationErrors.length}\nValidation warnings: ${data.summary.validationWarnings.length}\n\nLogs saved to: debug_logs/\n\nCheck console for details.`)
+        toast.success(`Dry Run Complete! Chapters: ${data.summary.chaptersProcessed}/${data.summary.totalChapters} | Questions: ${data.summary.totalQuestionsGenerated} | Errors: ${data.summary.validationErrors.length} | Warnings: ${data.summary.validationWarnings.length}`, {
+          duration: 8000,
+          description: 'Logs saved to debug_logs/. Check console for details.'
+        })
       } else {
         // Redirect to review page
         router.push(`/dashboard/test-papers/${paper_id}/review`)
@@ -217,7 +221,7 @@ export default function GenerateQuestionsPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-neutral-50">
         <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-brand-saffron border-r-transparent"></div>
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-500 border-r-transparent"></div>
           <p className="mt-4 text-neutral-600">Loading...</p>
         </div>
       </div>
@@ -233,7 +237,7 @@ export default function GenerateQuestionsPage() {
             <p className="text-red-800 font-medium">{pageError || 'Test paper not found'}</p>
             <Link
               href={paper_id ? `/dashboard/test-papers/${paper_id}` : '/dashboard/test-papers'}
-              className="mt-4 inline-block text-brand-saffron hover:underline"
+              className="mt-4 inline-block text-primary-600 hover:underline"
             >
               ← Back to Papers
             </Link>
@@ -248,7 +252,7 @@ export default function GenerateQuestionsPage() {
       <main className="mx-auto max-w-4xl px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <Link href={`/dashboard/test-papers/${paper_id}`} className="text-brand-saffron hover:underline mb-4 inline-block">
+          <Link href={`/dashboard/test-papers/${paper_id}`} className="text-primary-600 hover:underline mb-4 inline-block">
             ← Back to Paper Dashboard
           </Link>
           <h1 className="text-3xl font-bold text-neutral-900">{paper.title}</h1>
@@ -372,7 +376,7 @@ export default function GenerateQuestionsPage() {
             className={`w-full px-6 py-4 rounded-lg font-medium text-lg transition-colors ${
               dryRunning || actualGenerating || materialCount === 0
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-[#F7931E] text-white hover:bg-[#E67E00]'
+                : 'bg-primary-500 text-white hover:bg-primary-600'
             }`}
           >
             {actualGenerating ? (

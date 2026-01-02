@@ -2,9 +2,21 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import type { Session } from '@supabase/supabase-js'
+import {
+  Users,
+  Mail,
+  Phone,
+  Edit2,
+  Trash2,
+  BookOpen,
+  Shield,
+  UserCircle,
+  AlertCircle
+} from 'lucide-react'
 
 interface TeacherSubject {
   subject_id: string
@@ -88,112 +100,117 @@ export function TeacherTable({ teachers, session, onDeleteSuccess }: TeacherTabl
 
   if (teachers.length === 0) {
     return (
-      <div className="text-center py-12 bg-white rounded-xl border-2 border-dashed border-gray-300">
-        <svg
-          className="mx-auto h-12 w-12 text-gray-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-          />
-        </svg>
-        <h3 className="mt-2 text-sm font-medium text-gray-900">No teachers</h3>
-        <p className="mt-1 text-sm text-gray-500">
-          Get started by creating a new teacher account.
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="text-center py-16 bg-white rounded-2xl border-2 border-dashed border-neutral-300"
+      >
+        <div className="w-20 h-20 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <Users className="h-10 w-10 text-neutral-400" />
+        </div>
+        <h3 className="text-xl font-bold text-neutral-900 mb-2">No teachers yet</h3>
+        <p className="text-sm text-neutral-600 mb-6 max-w-md mx-auto">
+          Get started by creating a new teacher account for your institute.
         </p>
-      </div>
+      </motion.div>
     )
   }
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Phone
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Subjects
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {teachers.map((teacher) => (
-                <tr key={teacher.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{teacher.name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-600">{teacher.email}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-600">{teacher.phone || '-'}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        teacher.role === 'admin'
-                          ? 'bg-purple-100 text-purple-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {teacher.role}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-1">
-                      {teacher.teacher_subjects.map((ts) => (
+      <div className="grid grid-cols-1 gap-4">
+        {teachers.map((teacher, index) => (
+          <motion.div
+            key={teacher.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: index * 0.05 }}
+            className="group bg-white rounded-2xl shadow-sm border border-neutral-200 hover:shadow-lg hover:border-primary-300 transition-all duration-300 overflow-hidden"
+          >
+            <div className="p-6">
+              <div className="flex items-start justify-between gap-4">
+                {/* Left: Teacher Info */}
+                <div className="flex-1 space-y-4">
+                  {/* Name and Role */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-12 h-12 bg-gradient-to-br from-primary-100 to-primary-200 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <UserCircle className="h-6 w-6 text-primary-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-lg font-bold text-neutral-900 group-hover:text-primary-600 transition-colors">
+                          {teacher.name}
+                        </h3>
                         <span
-                          key={ts.subject_id}
-                          className="inline-flex px-2 py-1 text-xs bg-gray-900 text-white rounded-md"
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg ${
+                            teacher.role === 'admin'
+                              ? 'bg-gradient-to-r from-purple-100 to-purple-200 text-purple-700 border border-purple-300'
+                              : 'bg-neutral-100 text-neutral-700 border border-neutral-200'
+                          }`}
                         >
-                          {ts.subjects.name}
+                          {teacher.role === 'admin' && <Shield className="h-3 w-3" />}
+                          {teacher.role}
                         </span>
-                      ))}
-                      {teacher.teacher_subjects.length === 0 && (
-                        <span className="text-xs text-gray-400">No subjects assigned</span>
+                      </div>
+                      <div className="flex flex-col gap-1.5 mt-2">
+                        <div className="flex items-center gap-2 text-sm text-neutral-600">
+                          <Mail className="h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{teacher.email}</span>
+                        </div>
+                        {teacher.phone && (
+                          <div className="flex items-center gap-2 text-sm text-neutral-600">
+                            <Phone className="h-4 w-4 flex-shrink-0" />
+                            <span>{teacher.phone}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subjects */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-neutral-700 uppercase tracking-wide">
+                      <BookOpen className="h-3.5 w-3.5" />
+                      Subjects
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {teacher.teacher_subjects.length > 0 ? (
+                        teacher.teacher_subjects.map((ts) => (
+                          <span
+                            key={ts.subject_id}
+                            className="inline-flex items-center px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-neutral-900 to-neutral-800 text-white rounded-lg shadow-sm"
+                          >
+                            {ts.subjects.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-neutral-400 italic">No subjects assigned</span>
                       )}
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <Link
-                      href={`/dashboard/admin/teachers/${teacher.id}/edit`}
-                      className="text-gray-900 hover:text-gray-700 mr-4"
-                    >
-                      Edit
-                    </Link>
-                    <button
-                      onClick={() => openDeleteModal(teacher)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+                </div>
+
+                {/* Right: Actions */}
+                <div className="flex flex-col gap-2">
+                  <Link
+                    href={`/dashboard/admin/teachers/${teacher.id}/edit`}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-100 hover:bg-primary-50 text-neutral-700 hover:text-primary-600 rounded-xl transition-all font-medium text-sm border border-neutral-200 hover:border-primary-300"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                    Edit
+                  </Link>
+                  <button
+                    onClick={() => openDeleteModal(teacher)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-error-50 hover:bg-error-100 text-error-600 hover:text-error-700 rounded-xl transition-all font-medium text-sm border border-error-200 hover:border-error-300"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ))}
       </div>
 
       {/* Delete Confirmation Modal */}
@@ -207,40 +224,59 @@ export function TeacherTable({ teachers, session, onDeleteSuccess }: TeacherTabl
               variant="secondary"
               onClick={closeDeleteModal}
               disabled={isDeleting}
+              className="px-6 py-2.5"
             >
               Cancel
             </Button>
             <Button
-              variant="danger"
+              variant="destructive"
               onClick={handleDelete}
               isLoading={isDeleting}
               disabled={isDeleting}
+              className="px-6 py-2.5 bg-gradient-to-r from-error-600 to-error-700 hover:from-error-700 hover:to-error-800 shadow-lg hover:shadow-xl"
             >
-              Delete
+              Delete Teacher
             </Button>
           </>
         }
       >
-        <div className="space-y-3">
+        <div className="space-y-4">
           {deleteError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-800">{deleteError}</p>
+            <div className="bg-error-50 border border-error-200 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-error-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="h-4 w-4 text-error-600" />
+                </div>
+                <p className="text-sm text-error-800 mt-0.5">{deleteError}</p>
+              </div>
             </div>
           )}
-          <p className="text-sm text-gray-600">
-            Are you sure you want to delete <strong>{teacherToDelete?.name}</strong>?
+          <p className="text-sm text-neutral-700 leading-relaxed">
+            Are you sure you want to delete <span className="font-bold text-neutral-900">{teacherToDelete?.name}</span>?
           </p>
-          <p className="text-sm text-gray-600">
-            This will:
-          </p>
-          <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-            <li>Soft delete the teacher record</li>
-            <li>Free up their email for reuse</li>
-            <li>Preserve test papers and materials for records</li>
-          </ul>
-          <p className="text-sm font-medium text-red-600">
-            This action cannot be easily undone.
-          </p>
+          <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-4">
+            <p className="text-xs font-semibold text-neutral-700 mb-2 uppercase tracking-wide">This will:</p>
+            <ul className="space-y-2 text-sm text-neutral-600">
+              <li className="flex items-start gap-2">
+                <div className="w-1.5 h-1.5 bg-neutral-400 rounded-full mt-1.5 flex-shrink-0"></div>
+                <span>Soft delete the teacher record</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <div className="w-1.5 h-1.5 bg-neutral-400 rounded-full mt-1.5 flex-shrink-0"></div>
+                <span>Free up their email for reuse</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <div className="w-1.5 h-1.5 bg-neutral-400 rounded-full mt-1.5 flex-shrink-0"></div>
+                <span>Preserve test papers and materials for records</span>
+              </li>
+            </ul>
+          </div>
+          <div className="bg-error-50 border border-error-200 rounded-xl p-4">
+            <p className="text-sm font-semibold text-error-700 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              This action cannot be easily undone.
+            </p>
+          </div>
         </div>
       </Modal>
     </>

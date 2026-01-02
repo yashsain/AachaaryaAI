@@ -181,7 +181,7 @@ export default function SectionGeneratePage({ params }: SectionGeneratePageProps
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.push(`/dashboard/test-papers/${paperId}`)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-900 hover:text-gray-900"
               disabled={generationStatus === 'generating'}
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -283,7 +283,7 @@ export default function SectionGeneratePage({ params }: SectionGeneratePageProps
                   Cancel
                 </Button>
                 <Button
-                  variant={isRegenerate ? 'danger' : 'primary'}
+                  variant={isRegenerate ? 'destructive' : 'primary'}
                   className="flex-1"
                   onClick={handleGenerate}
                   disabled={!canGenerate}

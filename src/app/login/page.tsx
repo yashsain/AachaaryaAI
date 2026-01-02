@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Login Page - Institute Code Based Authentication
+ * Modern Login Page - Institute Code Based Authentication
  *
  * Two-step flow with real Supabase Auth:
  * 1. Enter Institute Code → Fetch institute from database
@@ -13,9 +13,14 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Building2, ArrowLeft, CheckCircle } from 'lucide-react'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { useSession } from '@/hooks/useSession'
 import type { Institute } from '@/types/database'
+import { Input } from '@/components/ui/Input'
+import { Button } from '@/components/ui/Button'
+import { cn } from '@/lib/utils'
 
 export default function LoginPage() {
   const supabase = createBrowserClient()
@@ -170,10 +175,10 @@ export default function LoginPage() {
   // FIX: Also check teacherLoading to prevent flash during teacher data fetch
   if (authLoading || (user && teacherLoading)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-neutral-50 via-white to-blue-50">
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Checking authentication...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-neutral-600">Checking authentication...</p>
         </div>
       </div>
     )
@@ -185,239 +190,263 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-neutral-50 via-white to-blue-50">
+    <div className="flex min-h-screen bg-neutral-50">
       {/* Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center bg-gradient-to-br from-brand-saffron to-brand-blue p-12">
-        <div className="max-w-md text-white">
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center bg-linear-to-br from-primary-500 to-primary-600 p-12 relative overflow-hidden">
+        {/* Decorative gradient orbs */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-primary-700/30 rounded-full blur-3xl"></div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="max-w-md text-white relative z-10"
+        >
           <Image
             src="/logo.png"
             alt="aachaaryAI Logo"
             width={120}
             height={80}
-            className="mb-8"
+            className="mb-8 drop-shadow-lg"
           />
           <h1 className="text-5xl font-bold mb-6">aachaaryAI</h1>
-          <p className="text-xl mb-8 text-white/90">
+          <p className="text-xl mb-12 text-white/90">
             Your AI Teaching Assistant for Test Paper Generation
           </p>
-          <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">✓</span>
-              <div>
-                <p className="font-semibold">Institute-Specific Platform</p>
-                <p className="text-white/80">Each coaching institute gets their own branded experience</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">✓</span>
-              <div>
-                <p className="font-semibold">Generate in Minutes</p>
-                <p className="text-white/80">Create professional test papers in &lt;30 minutes</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">✓</span>
-              <div>
-                <p className="font-semibold">Multi-Format Support</p>
-                <p className="text-white/80">MCQ, Integer, Matrix Match, Assertion-Reason & more</p>
-              </div>
-            </div>
-          </div>
-        </div>
+
+          <motion.div
+            className="space-y-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.8 }}
+          >
+            {[
+              {
+                title: 'Institute-Specific Platform',
+                description: 'Each coaching institute gets their own branded experience',
+              },
+              {
+                title: 'Generate in Minutes',
+                description: 'Create professional test papers in <30 minutes',
+              },
+              {
+                title: 'Multi-Format Support',
+                description: 'MCQ, Integer, Matrix Match, Assertion-Reason & more',
+              },
+            ].map((feature, index) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5 + index * 0.1 }}
+                className="flex items-start gap-3"
+              >
+                <CheckCircle className="h-6 w-6 text-white/90 shrink-0" />
+                <div>
+                  <p className="font-semibold text-lg">{feature.title}</p>
+                  <p className="text-white/80">{feature.description}</p>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        </motion.div>
       </div>
 
       {/* Right Side - Login Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
-          {/* Step 1: Institute Code Entry */}
-          {step === 'code' && (
-            <>
-              {/* Logo for mobile */}
-              <div className="lg:hidden text-center mb-8">
-                <Image
-                  src="/logo.png"
-                  alt="aachaaryAI Logo"
-                  width={80}
-                  height={53}
-                  className="mx-auto mb-4"
-                />
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-brand-saffron to-brand-blue bg-clip-text text-transparent">
-                  aachaaryAI
-                </h1>
-              </div>
-
-              {/* Institute Code Card */}
-              <div className="bg-white rounded-2xl shadow-2xl p-8 border border-neutral-100">
-                <div className="text-center mb-6">
-                  <div className="w-12 h-12 bg-gradient-to-br from-brand-saffron to-brand-blue rounded-full flex items-center justify-center mx-auto mb-3">
-                    <span className="text-2xl">🏫</span>
-                  </div>
-                  <h2 className="text-2xl font-bold text-neutral-800 mb-2">Welcome</h2>
-                  <p className="text-neutral-600">Enter your institute code to continue</p>
+          <AnimatePresence mode="wait">
+            {/* Step 1: Institute Code Entry */}
+            {step === 'code' && (
+              <motion.div
+                key="code-step"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                {/* Logo for mobile */}
+                <div className="lg:hidden text-center mb-8">
+                  <Image
+                    src="/logo.png"
+                    alt="aachaaryAI Logo"
+                    width={80}
+                    height={53}
+                    className="mx-auto mb-4"
+                  />
+                  <h1 className="text-3xl font-bold bg-linear-to-r from-primary-500 to-primary-600 bg-clip-text text-transparent">
+                    aachaaryAI
+                  </h1>
                 </div>
 
-                <form onSubmit={handleCodeSubmit} className="space-y-6">
-                  {/* Institute Code Input */}
-                  <div>
-                    <label htmlFor="instituteCode" className="block text-sm font-medium text-neutral-700 mb-2">
-                      Institute Code
-                    </label>
-                    <input
+                {/* Institute Code Card */}
+                <div className="bg-white rounded-2xl shadow-lg p-8 border border-neutral-200">
+                  <div className="text-center mb-8">
+                    <div className="w-14 h-14 bg-linear-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+                      <Building2 className="h-7 w-7 text-white" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-neutral-900 mb-2">Welcome</h2>
+                    <p className="text-neutral-600">Enter your institute code to continue</p>
+                  </div>
+
+                  <form onSubmit={handleCodeSubmit} className="space-y-6">
+                    {/* Institute Code Input */}
+                    <Input
                       id="instituteCode"
+                      label="Institute Code"
                       type="text"
                       value={instituteCode}
                       onChange={(e) => setInstituteCode(e.target.value.toUpperCase())}
                       placeholder="e.g., ALLEN, DEMO"
                       required
                       disabled={codeLoading}
-                      className="w-full px-4 py-3 rounded-lg border border-neutral-300 focus:border-brand-saffron focus:ring-2 focus:ring-brand-saffron/20 outline-none transition-all uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="uppercase"
                       autoFocus
                     />
-                  </div>
 
-                  {/* Error Message */}
-                  {codeError && (
-                    <div className="bg-danger/10 border border-danger/30 rounded-lg p-3">
-                      <p className="text-danger text-sm">{codeError}</p>
-                    </div>
-                  )}
-
-                  {/* Submit Button */}
-                  <button
-                    type="submit"
-                    disabled={codeLoading}
-                    style={{
-                      background: 'linear-gradient(to right, #F7931E, #E67E00)',
-                    }}
-                    className="w-full py-3 px-4 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                  >
-                    {codeLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></span>
-                        Checking...
-                      </span>
-                    ) : (
-                      'Continue'
+                    {/* Error Message */}
+                    {codeError && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-error-50 border border-error-200 rounded-lg p-3"
+                      >
+                        <p className="text-error-700 text-sm">{codeError}</p>
+                      </motion.div>
                     )}
-                  </button>
-                </form>
 
-                {/* Help Text */}
-                <div className="mt-6 pt-6 border-t border-neutral-200 text-center">
-                  <p className="text-sm text-neutral-600">
-                    Don't know your institute code?{' '}
-                    <span className="text-brand-blue font-medium">Contact your admin</span>
-                  </p>
+                    {/* Submit Button */}
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      size="lg"
+                      isLoading={codeLoading}
+                      className="w-full"
+                    >
+                      Continue
+                    </Button>
+                  </form>
+
+                  {/* Help Text */}
+                  <div className="mt-6 pt-6 border-t border-neutral-200 text-center">
+                    <p className="text-sm text-neutral-600">
+                      Don't know your institute code?{' '}
+                      <span className="text-primary-600 font-medium">Contact your admin</span>
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
+              </motion.div>
+            )}
 
-          {/* Step 2: Institute Branded Login */}
-          {step === 'login' && institute && (
-            <>
-              {/* Institute Header */}
-              <div className="text-center mb-6">
-                <Image
-                  src={institute.logo_url || '/logo.png'}
-                  alt={`${institute.name} Logo`}
-                  width={100}
-                  height={67}
-                  className="mx-auto mb-4 rounded-lg"
-                />
-                <h1
-                  className="text-3xl font-bold mb-2"
-                  style={{ color: institute.primary_color }}
-                >
-                  {institute.name}
-                </h1>
-                {institute.tagline && (
-                  <p className="text-neutral-600 text-sm">{institute.tagline}</p>
-                )}
-                {institute.city && (
-                  <p className="text-neutral-500 text-xs mt-1">{institute.city}</p>
-                )}
-              </div>
+            {/* Step 2: Institute Branded Login */}
+            {step === 'login' && institute && (
+              <motion.div
+                key="login-step"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                {/* Institute Header */}
+                <div className="text-center mb-6">
+                  <Image
+                    src={institute.logo_url || '/logo.png'}
+                    alt={`${institute.name} Logo`}
+                    width={100}
+                    height={67}
+                    className="mx-auto mb-4 rounded-lg"
+                  />
+                  <h1
+                    className="text-3xl font-bold mb-2"
+                    style={{ color: institute.primary_color }}
+                  >
+                    {institute.name}
+                  </h1>
+                  {institute.tagline && (
+                    <p className="text-neutral-600 text-sm">{institute.tagline}</p>
+                  )}
+                  {institute.city && (
+                    <p className="text-neutral-500 text-xs mt-1">{institute.city}</p>
+                  )}
+                </div>
 
-              {/* Login Card */}
-              <div className="bg-white rounded-2xl shadow-2xl p-8 border border-neutral-100">
-                <h2 className="text-2xl font-bold text-neutral-800 mb-2">Sign In</h2>
-                <p className="text-neutral-600 mb-8">Access your account to continue</p>
+                {/* Login Card */}
+                <div className="bg-white rounded-2xl shadow-lg p-8 border border-neutral-200">
+                  <h2 className="text-2xl font-bold text-neutral-900 mb-2">Sign In</h2>
+                  <p className="text-neutral-600 mb-8">Access your account to continue</p>
 
-                <form onSubmit={handleLogin} className="space-y-6">
-                  {/* Email Input */}
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-neutral-700 mb-2">
-                      Email Address
-                    </label>
-                    <input
+                  <form onSubmit={handleLogin} className="space-y-6">
+                    {/* Email Input */}
+                    <Input
                       id="email"
+                      label="Email Address"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="teacher@institute.com"
                       required
                       disabled={loginLoading}
-                      className="w-full px-4 py-3 rounded-lg border border-neutral-300 focus:border-brand-saffron focus:ring-2 focus:ring-brand-saffron/20 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       autoFocus
                     />
-                  </div>
 
-                  {/* Password Input */}
-                  <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-neutral-700 mb-2">
-                      Password
-                    </label>
-                    <input
+                    {/* Password Input */}
+                    <Input
                       id="password"
+                      label="Password"
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
                       required
                       disabled={loginLoading}
-                      className="w-full px-4 py-3 rounded-lg border border-neutral-300 focus:border-brand-saffron focus:ring-2 focus:ring-brand-saffron/20 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     />
-                  </div>
 
-                  {/* Error Message */}
-                  {loginError && (
-                    <div className="bg-danger/10 border border-danger/30 rounded-lg p-3">
-                      <p className="text-danger text-sm">{loginError}</p>
-                    </div>
-                  )}
-
-                  {/* Submit Button */}
-                  <button
-                    type="submit"
-                    disabled={loginLoading}
-                    style={{ background: `linear-gradient(to right, ${institute.primary_color}, ${institute.primary_color}dd)` }}
-                    className="w-full py-3 px-4 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                  >
-                    {loginLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></span>
-                        Signing in...
-                      </span>
-                    ) : (
-                      'Sign In'
+                    {/* Error Message */}
+                    {loginError && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-error-50 border border-error-200 rounded-lg p-3"
+                      >
+                        <p className="text-error-700 text-sm">{loginError}</p>
+                      </motion.div>
                     )}
-                  </button>
-                </form>
 
-                {/* Back Button */}
-                <div className="mt-6 text-center">
-                  <button
-                    onClick={handleBack}
-                    disabled={loginLoading}
-                    className="text-sm text-brand-blue hover:text-brand-blue-dark font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    ← Change Institute
-                  </button>
+                    {/* Submit Button */}
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      size="lg"
+                      isLoading={loginLoading}
+                      className="w-full"
+                      style={{
+                        background: `linear-gradient(to right, ${institute.primary_color}, ${institute.primary_color}dd)`,
+                      }}
+                    >
+                      Sign In
+                    </Button>
+                  </form>
+
+                  {/* Back Button */}
+                  <div className="mt-6 text-center">
+                    <button
+                      onClick={handleBack}
+                      disabled={loginLoading}
+                      className={cn(
+                        'inline-flex items-center gap-2 text-sm font-medium transition-colors',
+                        'text-primary-600 hover:text-primary-700',
+                        'disabled:opacity-50 disabled:cursor-not-allowed'
+                      )}
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      Change Institute
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Footer */}
           <p className="text-center text-sm text-neutral-500 mt-6">

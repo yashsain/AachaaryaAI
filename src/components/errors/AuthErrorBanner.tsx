@@ -77,7 +77,7 @@ export function AuthErrorBanner({ error, onRetry, onDismiss, onSignOut }: AuthEr
             {error.recoverable && onRetry && (
               <button
                 onClick={onRetry}
-                className="w-full py-3 px-4 bg-gradient-to-r from-brand-saffron to-brand-saffron-dark text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-[1.02]"
+                className="w-full py-3 px-4 bg-gradient-to-r from-primary-500 to-primary-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-[1.02]"
               >
                 Try Again
               </button>

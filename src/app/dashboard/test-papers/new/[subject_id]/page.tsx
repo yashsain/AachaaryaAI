@@ -341,7 +341,7 @@ export default function CreateTestPaperPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-neutral-50">
         <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-brand-saffron border-r-transparent"></div>
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-500 border-r-transparent"></div>
           <p className="mt-4 text-neutral-600">Loading...</p>
         </div>
       </div>
@@ -393,7 +393,7 @@ export default function CreateTestPaperPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link href={`/dashboard/test-papers/subject/${subject_id}`}>
-                <button className="p-2 hover:bg-neutral-100 rounded-lg transition-colors">
+                <button className="p-2 hover:bg-neutral-100 rounded-lg transition-colors text-gray-900 hover:text-gray-900">
                   <svg className="w-5 h-5 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
@@ -433,7 +433,7 @@ export default function CreateTestPaperPage() {
           </div>
           <div className="w-full bg-neutral-200 rounded-full h-2">
             <div
-              className="bg-orange-500 h-2 rounded-full transition-all duration-300"
+              className="bg-primary-500 h-2 rounded-full transition-all duration-300"
               style={{ width: `${(getStepNumber() / 4) * 100}%` }}
             ></div>
           </div>
@@ -469,7 +469,7 @@ export default function CreateTestPaperPage() {
                 <button
                   onClick={handleNext}
                   disabled={classes.length === 0}
-                  className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="text-white">Next: Paper Format</span>
                 </button>
@@ -505,7 +505,7 @@ export default function CreateTestPaperPage() {
                 <select
                   value={materialTypeId}
                   onChange={(e) => setMaterialTypeId(e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-saffron focus:border-transparent transition-colors ${
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors ${
                     fieldErrors.materialType ? 'border-error' : 'border-gray-300'
                   }`}
                   required
@@ -534,7 +534,7 @@ export default function CreateTestPaperPage() {
                   max="100"
                   value={questionCount}
                   onChange={(e) => setQuestionCount(parseInt(e.target.value) || 0)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-saffron focus:border-transparent transition-colors ${
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors ${
                     fieldErrors.questionCount ? 'border-error' : 'border-gray-300'
                   }`}
                   required
@@ -560,7 +560,7 @@ export default function CreateTestPaperPage() {
                       value="easy"
                       checked={difficultyLevel === 'easy'}
                       onChange={(e) => setDifficultyLevel(e.target.value as 'easy' | 'balanced' | 'hard')}
-                      className="w-4 h-4 text-brand-saffron focus:ring-brand-saffron"
+                      className="w-4 h-4 text-primary-600 focus:ring-primary-500"
                     />
                     <span className="text-sm text-gray-700">Easy</span>
                   </label>
@@ -571,7 +571,7 @@ export default function CreateTestPaperPage() {
                       value="balanced"
                       checked={difficultyLevel === 'balanced'}
                       onChange={(e) => setDifficultyLevel(e.target.value as 'easy' | 'balanced' | 'hard')}
-                      className="w-4 h-4 text-brand-saffron focus:ring-brand-saffron"
+                      className="w-4 h-4 text-primary-600 focus:ring-primary-500"
                     />
                     <span className="text-sm text-gray-700">Balanced</span>
                   </label>
@@ -582,7 +582,7 @@ export default function CreateTestPaperPage() {
                       value="hard"
                       checked={difficultyLevel === 'hard'}
                       onChange={(e) => setDifficultyLevel(e.target.value as 'easy' | 'balanced' | 'hard')}
-                      className="w-4 h-4 text-brand-saffron focus:ring-brand-saffron"
+                      className="w-4 h-4 text-primary-600 focus:ring-primary-500"
                     />
                     <span className="text-sm text-gray-700">Hard</span>
                   </label>
@@ -604,7 +604,7 @@ export default function CreateTestPaperPage() {
                 </button>
                 <button
                   onClick={handleNext}
-                  className="flex-1 px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+                  className="flex-1 px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium"
                 >
                   <span className="text-white">Next: Select Chapters</span>
                 </button>
@@ -646,7 +646,7 @@ export default function CreateTestPaperPage() {
                 <button
                   onClick={handleNext}
                   disabled={chapters.length === 0}
-                  className="flex-1 px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="text-white">Review & Create</span>
                 </button>
@@ -658,7 +658,7 @@ export default function CreateTestPaperPage() {
           {currentStep === 'review' && (
             <div className="space-y-6">
               <div className="text-center py-8">
-                <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <span className="text-4xl">🚀</span>
                 </div>
                 <h2 className="text-2xl font-bold text-neutral-800 mb-2">Coming Soon!</h2>
@@ -774,7 +774,7 @@ export default function CreateTestPaperPage() {
                   className={`flex-1 px-6 py-3 rounded-lg transition-all font-medium shadow-md ${
                     materialCount === 0 || creating
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700'
+                      : 'bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700'
                   }`}
                   title={materialCount === 0 ? 'Please upload materials before creating test paper' : ''}
                 >

@@ -13,7 +13,11 @@ import { useRequireSession } from '@/hooks/useSession'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
+import { Skeleton } from '@/components/ui/skeleton'
+import { BookOpen, ArrowLeft, ChevronRight, FolderOpen, AlertCircle } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface Subject {
   id: string
@@ -22,6 +26,48 @@ interface Subject {
   streams: {
     id: string
     name: string
+  }
+}
+
+// Subject-specific styling
+const getSubjectConfig = (subjectName: string) => {
+  const name = subjectName.toLowerCase()
+
+  if (name.includes('biology')) {
+    return {
+      emoji: '🧬',
+      gradient: 'from-emerald-500 to-teal-600',
+      bgColor: 'bg-emerald-50',
+      textColor: 'text-emerald-700'
+    }
+  } else if (name.includes('physics')) {
+    return {
+      emoji: '⚛️',
+      gradient: 'from-blue-500 to-indigo-600',
+      bgColor: 'bg-blue-50',
+      textColor: 'text-blue-700'
+    }
+  } else if (name.includes('chemistry')) {
+    return {
+      emoji: '🧪',
+      gradient: 'from-purple-500 to-pink-600',
+      bgColor: 'bg-purple-50',
+      textColor: 'text-purple-700'
+    }
+  } else if (name.includes('math')) {
+    return {
+      emoji: '📐',
+      gradient: 'from-orange-500 to-red-600',
+      bgColor: 'bg-orange-50',
+      textColor: 'text-orange-700'
+    }
+  } else {
+    return {
+      emoji: '📚',
+      gradient: 'from-gray-500 to-slate-600',
+      bgColor: 'bg-gray-50',
+      textColor: 'text-gray-700'
+    }
   }
 }
 
@@ -87,159 +133,185 @@ export default function MaterialsSubjectPickerPage() {
   // Show loading state
   if (loading || teacherLoading || loadingSubjects) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-brand-saffron border-r-transparent"></div>
-          <p className="mt-4 text-neutral-600">Loading subjects...</p>
+      <div className="space-y-6">
+        <Skeleton className="h-20 w-full" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Skeleton className="h-48" />
+          <Skeleton className="h-48" />
+          <Skeleton className="h-48" />
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-blue-50">
-      {/* Header */}
-      <header className="bg-white border-b border-neutral-200 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center space-x-4">
-            <Link
-              href="/dashboard/materials"
-              className="text-gray-600 hover:text-gray-900 flex items-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to Streams
-            </Link>
-            <div className="h-6 w-px bg-gray-300"></div>
-            <div>
-              <h1 className="text-2xl font-bold text-neutral-800">Manage Study Materials</h1>
-              <p className="text-sm text-neutral-600 mt-1">
-                {streamName ? `${streamName} - Select a subject` : 'Select a subject to continue'}
-              </p>
-            </div>
-          </div>
+    <div className="space-y-8">
+      {/* Header Section */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="space-y-2"
+      >
+        <div className="flex items-center gap-3 text-neutral-600">
+          <Link
+            href="/dashboard/materials"
+            className="inline-flex items-center gap-2 text-sm font-medium hover:text-primary-600 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Streams
+          </Link>
         </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Error State */}
-        {subjectsError && (
-          <div className="bg-error/10 border border-error/30 rounded-lg p-4 mb-6">
-            <div className="flex items-start gap-3">
-              <span className="text-error text-xl">⚠️</span>
-              <div className="flex-1">
-                <p className="text-error font-medium">Error Loading Subjects</p>
-                <p className="text-error/80 text-sm mt-1">{subjectsError}</p>
-                <button
-                  onClick={fetchSubjects}
-                  className="mt-3 text-sm text-error hover:underline font-medium"
-                >
-                  Try Again
-                </button>
+        <h1 className="text-4xl font-bold text-neutral-900">Study Materials</h1>
+        <p className="text-lg text-neutral-600">
+          {streamName ? `${streamName} - Select a subject to manage materials` : 'Select a subject to continue'}
+        </p>
+      </motion.div>
+      {/* Error State */}
+      {subjectsError && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-error-50 border border-error-200 rounded-xl p-6"
+        >
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0">
+              <div className="w-10 h-10 bg-error-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="h-5 w-5 text-error-600" />
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!subjectsError && subjects.length === 0 && !loadingSubjects && (
-          <div className="bg-white rounded-xl shadow-md p-12 text-center">
-            <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl">📚</span>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-error-900 mb-1">Error Loading Subjects</h3>
+              <p className="text-error-700 text-sm mb-4">{subjectsError}</p>
+              <button
+                onClick={fetchSubjects}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-error-600 text-white rounded-lg hover:bg-error-700 transition-colors text-sm font-medium"
+              >
+                Try Again
+              </button>
             </div>
-            <h2 className="text-xl font-semibold text-neutral-800 mb-2">No Subjects Found</h2>
-            <p className="text-neutral-600 mb-6">
-              {teacher?.role === 'admin'
-                ? `No subjects have been added for this stream yet.`
-                : 'You have not been assigned any subjects for this stream. Please contact your administrator.'}
-            </p>
-            <Link
-              href="/dashboard/materials"
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-brand-saffron text-white rounded-lg hover:bg-brand-saffron/90 transition-colors font-medium"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to Streams
-            </Link>
           </div>
-        )}
+        </motion.div>
+      )}
 
-        {/* Subjects List */}
-        {!subjectsError && subjects.length > 0 && (
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
-            <div className="p-6 border-b border-neutral-200">
-              <h2 className="text-lg font-semibold text-neutral-800">
-                Select a Subject
-              </h2>
+      {/* Empty State */}
+      {!subjectsError && subjects.length === 0 && !loadingSubjects && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-12 text-center"
+        >
+          <div className="w-20 h-20 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <FolderOpen className="h-10 w-10 text-neutral-400" />
+          </div>
+          <h2 className="text-2xl font-bold text-neutral-900 mb-3">No Subjects Found</h2>
+          <p className="text-neutral-600 mb-6 max-w-md mx-auto">
+            {teacher?.role === 'admin'
+              ? 'No subjects have been added for this stream yet.'
+              : 'You have not been assigned any subjects for this stream. Please contact your administrator.'}
+          </p>
+          <Link href="/dashboard/materials">
+            <button className="px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-lg hover:from-primary-600 hover:to-primary-700 transition-all font-medium shadow-lg hover:shadow-xl">
+              Back to Streams
+            </button>
+          </Link>
+        </motion.div>
+      )}
+
+      {/* Subjects Grid */}
+      {!subjectsError && subjects.length > 0 && !loadingSubjects && (
+        <>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-neutral-900">Available Subjects</h2>
               <p className="text-sm text-neutral-600 mt-1">
                 {subjects.length} {subjects.length === 1 ? 'subject' : 'subjects'} available for {streamName}
               </p>
             </div>
+          </div>
 
-            <div className="divide-y divide-neutral-200">
-              {subjects.map((subject) => (
-                <Link
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {subjects.map((subject, index) => {
+              const config = getSubjectConfig(subject.name)
+
+              return (
+                <motion.div
                   key={subject.id}
-                  href={`/dashboard/materials/${subject.id}`}
-                  className="block hover:bg-neutral-50 transition-colors"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
                 >
-                  <div className="flex items-center justify-between p-6 group">
-                    <div className="flex items-center gap-4">
-                      {/* Subject Icon */}
-                      <div className="w-12 h-12 bg-gradient-to-br from-brand-blue to-brand-blue-dark rounded-lg flex items-center justify-center">
-                        <span className="text-2xl">
-                          {subject.name === 'Biology' ? '🧬' :
-                           subject.name === 'Physics' ? '⚛️' :
-                           subject.name === 'Chemistry' ? '🧪' :
-                           subject.name === 'Mathematics' ? '📐' :
-                           '📚'}
-                        </span>
-                      </div>
+                  <Link href={`/dashboard/materials/${subject.id}`}>
+                    <div className="group relative bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-neutral-200 hover:border-transparent h-full">
+                      {/* Gradient Background - visible on hover */}
+                      <div className={cn(
+                        'absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300',
+                        config.gradient
+                      )} />
 
-                      {/* Subject Info */}
-                      <div>
-                        <h3 className="text-lg font-semibold text-neutral-800 group-hover:text-brand-blue transition-colors">
+                      {/* Content */}
+                      <div className="relative p-6">
+                        {/* Subject Emoji */}
+                        <div className={cn(
+                          'w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-all duration-300 text-3xl',
+                          config.bgColor,
+                          'group-hover:bg-white/20'
+                        )}>
+                          {config.emoji}
+                        </div>
+
+                        {/* Subject Name */}
+                        <h3 className="text-xl font-bold text-neutral-900 group-hover:text-white transition-colors duration-300 mb-2">
                           {subject.name}
                         </h3>
-                        <p className="text-sm text-neutral-600">
+
+                        {/* Stream Badge */}
+                        <p className="text-sm text-neutral-600 group-hover:text-white/90 transition-colors duration-300 mb-4">
                           {subject.streams.name} Stream
                         </p>
+
+                        {/* Action */}
+                        <div className="flex items-center gap-2 text-sm font-medium text-neutral-700 group-hover:text-white transition-colors duration-300">
+                          <span>Manage Materials</span>
+                          <ChevronRight className="h-4 w-4 transform group-hover:translate-x-1 transition-transform duration-300" />
+                        </div>
                       </div>
+
+                      {/* Decorative element */}
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-white/10 to-transparent rounded-full -mr-12 -mt-12 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     </div>
-
-                    {/* Chevron Icon */}
-                    <svg
-                      className="w-6 h-6 text-neutral-400 group-hover:text-brand-blue group-hover:translate-x-1 transition-all"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                  </Link>
+                </motion.div>
+              )
+            })}
           </div>
-        )}
+        </>
+      )}
 
-        {/* Info Card */}
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex gap-3">
-            <span className="text-blue-600 text-xl">💡</span>
+      {/* Helper Text */}
+      {subjects.length > 0 && !loadingSubjects && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100"
+        >
+          <div className="flex gap-4">
+            <div className="flex-shrink-0">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <BookOpen className="h-5 w-5 text-blue-600" />
+              </div>
+            </div>
             <div>
-              <p className="text-sm text-blue-800 font-medium">About Study Materials</p>
-              <p className="text-sm text-blue-700 mt-1">
+              <h3 className="text-sm font-semibold text-blue-900 mb-1">About Study Materials</h3>
+              <p className="text-sm text-blue-700">
                 Organize your study materials by uploading PDFs of notes, DPPs, past papers, and more.
                 Materials are tagged by chapters for easy access during test paper generation.
               </p>
             </div>
           </div>
-        </div>
-      </main>
+        </motion.div>
+      )}
     </div>
   )
 }

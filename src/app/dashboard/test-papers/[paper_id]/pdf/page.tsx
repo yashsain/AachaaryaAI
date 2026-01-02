@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { createBrowserClient } from '@/lib/supabase/client'
+import { toast } from '@/components/ui/toast'
 
 interface PaperInfo {
   id: string
@@ -103,7 +104,7 @@ export default function PDFViewerPage() {
     if (signedPdfUrl) {
       window.open(signedPdfUrl, '_blank')
     } else {
-      alert('PDF URL not available yet. Please wait...')
+      toast.warning('PDF URL not available yet. Please wait...')
     }
   }
 
@@ -117,7 +118,7 @@ export default function PDFViewerPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-neutral-50">
         <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-brand-saffron border-r-transparent"></div>
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-500 border-r-transparent"></div>
           <p className="mt-4 text-neutral-600">Loading PDF...</p>
         </div>
       </div>
@@ -133,7 +134,7 @@ export default function PDFViewerPage() {
             <p className="text-red-800 font-medium">{pageError || 'Paper not found'}</p>
             <Link
               href={paper_id ? `/dashboard/test-papers/${paper_id}` : '/dashboard/test-papers'}
-              className="mt-4 inline-block text-brand-saffron hover:underline"
+              className="mt-4 inline-block text-primary-600 hover:underline"
             >
               ← Back to Papers
             </Link>
@@ -152,7 +153,7 @@ export default function PDFViewerPage() {
             <div className="flex items-center gap-4">
               <Link
                 href={`/dashboard/test-papers/${paper_id}`}
-                className="text-brand-saffron hover:underline flex items-center gap-2"
+                className="text-primary-600 hover:underline flex items-center gap-2"
               >
                 ← Back to Paper Dashboard
               </Link>
@@ -162,7 +163,7 @@ export default function PDFViewerPage() {
 
             <button
               onClick={handleDownload}
-              className="px-6 py-2 bg-brand-saffron text-white rounded-lg font-medium hover:bg-[#E67E00] transition-colors flex items-center gap-2"
+              className="px-6 py-2 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors flex items-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

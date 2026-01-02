@@ -20,6 +20,9 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { createBrowserClient } from '@/lib/supabase/client'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ArrowLeft, Plus, Search, FileText, Download } from 'lucide-react'
+import { toast } from '@/components/ui/toast'
 
 interface Paper {
   id: string
@@ -154,7 +157,7 @@ export default function PapersListPage() {
       setDeletingPaper(null)
     } catch (err) {
       console.error('[DELETE_PAPER_ERROR]', err)
-      alert(err instanceof Error ? err.message : 'Failed to delete paper')
+      toast.error(err instanceof Error ? err.message : 'Failed to delete paper')
     } finally {
       setDeleting(false)
     }
@@ -198,10 +201,14 @@ export default function PapersListPage() {
   // Show loading state
   if (loading || teacherLoading || loadingData) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-brand-saffron border-r-transparent"></div>
-          <p className="mt-4 text-neutral-600">Loading papers...</p>
+      <div className="min-h-screen bg-neutral-50">
+        <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-16 w-full" />
+          <div className="space-y-4">
+            <Skeleton className="h-48" />
+            <Skeleton className="h-48" />
+          </div>
         </div>
       </div>
     )
@@ -216,7 +223,7 @@ export default function PapersListPage() {
             <p className="text-red-800 font-medium">{pageError}</p>
             <Link
               href="/dashboard/test-papers"
-              className="mt-4 inline-block text-brand-saffron hover:underline"
+              className="mt-4 inline-block text-primary-600 hover:underline"
             >
               ← Back to Subjects
             </Link>
@@ -228,66 +235,71 @@ export default function PapersListPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      <main className="mx-auto max-w-7xl px-4 py-8">
+      <main className="mx-auto max-w-7xl px-4 py-8 space-y-8">
         {/* Header */}
-        <div className="mb-8">
-          <Link href="/dashboard/test-papers" className="text-brand-saffron hover:underline mb-4 inline-block">
-            ← Back to Subjects
+        <div>
+          <Link
+            href="/dashboard/test-papers"
+            className="inline-flex items-center gap-2 text-primary-600 hover:text-primary-700 mb-6 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Subjects
           </Link>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-neutral-900">{subjectName} - Test Papers</h1>
-              <p className="text-neutral-600 mt-2">Manage your test papers</p>
+              <h1 className="text-4xl font-bold text-neutral-900">{subjectName}</h1>
+              <p className="text-neutral-600 mt-2 text-lg">Manage your test papers</p>
             </div>
             <Link
               href={`/dashboard/test-papers/new/${subject_id}`}
-              className="px-6 py-3 bg-[#F7931E] text-white rounded-lg font-medium hover:bg-[#E67E00] transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-xl font-medium hover:bg-primary-600 transition-all shadow-md hover:shadow-lg"
             >
-              + Create New Paper
+              <Plus className="w-5 h-5" />
+              Create New Paper
             </Link>
           </div>
         </div>
 
         {/* Status Tabs */}
-        <div className="bg-white rounded-lg shadow-sm border border-neutral-200 mb-6">
+        <div className="bg-white rounded-2xl shadow-lg border border-neutral-200">
           <div className="border-b border-neutral-200 px-6">
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-8">
               <button
                 onClick={() => setStatusFilter('all')}
-                className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                className={`py-4 px-2 border-b-2 font-medium text-sm transition-all ${
                   statusFilter === 'all'
-                    ? 'border-brand-saffron text-brand-saffron'
-                    : 'border-transparent text-neutral-600 hover:text-neutral-900'
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-neutral-600 hover:text-neutral-900 hover:border-neutral-300'
                 }`}
               >
                 All ({papers.length})
               </button>
               <button
                 onClick={() => setStatusFilter('draft')}
-                className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                className={`py-4 px-2 border-b-2 font-medium text-sm transition-all ${
                   statusFilter === 'draft'
-                    ? 'border-brand-saffron text-brand-saffron'
-                    : 'border-transparent text-neutral-600 hover:text-neutral-900'
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-neutral-600 hover:text-neutral-900 hover:border-neutral-300'
                 }`}
               >
                 Draft
               </button>
               <button
                 onClick={() => setStatusFilter('review')}
-                className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                className={`py-4 px-2 border-b-2 font-medium text-sm transition-all ${
                   statusFilter === 'review'
-                    ? 'border-brand-saffron text-brand-saffron'
-                    : 'border-transparent text-neutral-600 hover:text-neutral-900'
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-neutral-600 hover:text-neutral-900 hover:border-neutral-300'
                 }`}
               >
                 In Review
               </button>
               <button
                 onClick={() => setStatusFilter('finalized')}
-                className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                className={`py-4 px-2 border-b-2 font-medium text-sm transition-all ${
                   statusFilter === 'finalized'
-                    ? 'border-brand-saffron text-brand-saffron'
-                    : 'border-transparent text-neutral-600 hover:text-neutral-900'
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-neutral-600 hover:text-neutral-900 hover:border-neutral-300'
                 }`}
               >
                 Finalized
@@ -296,21 +308,22 @@ export default function PapersListPage() {
           </div>
 
           {/* Search and Sort */}
-          <div className="px-6 py-4 flex items-center gap-4">
-            <div className="flex-1">
+          <div className="px-6 py-4 flex items-center gap-4 bg-neutral-50 rounded-b-2xl">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
               <input
                 type="text"
                 placeholder="Search by title..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-saffron"
+                className="w-full pl-10 pr-4 py-2.5 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white transition-all shadow-sm hover:shadow-md"
               />
             </div>
             <div>
               <select
                 value={sortOption}
                 onChange={(e) => setSortOption(e.target.value as SortOption)}
-                className="px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-saffron"
+                className="px-4 py-2.5 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white transition-all shadow-sm hover:shadow-md"
               >
                 <option value="recent">Recent First</option>
                 <option value="oldest">Oldest First</option>
@@ -322,17 +335,22 @@ export default function PapersListPage() {
 
         {/* Papers List */}
         {papers.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-12 text-center">
-            <p className="text-neutral-600 mb-4">No papers found</p>
+          <div className="bg-white rounded-2xl shadow-lg border-2 border-dashed border-neutral-300 p-20 text-center hover:shadow-xl transition-shadow">
+            <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FileText className="w-8 h-8 text-neutral-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-neutral-900 mb-2">No papers found</h3>
+            <p className="text-neutral-600 mb-8">Get started by creating your first test paper</p>
             <Link
               href={`/dashboard/test-papers/new/${subject_id}`}
-              className="inline-block px-6 py-3 bg-[#F7931E] text-white rounded-lg font-medium hover:bg-[#E67E00]"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-xl font-medium hover:bg-primary-600 shadow-md hover:shadow-lg transition-all"
             >
+              <Plus className="w-5 h-5" />
               Create Your First Paper
             </Link>
           </div>
         ) : (
-          <div className="grid gap-4">
+          <div className="grid gap-6">
             {papers.map((paper) => (
               <PaperCard
                 key={paper.id}
@@ -349,29 +367,29 @@ export default function PapersListPage() {
 
       {/* Delete Confirmation Modal */}
       {deletingPaper && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div
-            className="absolute inset-0 bg-gray-900 bg-opacity-40 backdrop-blur-sm"
+            className="absolute inset-0 bg-neutral-900 bg-opacity-50 backdrop-blur-sm"
             onClick={() => !deleting && setDeletingPaper(null)}
           />
-          <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Delete Paper?</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete "<strong>{deletingPaper.title}</strong>"?
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 animate-in zoom-in duration-200">
+            <h3 className="text-2xl font-bold text-neutral-900 mb-3">Delete Paper?</h3>
+            <p className="text-neutral-600 mb-8 leading-relaxed">
+              Are you sure you want to delete "<strong className="text-neutral-900">{deletingPaper.title}</strong>"?
               This will permanently delete all {deletingPaper.total_generated} questions and cannot be undone.
             </p>
             <div className="flex items-center justify-end gap-3">
               <button
                 onClick={() => setDeletingPaper(null)}
                 disabled={deleting}
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                className="px-5 py-2.5 bg-neutral-100 text-neutral-700 rounded-xl font-medium hover:bg-neutral-200 disabled:opacity-50 transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeletePaper}
                 disabled={deleting}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                className="px-5 py-2.5 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 disabled:opacity-50 shadow-md hover:shadow-lg transition-all"
               >
                 {deleting ? 'Deleting...' : 'Delete Paper'}
               </button>
@@ -417,7 +435,7 @@ function PaperCard({ paper, session, onDelete, formatDate, getStatusBadge }: Pap
       return (
         <button
           onClick={() => router.push(`/dashboard/test-papers/${paper.id}/generate`)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700"
+          className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-medium text-sm hover:bg-blue-700 shadow-sm hover:shadow-md transition-all"
         >
           Continue Editing
         </button>
@@ -427,7 +445,7 @@ function PaperCard({ paper, session, onDelete, formatDate, getStatusBadge }: Pap
       return (
         <button
           onClick={() => router.push(`/dashboard/test-papers/${paper.id}/review`)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700"
+          className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-medium text-sm hover:bg-blue-700 shadow-sm hover:shadow-md transition-all"
         >
           Continue Review
         </button>
@@ -438,29 +456,27 @@ function PaperCard({ paper, session, onDelete, formatDate, getStatusBadge }: Pap
         <>
           <button
             onClick={() => router.push(`/dashboard/test-papers/${paper.id}/pdf`)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium text-sm hover:bg-green-700"
+            className="px-5 py-2.5 bg-green-600 text-white rounded-xl font-medium text-sm hover:bg-green-700 shadow-sm hover:shadow-md transition-all"
           >
             View Paper
           </button>
           <button
             onClick={handleEditPaper}
             disabled={editingPaper}
-            className="px-4 py-2 bg-orange-600 text-white rounded-lg font-medium text-sm hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="px-5 py-2.5 bg-primary-600 text-white rounded-xl font-medium text-sm hover:bg-primary-700 disabled:bg-neutral-400 disabled:cursor-not-allowed shadow-sm hover:shadow-md transition-all"
           >
             {editingPaper ? 'Opening...' : 'Edit Paper'}
           </button>
           <button
             onClick={handleDownloadPDF}
             disabled={downloadingPdf}
-            className="px-3 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed"
+            className="p-2.5 bg-blue-600 text-white rounded-xl font-medium text-sm hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed shadow-sm hover:shadow-md transition-all"
             title="Download PDF"
           >
             {downloadingPdf ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
             ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
+              <Download className="w-4 h-4" />
             )}
           </button>
         </>
@@ -475,7 +491,7 @@ function PaperCard({ paper, session, onDelete, formatDate, getStatusBadge }: Pap
 
       // Using centralized session passed from parent (no redundant getSession call)
       if (!session) {
-        alert('Session expired. Please sign in again.')
+        toast.error('Session expired. Please sign in again.')
         return
       }
 
@@ -497,14 +513,14 @@ function PaperCard({ paper, session, onDelete, formatDate, getStatusBadge }: Pap
       router.push(`/dashboard/test-papers/${paper.id}/review`)
     } catch (err) {
       console.error('[EDIT_PAPER_ERROR]', err)
-      alert(err instanceof Error ? err.message : 'Failed to reopen paper for editing')
+      toast.error(err instanceof Error ? err.message : 'Failed to reopen paper for editing')
       setEditingPaper(false)
     }
   }
 
   const handleDownloadPDF = async () => {
     if (!paper.pdf_url) {
-      alert('PDF not available. Please finalize the paper first.')
+      toast.error('PDF not available. Please finalize the paper first.')
       return
     }
 
@@ -513,7 +529,7 @@ function PaperCard({ paper, session, onDelete, formatDate, getStatusBadge }: Pap
 
       // Using centralized session passed from parent (no redundant getSession call)
       if (!session) {
-        alert('Session expired. Please sign in again.')
+        toast.error('Session expired. Please sign in again.')
         return
       }
 
@@ -534,47 +550,50 @@ function PaperCard({ paper, session, onDelete, formatDate, getStatusBadge }: Pap
 
     } catch (err) {
       console.error('[DOWNLOAD_PDF_ERROR]', err)
-      alert(err instanceof Error ? err.message : 'Failed to download PDF')
+      toast.error(err instanceof Error ? err.message : 'Failed to download PDF')
     } finally {
       setDownloadingPdf(false)
     }
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between mb-4">
+    <div className="bg-white rounded-2xl shadow-md border border-neutral-200 p-6 hover:shadow-xl transition-all duration-200 hover:scale-[1.01]">
+      <div className="flex items-start justify-between mb-5">
         <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-3">
             {getStatusBadge(paper.status)}
-            <h3 className="text-lg font-semibold text-neutral-900">{paper.title}</h3>
+            <h3 className="text-xl font-bold text-neutral-900">{paper.title}</h3>
           </div>
-          <div className="flex items-center gap-4 text-sm text-neutral-600">
-            <span>📊 {getProgressText()}</span>
-            <span>•</span>
-            <span>📅 Created {formatDate(paper.created_at)}</span>
+          <div className="flex items-center gap-4 text-sm text-neutral-600 mb-3">
+            <span className="flex items-center gap-1.5">
+              <FileText className="w-4 h-4" />
+              {getProgressText()}
+            </span>
+            <span className="text-neutral-300">•</span>
+            <span>Created {formatDate(paper.created_at)}</span>
             {paper.last_modified !== paper.created_at && (
               <>
-                <span>•</span>
+                <span className="text-neutral-300">•</span>
                 <span>Modified {formatDate(paper.last_modified)}</span>
               </>
             )}
           </div>
-          <div className="flex items-center gap-2 mt-2 text-sm text-neutral-500">
-            <span className="px-2 py-1 bg-neutral-100 rounded">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="px-3 py-1.5 bg-neutral-100 rounded-lg font-medium text-neutral-700">
               {paper.question_count} questions
             </span>
-            <span className="px-2 py-1 bg-neutral-100 rounded capitalize">
+            <span className="px-3 py-1.5 bg-neutral-100 rounded-lg font-medium text-neutral-700 capitalize">
               {paper.difficulty_level}
             </span>
           </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 pt-4 border-t border-neutral-100">
         {getActionButton()}
         <button
           onClick={() => onDelete(paper)}
-          className="px-4 py-2 bg-red-50 text-red-600 rounded-lg font-medium text-sm hover:bg-red-100"
+          className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-medium text-sm hover:bg-red-100 transition-all"
         >
           Delete
         </button>

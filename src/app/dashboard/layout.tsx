@@ -1,4 +1,5 @@
 import { AuthErrorBoundary } from '@/components/auth/AuthErrorBoundary'
+import { DashboardLayout as LayoutWrapper } from '@/components/layout/dashboard-layout'
 
 export default function DashboardLayout({
   children,
@@ -7,7 +8,7 @@ export default function DashboardLayout({
 }) {
   return (
     <AuthErrorBoundary>
-      {children}
+      <LayoutWrapper>{children}</LayoutWrapper>
     </AuthErrorBoundary>
   )
 }

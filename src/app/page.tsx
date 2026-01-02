@@ -17,7 +17,7 @@ export default function Home() {
         </div>
 
         {/* Brand Name with Gradient */}
-        <h1 className="text-6xl md:text-7xl font-bold mb-4 bg-gradient-to-r from-brand-saffron via-brand-saffron-dark to-brand-blue bg-clip-text text-transparent">
+        <h1 className="text-6xl md:text-7xl font-bold mb-4 bg-gradient-to-r from-primary-500 via-primary-600 to-primary-700 bg-clip-text text-transparent">
           aachaaryAI
         </h1>
 
@@ -28,7 +28,7 @@ export default function Home() {
         {/* Main Value Proposition Card */}
         <div className="bg-white shadow-2xl rounded-2xl p-8 md:p-12 mb-8 border border-neutral-100">
           <h2 className="text-3xl font-bold mb-6 text-neutral-800">
-            Replace <span className="text-brand-saffron">₹60k/month</span> typist costs with AI
+            Replace <span className="text-primary-600">₹60k/month</span> typist costs with AI
           </h2>
           <p className="text-lg text-neutral-600 mb-8">
             Generate professional test papers in &lt;30 minutes instead of 2-4 hours
@@ -43,14 +43,14 @@ export default function Home() {
               <p className="text-4xl font-bold text-neutral-700">2-4 hours</p>
               <p className="text-sm text-neutral-500 mt-2">Manual typing & formatting</p>
             </div>
-            <div className="bg-gradient-to-br from-brand-blue/10 to-brand-saffron/10 p-6 rounded-xl border-2 border-brand-blue/20">
-              <p className="text-sm text-brand-blue font-semibold uppercase tracking-wide mb-2">
+            <div className="bg-gradient-to-br from-primary-100/50 to-primary-200/50 p-6 rounded-xl border-2 border-primary-300">
+              <p className="text-sm text-primary-700 font-semibold uppercase tracking-wide mb-2">
                 With aachaaryAI
               </p>
-              <p className="text-4xl font-bold bg-gradient-to-r from-brand-saffron to-brand-blue bg-clip-text text-transparent">
+              <p className="text-4xl font-bold bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
                 &lt;30 min
               </p>
-              <p className="text-sm text-brand-blue-dark mt-2">AI-powered generation</p>
+              <p className="text-sm text-primary-700 mt-2">AI-powered generation</p>
             </div>
           </div>
 
@@ -71,7 +71,7 @@ export default function Home() {
           </div>
 
           {/* CTA Button */}
-          <button className="mt-10 px-8 py-4 bg-gradient-to-r from-brand-saffron to-brand-saffron-dark text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105">
+          <button className="mt-10 px-8 py-4 bg-gradient-to-r from-primary-500 to-primary-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105">
             Get Started
           </button>
         </div>

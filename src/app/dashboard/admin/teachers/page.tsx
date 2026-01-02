@@ -3,10 +3,12 @@
 import { useRequireAdmin } from '@/hooks/useSession'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { motion } from 'framer-motion'
 import { TeacherTable } from '@/components/admin/TeacherTable'
 import { Button } from '@/components/ui/Button'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { AuthLoadingState } from '@/components/auth/AuthLoadingState'
+import { ArrowLeft, Plus, Users, AlertCircle, Loader2 } from 'lucide-react'
 
 interface TeacherSubject {
   subject_id: string
@@ -83,81 +85,81 @@ export default function TeachersListPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link
-                href="/dashboard/admin"
-                className="text-gray-600 hover:text-gray-900 flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                Admin Panel
-              </Link>
-              <div className="h-6 w-px bg-gray-300"></div>
-              <div>
-                <h1 className="text-2xl font-bold" style={{ color: institute.primary_color }}>
-                  Manage Teachers
-                </h1>
-                <p className="text-sm text-gray-600">{institute.name}</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-medium text-gray-900">{teacher.name}</p>
-              <p className="text-xs text-gray-500">Administrator</p>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="space-y-6">
         {/* Actions Bar */}
-        <div className="flex items-center justify-between mb-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="flex items-center justify-between"
+        >
           <div>
-            <p className="text-sm text-gray-600">
+            <p className="text-base text-neutral-600">
               Manage teacher accounts and permissions
             </p>
           </div>
           <Link href="/dashboard/admin/teachers/new">
-            <Button variant="primary">
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
+            <Button
+              variant="primary"
+              className="flex items-center gap-2 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-lg hover:shadow-xl"
+            >
+              <Plus className="w-4 h-4" />
               Add Teacher
             </Button>
           </Link>
-        </div>
+        </motion.div>
 
         {/* Error Message */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-800">{error}</p>
-            <button
-              onClick={fetchTeachers}
-              className="mt-2 text-sm text-red-600 hover:text-red-700 underline"
-            >
-              Try again
-            </button>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-error-50 border border-error-200 rounded-2xl p-6"
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-error-100 rounded-full flex items-center justify-center">
+                  <AlertCircle className="h-5 w-5 text-error-600" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-error-900 mb-1">Error Loading Teachers</h3>
+                <p className="text-error-700 text-sm mb-4">{error}</p>
+                <button
+                  onClick={fetchTeachers}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-error-600 text-white rounded-lg hover:bg-error-700 transition-colors text-sm font-medium"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          </motion.div>
         )}
 
         {/* Loading State */}
         {isLoadingTeachers ? (
-          <div className="flex items-center justify-center py-12 bg-white rounded-xl">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex items-center justify-center py-24 bg-white rounded-2xl border border-neutral-200"
+          >
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-              <p className="mt-4 text-sm text-gray-600">Loading teachers...</p>
+              <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Loader2 className="h-8 w-8 text-primary-600 animate-spin" />
+              </div>
+              <p className="text-base font-medium text-neutral-900">Loading teachers...</p>
+              <p className="text-sm text-neutral-600 mt-1">Please wait</p>
             </div>
-          </div>
+          </motion.div>
         ) : (
-          <TeacherTable teachers={teachers} session={session} onDeleteSuccess={fetchTeachers} />
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <TeacherTable teachers={teachers} session={session} onDeleteSuccess={fetchTeachers} />
+          </motion.div>
         )}
-      </main>
     </div>
   )
 }

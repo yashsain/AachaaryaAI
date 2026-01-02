@@ -329,7 +329,7 @@ export async function POST(
     const config: TemplateConfig = {
       instituteLogo: instituteLogo || undefined,
       instituteName: institute.name,
-      primaryColor: institute.primary_color || '#F7931E',
+      primaryColor: institute.primary_color || '#0D9488',
       tagline: institute.tagline || undefined,
       contactInfo: {
         city: institute.city || undefined,

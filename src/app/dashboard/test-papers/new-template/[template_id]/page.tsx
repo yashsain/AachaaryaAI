@@ -1,24 +1,32 @@
+'use client'
+
 /**
- * Simplified Paper Creation from Template
+ * Modern Paper Creation from Template
  *
  * PHASE 1: Create paper with metadata only
- * - Select classes/batches
- * - Enter paper title, type, difficulty
- * - Creates paper with EMPTY sections (status = 'pending')
- * - Redirects to Paper Dashboard
+ * Features:
+ * - Modern card-based form layout with animations
+ * - Visual template preview with section breakdown
+ * - Segmented control for difficulty selection
+ * - Enhanced multi-select for classes
+ * - Inline validation with helpful error messages
+ * - Smooth loading states and transitions
  *
  * PHASE 2: Per-section workflow (handled in Paper Dashboard)
  * - Each section: Assign chapters → Generate questions
  */
 
-'use client'
-
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ArrowLeft, FileText, Layers, Hash, BookOpen, Zap, BarChart3, AlertCircle, CheckCircle2, GraduationCap } from 'lucide-react'
 import { useRequireSession } from '@/hooks/useSession'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/MultiSelect'
+import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 
 interface CreatePaperPageProps {
   params: Promise<{
@@ -68,6 +76,65 @@ interface MaterialType {
   id: string
   name: string
 }
+
+// Subject-specific colors
+const getSubjectColor = (subjectName: string) => {
+  const name = subjectName.toLowerCase()
+
+  if (name.includes('physics')) {
+    return {
+      bg: 'bg-blue-50',
+      text: 'text-blue-700',
+      border: 'border-blue-200'
+    }
+  } else if (name.includes('chemistry')) {
+    return {
+      bg: 'bg-purple-50',
+      text: 'text-purple-700',
+      border: 'border-purple-200'
+    }
+  } else if (name.includes('biology')) {
+    return {
+      bg: 'bg-emerald-50',
+      text: 'text-emerald-700',
+      border: 'border-emerald-200'
+    }
+  } else if (name.includes('math')) {
+    return {
+      bg: 'bg-primary-50',
+      text: 'text-primary-700',
+      border: 'border-primary-200'
+    }
+  } else {
+    return {
+      bg: 'bg-neutral-50',
+      text: 'text-neutral-700',
+      border: 'border-neutral-200'
+    }
+  }
+}
+
+// Difficulty level config
+const difficultyOptions = [
+  {
+    value: 'easy' as const,
+    label: 'Easy',
+    icon: Zap,
+    description: 'More foundational questions'
+  },
+  {
+    value: 'balanced' as const,
+    label: 'Balanced',
+    icon: BarChart3,
+    description: 'Mix of easy, medium, hard'
+  },
+  {
+    value: 'hard' as const,
+    label: 'Hard',
+    icon: Layers,
+    description: 'More challenging questions'
+  }
+]
 
 export default function CreatePaperFromTemplatePage({ params }: CreatePaperPageProps) {
   const resolvedParams = use(params)
@@ -214,29 +281,36 @@ export default function CreatePaperFromTemplatePage({ params }: CreatePaperPageP
     }
   }
 
+  // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <svg className="animate-spin h-8 w-8 text-gray-900 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-          </svg>
-          <p className="text-gray-600">Loading...</p>
+      <div className="space-y-6">
+        <Skeleton className="h-24 w-full" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <Skeleton className="h-96" />
+          </div>
+          <Skeleton className="h-96" />
         </div>
       </div>
     )
   }
 
+  // Error state (no template loaded)
   if (error && !template) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <Button onClick={() => router.back()}>Go Back</Button>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-12 text-center"
+      >
+        <div className="w-20 h-20 bg-error-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <AlertCircle className="h-10 w-10 text-error-600" />
         </div>
-      </div>
+        <h2 className="text-2xl font-bold text-neutral-900 mb-3">Error Loading Template</h2>
+        <p className="text-neutral-600 mb-6 max-w-md mx-auto">{error}</p>
+        <Button onClick={() => router.back()}>Go Back</Button>
+      </motion.div>
     )
   }
 
@@ -248,155 +322,198 @@ export default function CreatePaperFromTemplatePage({ params }: CreatePaperPageP
   const totalQuestions = template?.sections.reduce((sum, s) => sum + s.default_question_count, 0) || 0
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.back()}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Create Test Paper</h1>
-              <p className="text-sm text-gray-500 mt-1">{template?.name}</p>
-            </div>
-          </div>
+    <div className="space-y-6">
+      {/* Header Section */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="space-y-2"
+      >
+        <div className="flex items-center gap-3 text-neutral-600">
+          <button
+            onClick={() => router.back()}
+            className="inline-flex items-center gap-2 text-sm font-medium hover:text-primary-600 transition-colors text-gray-900 hover:text-gray-900"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Templates
+          </button>
         </div>
-      </div>
+        <h1 className="text-4xl font-bold text-neutral-900">Create Test Paper</h1>
+        <p className="text-lg text-neutral-600">
+          Configure your test paper based on the <span className="font-semibold text-neutral-900">{template?.name}</span> template
+        </p>
+      </motion.div>
 
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Error Alert */}
+      {/* Error Alert */}
+      <AnimatePresence>
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-red-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-              <div className="flex-1">
-                <p className="text-red-800 font-medium">Error</p>
-                <p className="text-red-700 text-sm mt-1">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Form Card */}
-        <div className="bg-white rounded-lg shadow-md p-8 space-y-6">
-          {/* Template Info */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-blue-800 mb-1">Template: {template?.name}</p>
-                <p className="text-sm text-blue-700 mb-2">
-                  This paper will have {template?.sections.length} sections with {totalQuestions} total questions
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {template?.sections.map((section) => (
-                    <span
-                      key={section.id}
-                      className="px-2 py-1 bg-blue-100 border border-blue-200 rounded text-xs text-blue-800"
-                    >
-                      {section.section_name}: {section.default_question_count}Q
-                    </span>
-                  ))}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-error-50 border border-error-200 rounded-xl p-6"
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-error-100 rounded-full flex items-center justify-center">
+                  <AlertCircle className="h-5 w-5 text-error-600" />
                 </div>
-                <p className="text-sm text-blue-700 mt-3 font-medium">
-                  ℹ️ Chapters will be assigned per-section after creation
-                </p>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-error-900 mb-1">Error Creating Paper</h3>
+                <p className="text-error-700 text-sm">{error}</p>
               </div>
             </div>
-          </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          {/* Title */}
-          <Input
-            label="Paper Title"
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g., REET Mains Level 2 - Practice Test 1"
-            required
-            error={fieldErrors.title}
-            helperText="Give a descriptive title for this test paper"
-          />
-
-          {/* Classes */}
-          <MultiSelect
-            label="Classes / Batches"
-            options={classOptions}
-            selectedIds={selectedClassIds}
-            onChange={setSelectedClassIds}
-            placeholder="Select classes this paper is for..."
-            required
-            error={fieldErrors.classes}
-          />
-
-          {/* Material Type */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Paper Type <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={materialTypeId}
-              onChange={(e) => setMaterialTypeId(e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-colors ${
-                fieldErrors.materialType ? 'border-red-500' : 'border-gray-300'
-              }`}
-              required
-            >
-              <option value="">Select paper type...</option>
-              {materialTypes.map(type => (
-                <option key={type.id} value={type.id}>{type.name}</option>
-              ))}
-            </select>
-            {fieldErrors.materialType && (
-              <p className="mt-1 text-sm text-red-600">{fieldErrors.materialType}</p>
-            )}
-            <p className="mt-1 text-sm text-gray-600">
-              Select the format/type of test paper to generate
-            </p>
-          </div>
-
-          {/* Difficulty Level */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Difficulty Level <span className="text-red-500">*</span>
-            </label>
-            <div className="flex gap-4">
-              {['easy', 'balanced', 'hard'].map((level) => (
-                <label key={level} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="difficultyLevel"
-                    value={level}
-                    checked={difficultyLevel === level}
-                    onChange={(e) => setDifficultyLevel(e.target.value as any)}
-                    className="w-4 h-4 text-gray-900 focus:ring-gray-900"
-                  />
-                  <span className="text-sm text-gray-700 capitalize">{level}</span>
-                </label>
-              ))}
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Form Section */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="lg:col-span-2 space-y-6"
+        >
+          {/* Paper Details Card */}
+          <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-8 space-y-6">
+            <div className="flex items-center gap-3 pb-4 border-b border-neutral-100">
+              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
+                <FileText className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-neutral-900">Paper Details</h2>
+                <p className="text-sm text-neutral-600">Configure your test paper settings</p>
+              </div>
             </div>
-            {fieldErrors.difficultyLevel && (
-              <p className="mt-1 text-sm text-red-600">{fieldErrors.difficultyLevel}</p>
-            )}
-            <p className="mt-1 text-sm text-gray-600">
-              Affects question complexity and discriminator distribution
-            </p>
+
+            {/* Title Input */}
+            <Input
+              label="Paper Title"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g., REET Mains Level 2 - Practice Test 1"
+              required
+              error={fieldErrors.title}
+              helperText="Give a descriptive title for this test paper"
+              leftIcon={<FileText className="h-5 w-5" />}
+            />
+
+            {/* Classes Multi-Select */}
+            <MultiSelect
+              label="Classes / Batches"
+              options={classOptions}
+              selectedIds={selectedClassIds}
+              onChange={setSelectedClassIds}
+              placeholder="Select classes this paper is for..."
+              required
+              error={fieldErrors.classes}
+            />
+
+            {/* Material Type Dropdown */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-2">
+                Paper Type <span className="text-error-600">*</span>
+              </label>
+              <div className="relative">
+                <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-400 pointer-events-none" />
+                <select
+                  value={materialTypeId}
+                  onChange={(e) => setMaterialTypeId(e.target.value)}
+                  className={cn(
+                    'w-full pl-11 pr-4 py-3 border rounded-xl transition-all',
+                    'focus:ring-2 focus:ring-primary-500 focus:border-primary-500',
+                    'appearance-none bg-white cursor-pointer',
+                    fieldErrors.materialType ? 'border-error-500' : 'border-neutral-300'
+                  )}
+                  required
+                >
+                  <option value="">Select paper type...</option>
+                  {materialTypes.map(type => (
+                    <option key={type.id} value={type.id}>{type.name}</option>
+                  ))}
+                </select>
+                <svg className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+              {fieldErrors.materialType ? (
+                <p className="mt-1.5 text-sm text-error-600">{fieldErrors.materialType}</p>
+              ) : (
+                <p className="mt-1.5 text-sm text-neutral-600">
+                  Select the format/type of test paper to generate
+                </p>
+              )}
+            </div>
+
+            {/* Difficulty Level - Segmented Control */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-3">
+                Difficulty Level <span className="text-error-600">*</span>
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {difficultyOptions.map((option) => {
+                  const Icon = option.icon
+                  const isSelected = difficultyLevel === option.value
+
+                  return (
+                    <motion.button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setDifficultyLevel(option.value)}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={cn(
+                        'relative p-4 rounded-xl border-2 transition-all text-left',
+                        isSelected
+                          ? 'border-primary-500 bg-primary-50'
+                          : 'border-neutral-200 bg-white hover:border-neutral-300'
+                      )}
+                    >
+                      {isSelected && (
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="absolute top-2 right-2"
+                        >
+                          <CheckCircle2 className="h-5 w-5 text-primary-600" />
+                        </motion.div>
+                      )}
+                      <Icon className={cn(
+                        'h-6 w-6 mb-2',
+                        isSelected ? 'text-primary-600' : 'text-neutral-400'
+                      )} />
+                      <p className={cn(
+                        'font-semibold text-sm mb-1',
+                        isSelected ? 'text-primary-900' : 'text-neutral-900'
+                      )}>
+                        {option.label}
+                      </p>
+                      <p className={cn(
+                        'text-xs',
+                        isSelected ? 'text-primary-700' : 'text-neutral-600'
+                      )}>
+                        {option.description}
+                      </p>
+                    </motion.button>
+                  )
+                })}
+              </div>
+              {fieldErrors.difficultyLevel && (
+                <p className="mt-1.5 text-sm text-error-600">{fieldErrors.difficultyLevel}</p>
+              )}
+            </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-4 pt-4 border-t border-gray-200">
+          <div className="flex items-center gap-4">
             <Button
               variant="secondary"
+              size="lg"
               onClick={() => router.back()}
               disabled={isCreating}
             >
@@ -404,16 +521,127 @@ export default function CreatePaperFromTemplatePage({ params }: CreatePaperPageP
             </Button>
             <Button
               variant="primary"
+              size="lg"
               className="flex-1"
               onClick={handleCreate}
               isLoading={isCreating}
               disabled={isCreating}
             >
-              {isCreating ? 'Creating...' : 'Create Paper'}
+              {isCreating ? 'Creating Paper...' : 'Create Paper'}
             </Button>
           </div>
-        </div>
-      </main>
+        </motion.div>
+
+        {/* Template Preview Sidebar */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="space-y-4"
+        >
+          {/* Template Info Card */}
+          <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-6">
+            <div className="flex items-center gap-3 mb-4 pb-4 border-b border-neutral-100">
+              <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center">
+                <Layers className="h-5 w-5 text-primary-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-neutral-900">Template Preview</h3>
+                <p className="text-xs text-neutral-600">{template?.name}</p>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="bg-primary-50 border border-primary-200 rounded-xl p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Layers className="h-4 w-4 text-primary-600" />
+                  <p className="text-xs font-medium text-primary-700">Sections</p>
+                </div>
+                <p className="text-2xl font-bold text-primary-900">{template?.sections.length}</p>
+              </div>
+              <div className="bg-primary-50 border border-primary-200 rounded-xl p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Hash className="h-4 w-4 text-primary-600" />
+                  <p className="text-xs font-medium text-primary-700">Questions</p>
+                </div>
+                <p className="text-2xl font-bold text-primary-900">{totalQuestions}</p>
+              </div>
+            </div>
+
+            {/* Sections List */}
+            <div>
+              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-3">
+                Template Structure
+              </p>
+              <div className="space-y-2">
+                {template?.sections.map((section, index) => {
+                  const subjectColor = getSubjectColor(section.subjects.name)
+
+                  return (
+                    <motion.div
+                      key={section.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 + index * 0.05 }}
+                      className={cn(
+                        'flex items-center gap-2 p-3 rounded-lg border',
+                        subjectColor.bg,
+                        subjectColor.border
+                      )}
+                    >
+                      <div className={cn(
+                        'w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 font-bold text-xs',
+                        subjectColor.text,
+                        'bg-white/70'
+                      )}>
+                        {section.section_order}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={cn('font-semibold text-xs truncate', subjectColor.text)}>
+                          {section.section_name}
+                        </p>
+                        <p className="text-xs text-neutral-600 truncate">
+                          {section.subjects.name}
+                        </p>
+                      </div>
+                      <div className={cn(
+                        'px-2 py-0.5 rounded text-xs font-bold',
+                        'bg-white/70',
+                        subjectColor.text
+                      )}>
+                        {section.default_question_count}Q
+                      </div>
+                    </motion.div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Info Banner */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="bg-primary-50 border border-primary-200 rounded-xl p-4"
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
+                  <GraduationCap className="h-4 w-4 text-primary-600" />
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-primary-900 mb-1">Next Steps</h4>
+                <p className="text-xs text-primary-700 leading-relaxed">
+                  After creating the paper, you'll assign chapters to each section and then generate questions.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      </div>
     </div>
   )
 }

@@ -19,7 +19,9 @@ import Link from 'next/link'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { Modal } from '@/components/ui/Modal'
 import { SectionStatusBadge } from '@/components/ui/SectionStatusBadge'
+import { Button } from '@/components/ui/Button'
 import { createBrowserClient } from '@/lib/supabase/client'
+import { toast } from '@/components/ui/toast'
 
 interface Question {
   id: string
@@ -105,14 +107,6 @@ export default function ReviewQuestionsPage() {
   const [finalizing, setFinalizing] = useState(false)
   const [finalizingSectionId, setFinalizingSectionId] = useState<string | null>(null)
 
-  // Toast notification state
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null)
-
-  const showToast = (message: string, type: 'success' | 'error' | 'warning' = 'success') => {
-    setToast({ message, type })
-    setTimeout(() => setToast(null), 3000)
-  }
-
   useEffect(() => {
     if (teacher && !loading && !teacherLoading && paper_id) {
       fetchQuestions()
@@ -131,6 +125,17 @@ export default function ReviewQuestionsPage() {
       }
     }
   }, [loadingData, paper, section_id, paper_id, router])
+
+  // Keep currentSection in sync with sections array
+  // This ensures finalize button appears when section status changes from 'finalized' to 'in_review'
+  useEffect(() => {
+    if (section_id && sections.length > 0) {
+      const updatedSection = sections.find(s => s.id === section_id)
+      if (updatedSection) {
+        setCurrentSection(updatedSection)
+      }
+    }
+  }, [section_id, sections])
 
   const fetchQuestions = async () => {
     try {
@@ -190,7 +195,9 @@ export default function ReviewQuestionsPage() {
 
           if (sectionSelectedCount >= sectionTargetCount) {
             const sectionName = sectionData?.section_name || 'This section'
-            showToast(`${sectionName} already has ${sectionTargetCount}/${sectionTargetCount} questions selected. Deselect a question first.`, 'warning')
+            toast.warning(`${sectionName} already has ${sectionTargetCount}/${sectionTargetCount} questions selected. Deselect a question first.`, {
+              duration: 4000,
+            })
             return
           }
         } else {
@@ -199,7 +206,9 @@ export default function ReviewQuestionsPage() {
           const targetCount = statistics?.target_count || 0
 
           if (currentSelectedCount >= targetCount) {
-            showToast(`You've already selected ${targetCount} questions. Deselect a question first to select another.`, 'warning')
+            toast.warning(`You've already selected ${targetCount} questions. Deselect a question first to select another.`, {
+              duration: 4000,
+            })
             return
           }
         }
@@ -270,7 +279,7 @@ export default function ReviewQuestionsPage() {
     // Find section data
     const section = sections.find(s => s.id === sectionId)
     if (!section) {
-      alert('Section not found')
+      toast.error('Section not found')
       return
     }
 
@@ -282,11 +291,9 @@ export default function ReviewQuestionsPage() {
     const selectedCount = sectionQuestions.filter(q => q.is_selected).length
 
     if (selectedCount < expectedCount) {
-      alert(`Please select all ${expectedCount} questions for "${sectionName}" before finalizing. Currently selected: ${selectedCount}`)
-      return
-    }
-
-    if (!confirm(`Finalize section "${sectionName}"? You have selected ${selectedCount} questions.`)) {
+      toast.warning(`Please select all ${expectedCount} questions for "${sectionName}" before finalizing. Currently selected: ${selectedCount}`, {
+        duration: 5000,
+      })
       return
     }
 
@@ -322,13 +329,16 @@ export default function ReviewQuestionsPage() {
         s.id === sectionId ? { ...s, status: 'finalized' } : s
       ))
 
-      alert(`Section "${sectionName}" finalized successfully!`)
+      // Show success toast
+      toast.success(`Section "${sectionName}" finalized successfully!`, {
+        duration: 4000,
+      })
 
       // Redirect back to paper dashboard
       router.push(`/dashboard/test-papers/${paper_id}`)
     } catch (err) {
       console.error('[FINALIZE_SECTION_ERROR]', err)
-      alert(err instanceof Error ? err.message : 'Failed to finalize section')
+      toast.error(err instanceof Error ? err.message : 'Failed to finalize section')
     } finally {
       setFinalizingSectionId(null)
     }
@@ -336,11 +346,9 @@ export default function ReviewQuestionsPage() {
 
   const handleFinalize = async () => {
     if (!statistics || statistics.selected_count !== statistics.target_count) {
-      alert(`Please select exactly ${statistics?.target_count} questions before finalizing.`)
-      return
-    }
-
-    if (!confirm(`Finalize selection of ${statistics.selected_count} questions? This will generate a PDF and change the paper status to "finalized".`)) {
+      toast.warning(`Please select exactly ${statistics?.target_count} questions before finalizing.`, {
+        duration: 5000,
+      })
       return
     }
 
@@ -400,11 +408,15 @@ export default function ReviewQuestionsPage() {
 
       console.log('[FINALIZE] Success! PDF generated:', pdfData.pdf_url)
 
-      alert('Selection finalized and PDF generated successfully!')
+      // Show success toast
+      toast.success('Selection finalized and PDF generated successfully!', {
+        duration: 5000,
+      })
+
       router.push(`/dashboard/test-papers/${paper_id}`)
     } catch (err) {
       console.error('[FINALIZE_ERROR]', err)
-      alert(err instanceof Error ? err.message : 'Failed to finalize selection')
+      toast.error(err instanceof Error ? err.message : 'Failed to finalize selection')
     } finally {
       setFinalizing(false)
     }
@@ -439,10 +451,13 @@ export default function ReviewQuestionsPage() {
   // Show loading state
   if (loading || teacherLoading || loadingData) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50">
+      <div className="flex items-center justify-center py-24">
         <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-brand-saffron border-r-transparent"></div>
-          <p className="mt-4 text-neutral-600">Loading questions...</p>
+          <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-500 border-r-transparent"></div>
+          </div>
+          <p className="text-base font-medium text-neutral-900">Loading questions...</p>
+          <p className="text-sm text-neutral-600 mt-1">Please wait</p>
         </div>
       </div>
     )
@@ -451,13 +466,13 @@ export default function ReviewQuestionsPage() {
   // Show error state
   if (pageError || !paper) {
     return (
-      <div className="min-h-screen bg-neutral-50 p-8">
+      <div className="py-8">
         <div className="mx-auto max-w-2xl">
-          <div className="rounded-lg bg-red-50 border border-red-200 p-6">
-            <p className="text-red-800 font-medium">{pageError || 'Paper not found'}</p>
+          <div className="rounded-2xl bg-gradient-to-br from-error-50 to-error-100/50 border border-error-200/80 p-6">
+            <p className="text-error-800 font-semibold mb-4">{pageError || 'Paper not found'}</p>
             <Link
               href={paper_id ? `/dashboard/test-papers/${paper_id}` : '/dashboard/test-papers'}
-              className="mt-4 inline-block text-brand-saffron hover:underline"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-error-600 text-white rounded-xl hover:bg-error-700 transition-all font-medium"
             >
               ← Back to Papers
             </Link>
@@ -468,196 +483,180 @@ export default function ReviewQuestionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <main className="mx-auto max-w-7xl px-4 py-8">
+    <div className="space-y-8">
+      <main className="space-y-8">
         {/* Header */}
-        <div className="mb-8">
-          <Link href={`/dashboard/test-papers/${paper_id}`} className="text-brand-saffron hover:underline mb-4 inline-block">
-            ← Back to Paper Dashboard
-          </Link>
+        <div className="space-y-6">
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+          >
+            <Link href={`/dashboard/test-papers/${paper_id}`}>
+              ← Back to Paper Dashboard
+            </Link>
+          </Button>
 
-          {/* Section Context Banner (shown when viewing specific section) */}
-          {section_id && currentSection && (
-            <div className="mb-6 bg-white rounded-lg shadow-sm border-l-4 border-brand-saffron p-4">
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl font-bold text-gray-900">
-                  Section {currentSection.section_order}: {currentSection.section_name}
-                </h2>
-                <SectionStatusBadge status={currentSection.status} size="sm" />
-              </div>
-              <p className="text-sm text-gray-600 mt-1">
-                Reviewing questions for this section only
-              </p>
-            </div>
-          )}
-
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-neutral-900">{paper.title}</h1>
-              <p className="text-neutral-600 mt-2">
-                {section_id && currentSection
-                  ? `Reviewing ${currentSection.section_name}`
-                  : 'Review and select questions for your test paper'}
-              </p>
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              <div className={`px-4 py-2 rounded-lg ${
-                statistics && statistics.selected_count === statistics.target_count
-                  ? 'bg-green-100 border-green-300 text-green-800'
-                  : 'bg-blue-50 border-blue-300 text-blue-800'
-              } border-2 font-semibold text-lg`}>
-                {statistics?.selected_count} / {statistics?.target_count} selected
-              </div>
-              {/* Hide global finalize button for multi-section papers (finalize at section level instead) */}
-              {!paper.has_sections && statistics && statistics.selected_count === statistics.target_count && (
-                <button
-                  onClick={handleFinalize}
-                  disabled={finalizing}
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  {finalizing ? (
-                    <span className="flex items-center gap-2">
-                      <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
-                      Finalizing & Generating PDF...
-                    </span>
-                  ) : (
-                    'Finalize Selection ✓'
-                  )}
-                </button>
-              )}
-              {/* Show helper text for multi-section papers */}
-              {paper.has_sections && (
-                <p className="text-sm text-gray-600 text-right">
-                  Finalize each section individually below
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Statistics */}
-        <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-neutral-900">
-              {section_id && currentSection ? `Section Statistics` : 'Statistics'}
-            </h2>
-            {/* Finalize Section Button (for single section view) */}
-            {section_id && currentSection && currentSection.status !== 'finalized' && (
-              <button
-                onClick={() => handleFinalizeSection(section_id, currentSection.section_name)}
-                disabled={
-                  !statistics ||
-                  statistics.selected_count < statistics.target_count ||
-                  finalizingSectionId === section_id
-                }
-                className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                  statistics && statistics.selected_count >= statistics.target_count
-                    ? 'bg-green-600 text-white hover:bg-green-700'
-                    : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                {finalizingSectionId === section_id ? (
-                  <span className="flex items-center gap-2">
-                    <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
-                    Finalizing...
-                  </span>
-                ) : (
-                  'Finalize Section ✓'
+          {/* Unified Section Control Panel */}
+          <div className="bg-white rounded-2xl shadow-lg border border-neutral-200/60 p-6">
+            {/* Section Header with Finalize Button */}
+            {section_id && currentSection && (
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-neutral-200/60">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-2xl font-bold text-neutral-900">
+                    Section {currentSection.section_order}: {currentSection.section_name}
+                  </h2>
+                  <SectionStatusBadge status={currentSection.status} size="sm" />
+                </div>
+                {currentSection.status !== 'finalized' && (
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={() => handleFinalizeSection(section_id, currentSection.section_name)}
+                    disabled={
+                      !statistics ||
+                      statistics.selected_count < statistics.target_count ||
+                      finalizingSectionId === section_id
+                    }
+                    isLoading={finalizingSectionId === section_id}
+                    loadingText="Finalizing..."
+                    className={
+                      statistics && statistics.selected_count >= statistics.target_count
+                        ? 'bg-gradient-to-r from-success-500 to-success-600 hover:from-success-600 hover:to-success-700'
+                        : ''
+                    }
+                  >
+                    Finalize Section ✓
+                  </Button>
                 )}
-              </button>
+              </div>
             )}
+
+            {/* Global finalize button for single-section papers */}
+            {!section_id && !paper.has_sections && (
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-neutral-200/60">
+                <h2 className="text-2xl font-bold text-neutral-900">{paper.title}</h2>
+                {statistics && statistics.selected_count === statistics.target_count && (
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={handleFinalize}
+                    disabled={finalizing}
+                    isLoading={finalizing}
+                    loadingText="Finalizing & Generating PDF..."
+                    className="bg-gradient-to-r from-success-500 to-success-600 hover:from-success-600 hover:to-success-700"
+                  >
+                    Finalize Selection ✓
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Statistics - Simplified */}
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className={`rounded-2xl p-4 border-2 ${
+                statistics && statistics.selected_count === statistics.target_count
+                  ? 'bg-gradient-to-br from-success-50 to-success-100/80 border-success-300'
+                  : 'bg-gradient-to-br from-primary-50 to-primary-100/80 border-primary-300'
+              }`}>
+                <p className="text-sm font-semibold text-neutral-600 mb-2">Progress</p>
+                <p className={`text-3xl font-bold ${
+                  statistics && statistics.selected_count === statistics.target_count
+                    ? 'text-success-700'
+                    : 'text-primary-700'
+                }`}>
+                  {statistics?.selected_count} / {statistics?.target_count}
+                </p>
+                <p className="text-xs font-semibold text-neutral-600 mt-1">Selected</p>
+              </div>
+              <div className="bg-gradient-to-br from-neutral-50 to-neutral-100/80 rounded-2xl p-4 border border-neutral-200/60">
+                <p className="text-sm font-semibold text-neutral-600 mb-2">Total Generated</p>
+                <p className="text-3xl font-bold text-neutral-900">{statistics?.total_generated}</p>
+              </div>
+              <div className="bg-gradient-to-br from-primary-50 to-primary-100/80 rounded-2xl p-4 border border-primary-200/60">
+                <p className="text-sm font-semibold text-primary-700 mb-2">Target</p>
+                <p className="text-3xl font-bold text-primary-600">{statistics?.target_count}</p>
+              </div>
+            </div>
+
+            {/* Filters */}
+            <div className="pt-4 border-t border-neutral-200/60">
+              <div className="grid grid-cols-4 gap-4">
+                {/* Chapter Filter */}
+                <div>
+                  <label className="block text-sm font-semibold text-neutral-700 mb-2">Chapter</label>
+                  <select
+                    value={filterChapter}
+                    onChange={(e) => setFilterChapter(e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl bg-gradient-to-br from-neutral-50 to-neutral-100/80 border border-neutral-200/80 hover:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all duration-300 font-medium text-neutral-700"
+                  >
+                    <option value="all">All Chapters</option>
+                    {uniqueChapters.map(ch => (
+                      <option key={ch.id} value={ch.id}>{ch.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Difficulty Filter */}
+                <div>
+                  <label className="block text-sm font-semibold text-neutral-700 mb-2">Difficulty</label>
+                  <select
+                    value={filterDifficulty}
+                    onChange={(e) => setFilterDifficulty(e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl bg-gradient-to-br from-neutral-50 to-neutral-100/80 border border-neutral-200/80 hover:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all duration-300 font-medium text-neutral-700"
+                  >
+                    <option value="all">All Difficulties</option>
+                    {uniqueDifficulties.map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Archetype Filter */}
+                <div>
+                  <label className="block text-sm font-semibold text-neutral-700 mb-2">Archetype</label>
+                  <select
+                    value={filterArchetype}
+                    onChange={(e) => setFilterArchetype(e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl bg-gradient-to-br from-neutral-50 to-neutral-100/80 border border-neutral-200/80 hover:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all duration-300 font-medium text-neutral-700"
+                  >
+                    <option value="all">All Archetypes</option>
+                    {uniqueArchetypes.map(a => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Show Only Selected */}
+                <div className="flex items-end">
+                  <label className="flex items-center gap-3 cursor-pointer px-4 py-3 rounded-2xl hover:bg-gradient-to-br hover:from-primary-50 hover:to-primary-100/50 transition-all duration-300">
+                    <input
+                      type="checkbox"
+                      checked={showOnlySelected}
+                      onChange={(e) => setShowOnlySelected(e.target.checked)}
+                      className="w-5 h-5 text-primary-600 focus:ring-2 focus:ring-primary-500/30 rounded-lg border-neutral-300"
+                    />
+                    <span className="text-sm font-semibold text-neutral-700">Show only selected</span>
+                  </label>
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-neutral-200/60">
+                <p className="text-sm font-semibold text-neutral-600">
+                  Showing <span className="text-primary-600">{filteredQuestions.length}</span> of <span className="text-neutral-900">{questions.length}</span> questions
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="grid grid-cols-4 gap-4">
-            <div>
-              <p className="text-sm text-neutral-600">Total Generated</p>
-              <p className="text-2xl font-bold text-neutral-900">{statistics?.total_generated}</p>
-            </div>
-            <div>
-              <p className="text-sm text-neutral-600">Selected</p>
-              <p className="text-2xl font-bold text-green-600">{statistics?.selected_count}</p>
-            </div>
-            <div>
-              <p className="text-sm text-neutral-600">Target</p>
-              <p className="text-2xl font-bold text-blue-600">{statistics?.target_count}</p>
-            </div>
-            <div>
-              <p className="text-sm text-neutral-600">Remaining</p>
-              <p className="text-2xl font-bold text-orange-600">{statistics?.remaining}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-neutral-900 mb-4">Filters</h2>
-          <div className="grid grid-cols-4 gap-4">
-            {/* Chapter Filter */}
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">Chapter</label>
-              <select
-                value={filterChapter}
-                onChange={(e) => setFilterChapter(e.target.value)}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-saffron"
-              >
-                <option value="all">All Chapters</option>
-                {uniqueChapters.map(ch => (
-                  <option key={ch.id} value={ch.id}>{ch.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Difficulty Filter */}
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">Difficulty</label>
-              <select
-                value={filterDifficulty}
-                onChange={(e) => setFilterDifficulty(e.target.value)}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-saffron"
-              >
-                <option value="all">All Difficulties</option>
-                {uniqueDifficulties.map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Archetype Filter */}
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">Archetype</label>
-              <select
-                value={filterArchetype}
-                onChange={(e) => setFilterArchetype(e.target.value)}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-saffron"
-              >
-                <option value="all">All Archetypes</option>
-                {uniqueArchetypes.map(a => (
-                  <option key={a} value={a}>{a}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Show Only Selected */}
-            <div className="flex items-end">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showOnlySelected}
-                  onChange={(e) => setShowOnlySelected(e.target.checked)}
-                  className="w-5 h-5 text-brand-saffron focus:ring-brand-saffron rounded"
-                />
-                <span className="text-sm font-medium text-neutral-700">Show only selected</span>
-              </label>
-            </div>
-          </div>
-          <p className="text-sm text-neutral-600 mt-3">
-            Showing {filteredQuestions.length} of {questions.length} questions
-          </p>
         </div>
 
         {/* Questions List */}
         {filteredQuestions.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-12 text-center">
-            <p className="text-neutral-600">No questions match your filters</p>
+          <div className="bg-white rounded-2xl shadow-lg border-2 border-dashed border-neutral-300 p-16 text-center hover:border-primary-300 transition-all duration-300">
+            <div className="w-20 h-20 bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <span className="text-4xl text-neutral-400">📝</span>
+            </div>
+            <p className="text-xl font-bold text-neutral-900 mb-2">No questions match your filters</p>
+            <p className="text-neutral-600">Try adjusting your filter criteria</p>
           </div>
         ) : section_id ? (
           // Single section view: Show flat list (already filtered by API)
@@ -705,55 +704,52 @@ export default function ReviewQuestionsPage() {
                 const canFinalize = selectedInSection >= expectedCount && sectionStatus === 'in_review'
 
                 return (
-                  <div key={section.section_id || 'no-section'} className="space-y-4">
+                  <div key={section.section_id || 'no-section'} className="space-y-6">
                     {/* Section Header */}
-                    <div className="bg-white border-l-4 border-brand-saffron rounded-lg p-4 shadow-sm">
+                    <div className="bg-white border-l-4 border-primary-500 rounded-2xl p-6 shadow-lg">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            <h3 className="text-lg font-bold text-gray-900">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="text-2xl font-bold text-neutral-900">
                               Section {sectionIndex + 1}: {section.section_name}
                             </h3>
                             {sectionData && <SectionStatusBadge status={sectionStatus} size="sm" />}
                           </div>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {section.questions.length} {section.questions.length === 1 ? 'question' : 'questions'} generated •{' '}
-                            {selectedInSection} / {expectedCount} selected
+                          <p className="text-sm font-semibold text-neutral-600">
+                            {section.questions.length} {section.questions.length === 1 ? 'question' : 'questions'} generated <span className="text-neutral-300 mx-2">•</span>{' '}
+                            <span className="text-primary-600">{selectedInSection}</span> / {expectedCount} selected
                           </p>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-6">
                           <div className="text-right">
-                            <div className={`text-2xl font-bold ${selectedInSection >= expectedCount ? 'text-green-600' : 'text-brand-saffron'}`}>
+                            <div className={`text-3xl font-bold ${selectedInSection >= expectedCount ? 'text-success-600' : 'text-primary-600'}`}>
                               {selectedInSection}/{expectedCount}
                             </div>
-                            <div className="text-xs text-gray-500">Selected</div>
+                            <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Selected</div>
                           </div>
                           {section.section_id && sectionStatus !== 'finalized' && (
-                            <button
+                            <Button
+                              variant="primary"
+                              size="md"
                               onClick={() => handleFinalizeSection(section.section_id!, section.section_name)}
                               disabled={!canFinalize || finalizingSectionId === section.section_id}
-                              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                              isLoading={finalizingSectionId === section.section_id}
+                              loadingText="Finalizing..."
+                              className={
                                 canFinalize
-                                  ? 'bg-green-600 text-white hover:bg-green-700'
-                                  : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                              }`}
+                                  ? 'bg-gradient-to-r from-success-500 to-success-600 hover:from-success-600 hover:to-success-700'
+                                  : ''
+                              }
                             >
-                              {finalizingSectionId === section.section_id ? (
-                                <span className="flex items-center gap-2">
-                                  <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
-                                  Finalizing...
-                                </span>
-                              ) : (
-                                'Finalize Section'
-                              )}
-                            </button>
+                              Finalize Section
+                            </Button>
                           )}
                         </div>
                       </div>
                     </div>
 
                   {/* Section Questions */}
-                  <div className="space-y-4 pl-4 border-l-4 border-brand-saffron/30">
+                  <div className="space-y-5 pl-6 border-l-4 border-primary-500/30">
                     {section.questions.map((question, index) => (
                       <QuestionCard
                         key={question.id}
@@ -819,48 +815,6 @@ export default function ReviewQuestionsPage() {
           }}
         />
       )}
-
-      {/* Toast Notification */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 animate-slide-in-right">
-          <div className={`rounded-lg shadow-lg px-6 py-4 max-w-md ${
-            toast.type === 'success' ? 'bg-green-600 text-white' :
-            toast.type === 'error' ? 'bg-red-600 text-white' :
-            'bg-yellow-500 text-white'
-          }`}>
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0">
-                {toast.type === 'success' && (
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                )}
-                {toast.type === 'error' && (
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                )}
-                {toast.type === 'warning' && (
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                )}
-              </div>
-              <div className="flex-1">
-                <p className="font-medium">{toast.message}</p>
-              </div>
-              <button
-                onClick={() => setToast(null)}
-                className="flex-shrink-0 ml-2 hover:opacity-75"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -879,29 +833,31 @@ function QuestionCard({ question, index, onToggleSelection, onEdit, onRegenerate
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm border-2 transition-all ${
-      question.is_selected ? 'border-green-400' : 'border-neutral-200'
+    <div className={`bg-white rounded-2xl shadow-lg border-2 transition-all duration-300 ${
+      question.is_selected ? 'border-success-400 shadow-success-500/10' : 'border-neutral-200/60 hover:border-primary-300 hover:shadow-xl'
     }`}>
-      <div className="p-6">
+      <div className="p-8">
         {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-start gap-3 flex-1">
-            <span className="text-sm font-bold text-neutral-500">Q{question.question_order}</span>
+        <div className="flex items-start justify-between mb-5">
+          <div className="flex items-start gap-4 flex-1">
+            <div className="px-3 py-1.5 bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-xl">
+              <span className="text-sm font-bold text-neutral-700">Q{question.question_order}</span>
+            </div>
             <div className="flex-1">
               <div className="prose prose-sm max-w-none">
-                <p className="text-neutral-900 whitespace-pre-wrap">{question.question_text}</p>
+                <p className="text-lg font-medium text-neutral-900 whitespace-pre-wrap leading-relaxed">{question.question_text}</p>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {question.is_selected && (
-              <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+              <span className="px-4 py-2 bg-gradient-to-br from-success-500 to-success-600 text-white text-sm font-semibold rounded-xl border border-success-400 shadow-md">
                 ✓ Selected
               </span>
             )}
             <button
               onClick={() => setExpanded(!expanded)}
-              className="text-neutral-400 hover:text-neutral-600"
+              className="px-3 py-2 text-neutral-600 hover:text-primary-600 hover:bg-gradient-to-br hover:from-primary-50 hover:to-primary-100/50 rounded-xl transition-all duration-300"
             >
               {expanded ? '▼' : '▶'}
             </button>
@@ -909,79 +865,77 @@ function QuestionCard({ question, index, onToggleSelection, onEdit, onRegenerate
         </div>
 
         {/* Options */}
-        <div className="space-y-2 mb-4">
+        <div className="space-y-3 mb-6">
           {Object.entries(question.options).map(([key, value]) => (
             <div
               key={key}
-              className={`px-4 py-2 rounded-lg ${
+              className={`px-5 py-3 rounded-2xl border-2 transition-all duration-300 ${
                 key === question.correct_answer
-                  ? 'bg-green-50 border border-green-200'
-                  : 'bg-neutral-50 border border-neutral-200'
+                  ? 'bg-gradient-to-br from-success-50 to-success-100/80 border-success-300 shadow-sm'
+                  : 'bg-gradient-to-br from-neutral-50 to-neutral-100/50 border-neutral-200/60 hover:border-primary-200'
               }`}
             >
-              <span className="font-medium text-neutral-700">{key}</span>
-              <span className="ml-2 text-neutral-900">{value}</span>
+              <span className="font-bold text-neutral-900 text-sm">{key}.</span>
+              <span className="ml-3 text-neutral-900 font-medium">{value}</span>
               {key === question.correct_answer && (
-                <span className="ml-2 text-green-600 font-medium">✓ Correct</span>
+                <span className="ml-3 text-success-600 font-bold text-sm">✓ Correct Answer</span>
               )}
             </div>
           ))}
         </div>
 
         {/* Metadata */}
-        <div className="flex flex-wrap gap-2 mb-4">
-          <span className="px-2 py-1 bg-neutral-100 text-neutral-700 text-xs rounded">
+        <div className="flex flex-wrap gap-2 mb-6">
+          <span className="px-3 py-1.5 bg-gradient-to-br from-neutral-50 to-neutral-100 text-neutral-700 text-xs font-semibold rounded-lg border border-neutral-200/60">
             {question.chapter_name}
           </span>
-          <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
+          <span className="px-3 py-1.5 bg-gradient-to-br from-primary-50 to-primary-100 text-primary-700 text-xs font-semibold rounded-lg border border-primary-200/60">
             {question.archetype}
           </span>
-          <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded">
+          <span className="px-3 py-1.5 bg-gradient-to-br from-purple-50 to-purple-100 text-purple-700 text-xs font-semibold rounded-lg border border-purple-200/60">
             {question.structural_form}
           </span>
-          <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded">
+          <span className="px-3 py-1.5 bg-gradient-to-br from-blue-50 to-blue-100 text-blue-700 text-xs font-semibold rounded-lg border border-blue-200/60">
             {question.difficulty}
           </span>
-          <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded">
+          <span className="px-3 py-1.5 bg-gradient-to-br from-warning-50 to-warning-100 text-warning-700 text-xs font-semibold rounded-lg border border-warning-200/60">
             {question.cognitive_load} load
           </span>
         </div>
 
         {/* Explanation (expandable) */}
         {expanded && question.explanation && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <p className="text-sm font-medium text-blue-900 mb-2">Explanation:</p>
-            <p className="text-sm text-blue-800 whitespace-pre-wrap">{question.explanation}</p>
+          <div className="bg-gradient-to-br from-primary-50 to-primary-100/50 border-2 border-primary-200/60 rounded-2xl p-6 mb-6">
+            <p className="text-sm font-bold text-primary-900 mb-3">Explanation:</p>
+            <p className="text-sm text-primary-800 whitespace-pre-wrap leading-relaxed">{question.explanation}</p>
           </div>
         )}
 
         {/* Actions */}
-        <div className="flex items-center gap-3">
-          <button
+        <div className="flex items-center gap-4 pt-6 border-t border-neutral-200/60">
+          <Button
+            variant={question.is_selected ? "destructive" : "primary"}
+            size="sm"
             onClick={() => onToggleSelection(question.id, question.is_selected)}
             disabled={!canSelect}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              question.is_selected
-                ? 'bg-red-600 text-white hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed'
-                : canSelect
-                ? 'bg-green-600 text-white hover:bg-green-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
+            className={!question.is_selected && canSelect ? "bg-gradient-to-r from-success-500 to-success-600 hover:from-success-600 hover:to-success-700" : ""}
           >
             {question.is_selected ? 'Remove' : 'Select'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => onEdit(question)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700"
           >
             Edit
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ai"
+            size="sm"
             onClick={() => onRegenerate(question)}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium text-sm hover:bg-purple-700"
           >
             Regenerate with AI
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -1009,7 +963,7 @@ function EditQuestionModal({ question, session, onClose, onSave }: EditQuestionM
 
       // Using centralized session passed from parent (no redundant getSession call)
       if (!session) {
-        alert('Session expired')
+        toast.error('Session expired. Please sign in again.')
         return
       }
 
@@ -1036,7 +990,7 @@ function EditQuestionModal({ question, session, onClose, onSave }: EditQuestionM
       onSave()
     } catch (err) {
       console.error('[SAVE_QUESTION_ERROR]', err)
-      alert(err instanceof Error ? err.message : 'Failed to save question')
+      toast.error(err instanceof Error ? err.message : 'Failed to save question')
     } finally {
       setSaving(false)
     }
@@ -1056,7 +1010,7 @@ function EditQuestionModal({ question, session, onClose, onSave }: EditQuestionM
             value={questionText}
             onChange={(e) => setQuestionText(e.target.value)}
             rows={6}
-            className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-saffron"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
         </div>
 
@@ -1068,7 +1022,7 @@ function EditQuestionModal({ question, session, onClose, onSave }: EditQuestionM
               type="text"
               value={value}
               onChange={(e) => setOptions(prev => ({ ...prev, [key]: e.target.value }))}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-saffron"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
         ))}
@@ -1079,7 +1033,7 @@ function EditQuestionModal({ question, session, onClose, onSave }: EditQuestionM
           <select
             value={correctAnswer}
             onChange={(e) => setCorrectAnswer(e.target.value)}
-            className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-saffron"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             {Object.keys(options).map(key => (
               <option key={key} value={key}>{key}</option>
@@ -1094,25 +1048,29 @@ function EditQuestionModal({ question, session, onClose, onSave }: EditQuestionM
             value={explanation}
             onChange={(e) => setExplanation(e.target.value)}
             rows={4}
-            className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-saffron"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-3 pt-4">
-          <button
+        <div className="flex items-center justify-end gap-4 pt-6">
+          <Button
+            variant="ghost"
+            size="md"
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
+            size="md"
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+            isLoading={saving}
+            loadingText="Saving..."
           >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
+            Save Changes
+          </Button>
         </div>
       </div>
     </Modal>
@@ -1133,7 +1091,7 @@ function RegenerateQuestionModal({ question, session, onClose, onRegenerate }: R
 
   const handleRegenerate = async () => {
     if (!instruction.trim()) {
-      alert('Please provide instructions for regeneration')
+      toast.warning('Please provide instructions for regeneration')
       return
     }
 
@@ -1142,7 +1100,7 @@ function RegenerateQuestionModal({ question, session, onClose, onRegenerate }: R
 
       // Using centralized session passed from parent (no redundant getSession call)
       if (!session) {
-        alert('Session expired')
+        toast.error('Session expired. Please sign in again.')
         return
       }
 
@@ -1164,7 +1122,7 @@ function RegenerateQuestionModal({ question, session, onClose, onRegenerate }: R
       onRegenerate()
     } catch (err) {
       console.error('[REGENERATE_QUESTION_ERROR]', err)
-      alert(err instanceof Error ? err.message : 'Failed to regenerate question')
+      toast.error(err instanceof Error ? err.message : 'Failed to regenerate question')
     } finally {
       setRegenerating(false)
     }
@@ -1189,25 +1147,29 @@ function RegenerateQuestionModal({ question, session, onClose, onRegenerate }: R
             onChange={(e) => setInstruction(e.target.value)}
             placeholder="E.g., Make this question harder and focus on application"
             rows={4}
-            className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-saffron"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-3 pt-4">
-          <button
+        <div className="flex items-center justify-end gap-4 pt-6">
+          <Button
+            variant="ghost"
+            size="md"
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ai"
+            size="md"
             onClick={handleRegenerate}
             disabled={regenerating || !instruction.trim()}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400"
+            isLoading={regenerating}
+            loadingText="Regenerating..."
           >
-            {regenerating ? 'Regenerating...' : 'Regenerate Question'}
-          </button>
+            Regenerate Question
+          </Button>
         </div>
       </div>
     </Modal>

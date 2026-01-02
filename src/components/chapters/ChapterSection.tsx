@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import Link from 'next/link'
+import { BookOpen, Upload, Download, FileText, ChevronDown, ExternalLink } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface Material {
   id: string
@@ -35,113 +37,110 @@ export function ChapterSection({
   const [isExpanded, setIsExpanded] = useState(isDefaultExpanded)
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+    <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden hover:shadow-lg transition-all duration-300">
       {/* Chapter Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        className="w-full px-8 py-6 flex items-center justify-between hover:bg-neutral-50 transition-colors group"
       >
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">📘</span>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:shadow-lg transition-shadow">
+            <BookOpen className="h-6 w-6 text-white" />
+          </div>
           <div className="text-left">
-            <h3 className="font-semibold text-gray-900">{chapter.name}</h3>
-            <p className="text-sm text-gray-500">
+            <h3 className="text-xl font-bold text-neutral-900 group-hover:text-primary-600 transition-colors">
+              {chapter.name}
+            </h3>
+            <p className="text-sm text-neutral-600 mt-1">
               {chapter.material_count} {chapter.material_count === 1 ? 'material' : 'materials'}
             </p>
           </div>
         </div>
-        <svg
-          className={`w-5 h-5 text-gray-400 transition-transform ${
-            isExpanded ? 'transform rotate-180' : ''
-          }`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
+        <ChevronDown
+          className={cn(
+            'w-5 h-5 text-neutral-400 transition-transform duration-300',
+            isExpanded && 'rotate-180'
+          )}
+        />
       </button>
 
       {/* Chapter Content (Materials) */}
       {isExpanded && (
-        <div className="px-6 pb-4 space-y-3">
+        <div className="px-8 pb-6 space-y-4 border-t border-neutral-100 bg-gradient-to-br from-white to-neutral-50/50">
           {chapter.materials.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500 mb-4">No materials yet</p>
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileText className="h-8 w-8 text-neutral-400" />
+              </div>
+              <p className="text-neutral-600 mb-4">No materials yet</p>
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => onUpload(chapter.id)}
+                className="inline-flex items-center gap-2"
               >
-                📤 Upload Material
+                <Upload className="h-4 w-4" />
+                Upload Material
               </Button>
             </div>
           ) : (
             <>
-              {/* Materials List */}
-              <div className="space-y-2">
+              {/* Materials Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4">
                 {chapter.materials.map((material) => (
                   <div
                     key={material.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    className="group relative bg-white border border-neutral-200 rounded-xl p-4 hover:border-primary-300 hover:shadow-md transition-all duration-200"
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-medium text-gray-900 truncate">
-                          {material.title}
-                        </h4>
-                        {material.chapter_count > 1 && (
-                          <span
-                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
-                            title={`Also in: ${material.all_chapters.filter(c => c !== chapter.name).join(', ')}`}
-                          >
-                            +{material.chapter_count - 1} more
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FileText className="h-4 w-4 text-primary-600 flex-shrink-0" />
+                          <h4 className="font-semibold text-neutral-900 truncate group-hover:text-primary-600 transition-colors">
+                            {material.title}
+                          </h4>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs text-neutral-600 bg-neutral-100 px-2 py-1 rounded-md">
+                            {material.material_types?.name || 'Material'}
                           </span>
-                        )}
+                          <span className="text-xs text-neutral-500">
+                            {new Date(material.created_at).toLocaleDateString()}
+                          </span>
+                          {material.chapter_count > 1 && (
+                            <span
+                              className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-md font-medium"
+                              title={`Also in: ${material.all_chapters.filter(c => c !== chapter.name).join(', ')}`}
+                            >
+                              +{material.chapter_count - 1} more
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-500">
-                        {material.material_types?.name || 'Material'} • {new Date(material.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <Link
-                      href={material.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="ml-4 text-gray-600 hover:text-gray-900"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+                      <Link
+                        href={material.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-shrink-0 p-2 text-neutral-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                        />
-                      </svg>
-                    </Link>
+                        <Download className="h-4 w-4" />
+                      </Link>
+                    </div>
                   </div>
                 ))}
               </div>
 
               {/* Upload Button */}
               <div className="pt-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
+                <button
                   onClick={() => onUpload(chapter.id)}
-                  className="w-full"
+                  className="w-full py-3 px-4 border-2 border-dashed border-neutral-300 rounded-xl hover:border-primary-400 hover:bg-primary-50/50 transition-all duration-200 group"
                 >
-                  📤 Upload More Materials
-                </Button>
+                  <div className="flex items-center justify-center gap-2 text-neutral-600 group-hover:text-primary-600">
+                    <Upload className="h-4 w-4" />
+                    <span className="text-sm font-medium">Upload More Materials</span>
+                  </div>
+                </button>
               </div>
             </>
           )}

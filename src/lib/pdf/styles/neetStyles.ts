@@ -272,7 +272,7 @@ export const neetStyles = StyleSheet.create({
     marginBottom: 8,
     padding: 5,
     backgroundColor: '#F0F0F0',
-    borderLeft: '3pt solid #F7931E',
+    borderLeft: '3pt solid #0D9488',
     paddingLeft: 8,
   },
 })

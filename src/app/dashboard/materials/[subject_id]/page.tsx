@@ -15,10 +15,13 @@ import { useRequireSession } from '@/hooks/useSession'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { ChapterSection } from '@/components/chapters/ChapterSection'
 import { AddChapterModal } from '@/components/chapters/AddChapterModal'
 import { Button } from '@/components/ui/Button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ArrowLeft, BookOpen, Plus, AlertCircle, FolderOpen } from 'lucide-react'
 
 interface Material {
   id: string
@@ -155,10 +158,12 @@ export default function MaterialsBrowsePage() {
   // Show loading state
   if (loading || teacherLoading || loadingChapters) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-gray-900 border-r-transparent"></div>
-          <p className="mt-4 text-gray-600">Loading chapters...</p>
+      <div className="space-y-6">
+        <Skeleton className="h-24 w-full" />
+        <div className="space-y-4">
+          <Skeleton className="h-32 rounded-xl" />
+          <Skeleton className="h-32 rounded-xl" />
+          <Skeleton className="h-32 rounded-xl" />
         </div>
       </div>
     )
@@ -174,95 +179,129 @@ export default function MaterialsBrowsePage() {
         onSuccess={handleChapterCreated}
       />
 
-      <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Link href={hasOnlyOneSubject ? "/dashboard" : "/dashboard/materials"}>
-                  <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                </Link>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    {subject?.name || 'Materials'}
-                  </h1>
-                  <p className="text-sm text-gray-600 mt-0.5">
-                    {totalMaterials} {totalMaterials === 1 ? 'material' : 'materials'} •{' '}
-                    {chapters.length} {chapters.length === 1 ? 'chapter' : 'chapters'}
-                  </p>
-                </div>
-              </div>
-
-              <Button
-                variant="primary"
-                onClick={() => setIsAddChapterModalOpen(true)}
-              >
-                + Add Chapter
-              </Button>
-            </div>
+      <div className="space-y-8">
+        {/* Header Section */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="space-y-4"
+        >
+          <div className="flex items-center gap-3 text-neutral-600">
+            <Link
+              href={hasOnlyOneSubject ? "/dashboard" : "/dashboard/materials"}
+              className="inline-flex items-center gap-2 text-sm font-medium hover:text-primary-600 transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to {hasOnlyOneSubject ? "Dashboard" : "Subjects"}
+            </Link>
           </div>
-        </header>
 
-        {/* Main Content */}
-        <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Error State */}
-          {chaptersError && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-              <div className="flex items-start gap-3">
-                <span className="text-red-600 text-xl">⚠️</span>
-                <div className="flex-1">
-                  <p className="text-red-600 font-medium">Error Loading Chapters</p>
-                  <p className="text-red-500 text-sm mt-1">{chaptersError}</p>
-                  <button
-                    onClick={fetchChaptersWithMaterials}
-                    className="mt-3 text-sm text-red-600 hover:underline font-medium"
-                  >
-                    Try Again
-                  </button>
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-2">
+              <h1 className="text-4xl font-bold text-neutral-900">
+                {subject?.name || 'Materials'}
+              </h1>
+              <div className="flex items-center gap-3 text-neutral-600">
+                <div className="flex items-center gap-1.5">
+                  <BookOpen className="h-4 w-4" />
+                  <span className="text-sm font-medium">
+                    {totalMaterials} {totalMaterials === 1 ? 'material' : 'materials'}
+                  </span>
+                </div>
+                <span className="text-neutral-400">•</span>
+                <span className="text-sm font-medium">
+                  {chapters.length} {chapters.length === 1 ? 'chapter' : 'chapters'}
+                </span>
+              </div>
+            </div>
+
+            <Button
+              variant="primary"
+              onClick={() => setIsAddChapterModalOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Chapter
+            </Button>
+          </div>
+        </motion.div>
+        {/* Error State */}
+        {chaptersError && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-error-50 border border-error-200 rounded-xl p-6"
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-error-100 rounded-full flex items-center justify-center">
+                  <AlertCircle className="h-5 w-5 text-error-600" />
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Empty State - No Chapters */}
-          {!chaptersError && chapters.length === 0 && (
-            <div className="bg-white rounded-xl shadow-md p-12 text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">📘</span>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-error-900 mb-1">Error Loading Chapters</h3>
+                <p className="text-error-700 text-sm mb-4">{chaptersError}</p>
+                <button
+                  onClick={fetchChaptersWithMaterials}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-error-600 text-white rounded-lg hover:bg-error-700 transition-colors text-sm font-medium"
+                >
+                  Try Again
+                </button>
               </div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">No Chapters Yet</h2>
-              <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                Start by creating chapters to organize your study materials for this subject.
-              </p>
-              <Button
-                variant="primary"
-                onClick={() => setIsAddChapterModalOpen(true)}
-              >
-                + Add Your First Chapter
-              </Button>
             </div>
-          )}
+          </motion.div>
+        )}
 
-          {/* Chapters List */}
-          {!chaptersError && chapters.length > 0 && (
-            <div className="space-y-4">
-              {chapters.map((chapter) => (
+        {/* Empty State - No Chapters */}
+        {!chaptersError && chapters.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-12 text-center"
+          >
+            <div className="w-20 h-20 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <FolderOpen className="h-10 w-10 text-neutral-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-neutral-900 mb-3">No Chapters Yet</h2>
+            <p className="text-neutral-600 mb-6 max-w-md mx-auto">
+              Start by creating chapters to organize your study materials for this subject.
+            </p>
+            <button
+              onClick={() => setIsAddChapterModalOpen(true)}
+              className="px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-lg hover:from-primary-600 hover:to-primary-700 transition-all font-medium shadow-lg hover:shadow-xl inline-flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Your First Chapter
+            </button>
+          </motion.div>
+        )}
+
+        {/* Chapters List */}
+        {!chaptersError && chapters.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="space-y-4"
+          >
+            {chapters.map((chapter, index) => (
+              <motion.div
+                key={chapter.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+              >
                 <ChapterSection
-                  key={chapter.id}
                   chapter={chapter}
                   subjectId={subject_id}
                   onUpload={handleUploadClick}
                   isDefaultExpanded={chapters.length === 1}
                 />
-              ))}
-            </div>
-          )}
-        </main>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
       </div>
     </>
   )

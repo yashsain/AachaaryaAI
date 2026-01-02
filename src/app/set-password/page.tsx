@@ -1,17 +1,27 @@
 'use client'
 
 /**
- * Set Password Page (For Invitations)
+ * Modern Set Password Page (For Invitations)
  *
  * Dedicated page for new teachers to set their initial password
- * Handles auth token from URL hash fragment (implicit flow)
+ * Features:
+ * - Handles auth token from URL hash fragment (implicit flow)
+ * - Clean, modern UI with animations
+ * - Password strength indicators
+ * - Show/hide password toggles
+ * - Complex session establishment with fallback handling
  */
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Image from 'next/image'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Lock, CheckCircle, Shield, Eye, EyeOff, UserPlus } from 'lucide-react'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { useSession } from '@/hooks/useSession'
-import Image from 'next/image'
+import { Input } from '@/components/ui/Input'
+import { Button } from '@/components/ui/Button'
+import { cn } from '@/lib/utils'
 
 // Create Supabase client
 const supabase = createBrowserClient()
@@ -39,6 +49,8 @@ function parseHashFragment(hash: string): { access_token?: string; refresh_token
 function SetPasswordContent() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -224,151 +236,291 @@ function SetPasswordContent() {
   // Show loading state while establishing session
   if (!sessionReady) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-neutral-50 via-white to-blue-50 p-4">
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Verifying invitation...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-neutral-600">Verifying invitation...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-neutral-50 via-white to-blue-50 p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
+    <div className="flex min-h-screen bg-neutral-50">
+      {/* Left Side - Branding (Hidden on mobile) */}
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center bg-gradient-to-br from-primary-500 to-primary-600 p-12 relative overflow-hidden">
+        {/* Decorative gradient orbs */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-primary-700/30 rounded-full blur-3xl"></div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="max-w-md text-white relative z-10"
+        >
           <Image
             src="/logo.png"
             alt="aachaaryAI Logo"
-            width={80}
-            height={53}
-            className="mx-auto mb-4"
+            width={120}
+            height={80}
+            className="mb-8 drop-shadow-lg"
           />
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-brand-saffron to-brand-blue bg-clip-text text-transparent">
-            aachaaryAI
-          </h1>
-        </div>
+          <h1 className="text-5xl font-bold mb-6">Welcome Aboard!</h1>
+          <p className="text-xl mb-12 text-white/90">
+            Your account has been created. Set up your password to start creating amazing test papers.
+          </p>
 
-        {/* Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8 border border-neutral-100">
-          {success ? (
-            // Success State
-            <div className="text-center">
-              <div className="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">✓</span>
-              </div>
-              <h2 className="text-2xl font-bold text-neutral-800 mb-2">Welcome to aachaaryAI!</h2>
-              <p className="text-neutral-600 mb-6">
-                Your account is ready. Redirecting to dashboard...
-              </p>
-              <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-brand-saffron border-r-transparent"></div>
-            </div>
-          ) : (
-            // Form State
-            <>
-              <div className="text-center mb-6">
-                <div className="w-12 h-12 bg-gradient-to-br from-brand-saffron to-brand-blue rounded-full flex items-center justify-center mx-auto mb-3">
-                  <span className="text-2xl">🔐</span>
-                </div>
-                <h2 className="text-2xl font-bold text-neutral-800 mb-2">Welcome!</h2>
-                <p className="text-neutral-600">
-                  Your account has been created. Please set a secure password to continue.
-                </p>
-              </div>
-
-              <form onSubmit={handleSetPassword} className="space-y-6">
-                {/* New Password Input */}
+          <motion.div
+            className="space-y-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.8 }}
+          >
+            {[
+              {
+                title: 'Secure Account',
+                description: 'Create a strong password to protect your data',
+              },
+              {
+                title: 'Easy Access',
+                description: 'Use your credentials to log in anytime',
+              },
+              {
+                title: 'Get Started',
+                description: 'Start generating test papers in minutes',
+              },
+            ].map((feature, index) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5 + index * 0.1 }}
+                className="flex items-start gap-3"
+              >
+                <Shield className="h-6 w-6 text-white/90 shrink-0" />
                 <div>
-                  <label
-                    htmlFor="newPassword"
-                    className="block text-sm font-medium text-neutral-700 mb-2"
-                  >
-                    Create Password
-                  </label>
-                  <input
-                    id="newPassword"
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    minLength={8}
-                    className="w-full px-4 py-3 rounded-lg border border-neutral-300 focus:border-brand-saffron focus:ring-2 focus:ring-brand-saffron/20 outline-none transition-all"
+                  <p className="font-semibold text-lg">{feature.title}</p>
+                  <p className="text-white/80">{feature.description}</p>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        </motion.div>
+      </div>
+
+      {/* Right Side - Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
+        <div className="w-full max-w-md">
+          <AnimatePresence mode="wait">
+            {success ? (
+              // Success State
+              <motion.div
+                key="success"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.3 }}
+              >
+                {/* Logo for mobile */}
+                <div className="lg:hidden text-center mb-8">
+                  <Image
+                    src="/logo.png"
+                    alt="aachaaryAI Logo"
+                    width={80}
+                    height={53}
+                    className="mx-auto mb-4"
                   />
-                  <p className="text-xs text-neutral-500 mt-1">Must be at least 8 characters</p>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-500 to-primary-600 bg-clip-text text-transparent">
+                    aachaaryAI
+                  </h1>
                 </div>
 
-                {/* Confirm Password Input */}
-                <div>
-                  <label
-                    htmlFor="confirmPassword"
-                    className="block text-sm font-medium text-neutral-700 mb-2"
-                  >
-                    Confirm Password
-                  </label>
-                  <input
-                    id="confirmPassword"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    minLength={8}
-                    className="w-full px-4 py-3 rounded-lg border border-neutral-300 focus:border-brand-saffron focus:ring-2 focus:ring-brand-saffron/20 outline-none transition-all"
-                  />
-                </div>
-
-                {/* Password Requirements */}
-                <div className="bg-neutral-50 rounded-lg p-4">
-                  <p className="text-sm font-medium text-neutral-700 mb-2">Password Requirements:</p>
-                  <ul className="text-xs text-neutral-600 space-y-1">
-                    <li className="flex items-center gap-2">
-                      <span className={newPassword.length >= 8 ? 'text-success' : 'text-neutral-400'}>
-                        ✓
-                      </span>
-                      At least 8 characters
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span
-                        className={
-                          newPassword === confirmPassword && newPassword.length > 0
-                            ? 'text-success'
-                            : 'text-neutral-400'
-                        }
-                      >
-                        ✓
-                      </span>
-                      Passwords match
-                    </li>
-                  </ul>
-                </div>
-
-                {/* Error Message */}
-                {error && (
-                  <div className="bg-danger/10 border border-danger/30 rounded-lg p-3">
-                    <p className="text-danger text-sm">{error}</p>
+                <div className="bg-white rounded-2xl shadow-lg p-8 border border-neutral-200">
+                  <div className="text-center">
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+                      className="w-16 h-16 bg-success-50 rounded-full flex items-center justify-center mx-auto mb-4"
+                    >
+                      <CheckCircle className="h-8 w-8 text-success-600" />
+                    </motion.div>
+                    <h2 className="text-2xl font-bold text-neutral-900 mb-2">Welcome to aachaaryAI!</h2>
+                    <p className="text-neutral-600 mb-6">
+                      Your account is ready. Redirecting to dashboard...
+                    </p>
+                    <div className="inline-flex items-center gap-2 text-sm text-primary-600">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-primary-600 border-r-transparent"></div>
+                      <span>Taking you to your dashboard</span>
+                    </div>
                   </div>
-                )}
+                </div>
+              </motion.div>
+            ) : (
+              // Form State
+              <motion.div
+                key="form"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                {/* Logo for mobile */}
+                <div className="lg:hidden text-center mb-8">
+                  <Image
+                    src="/logo.png"
+                    alt="aachaaryAI Logo"
+                    width={80}
+                    height={53}
+                    className="mx-auto mb-4"
+                  />
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-500 to-primary-600 bg-clip-text text-transparent">
+                    aachaaryAI
+                  </h1>
+                </div>
 
-                {/* Submit Button */}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 px-4 bg-gradient-to-r from-brand-saffron to-brand-saffron-dark text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></span>
-                      Creating Account...
-                    </span>
-                  ) : (
-                    'Set Password & Continue'
-                  )}
-                </button>
-              </form>
-            </>
-          )}
+                {/* Form Card */}
+                <div className="bg-white rounded-2xl shadow-lg p-8 border border-neutral-200">
+                  <div className="text-center mb-8">
+                    <div className="w-14 h-14 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+                      <UserPlus className="h-7 w-7 text-white" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-neutral-900 mb-2">Welcome!</h2>
+                    <p className="text-neutral-600">
+                      Your account has been created. Please set a secure password to continue.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleSetPassword} className="space-y-6">
+                    {/* New Password Input */}
+                    <div className="relative">
+                      <Input
+                        id="newPassword"
+                        label="Create Password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        disabled={loading}
+                        autoFocus
+                        leftIcon={<Lock className="h-5 w-5" />}
+                        helperText="Must be at least 8 characters"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-[38px] text-neutral-400 hover:text-neutral-600 transition-colors"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Confirm Password Input */}
+                    <div className="relative">
+                      <Input
+                        id="confirmPassword"
+                        label="Confirm Password"
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        disabled={loading}
+                        leftIcon={<Lock className="h-5 w-5" />}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-[38px] text-neutral-400 hover:text-neutral-600 transition-colors"
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Password Requirements */}
+                    <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4">
+                      <p className="text-sm font-medium text-neutral-700 mb-3">Password Requirements:</p>
+                      <ul className="space-y-2">
+                        <li className="flex items-center gap-2 text-sm">
+                          <div className={cn(
+                            'w-5 h-5 rounded-full flex items-center justify-center',
+                            newPassword.length >= 8
+                              ? 'bg-success-100 text-success-600'
+                              : 'bg-neutral-200 text-neutral-400'
+                          )}>
+                            <CheckCircle className="h-3 w-3" />
+                          </div>
+                          <span className={cn(
+                            'transition-colors',
+                            newPassword.length >= 8
+                              ? 'text-success-700'
+                              : 'text-neutral-600'
+                          )}>
+                            At least 8 characters
+                          </span>
+                        </li>
+                        <li className="flex items-center gap-2 text-sm">
+                          <div className={cn(
+                            'w-5 h-5 rounded-full flex items-center justify-center',
+                            newPassword === confirmPassword && newPassword.length > 0
+                              ? 'bg-success-100 text-success-600'
+                              : 'bg-neutral-200 text-neutral-400'
+                          )}>
+                            <CheckCircle className="h-3 w-3" />
+                          </div>
+                          <span className={cn(
+                            'transition-colors',
+                            newPassword === confirmPassword && newPassword.length > 0
+                              ? 'text-success-700'
+                              : 'text-neutral-600'
+                          )}>
+                            Passwords match
+                          </span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    {/* Error Message */}
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-error-50 border border-error-200 rounded-lg p-3"
+                      >
+                        <p className="text-error-700 text-sm">{error}</p>
+                      </motion.div>
+                    )}
+
+                    {/* Submit Button */}
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      size="lg"
+                      isLoading={loading}
+                      className="w-full"
+                    >
+                      Set Password & Continue
+                    </Button>
+                  </form>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Footer */}
+          <p className="text-center text-sm text-neutral-500 mt-6">
+            Trusted by coaching institutes for NEET, JEE, Banking & more
+          </p>
         </div>
       </div>
     </div>
@@ -377,14 +529,16 @@ function SetPasswordContent() {
 
 export default function SetPasswordPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-neutral-50 via-white to-blue-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-neutral-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+            <p className="mt-4 text-neutral-600">Loading...</p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <SetPasswordContent />
     </Suspense>
   )
