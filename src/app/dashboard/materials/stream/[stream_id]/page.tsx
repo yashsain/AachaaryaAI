@@ -101,18 +101,23 @@ export default function MaterialsSubjectPickerPage() {
       {/* Header */}
       <header className="bg-white border-b border-neutral-200 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Link
+              href="/dashboard/materials"
+              className="text-gray-600 hover:text-gray-900 flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Streams
+            </Link>
+            <div className="h-6 w-px bg-gray-300"></div>
             <div>
               <h1 className="text-2xl font-bold text-neutral-800">Manage Study Materials</h1>
               <p className="text-sm text-neutral-600 mt-1">
                 {streamName ? `${streamName} - Select a subject` : 'Select a subject to continue'}
               </p>
             </div>
-            <Link href="/dashboard/materials">
-              <button className="px-4 py-2 text-sm font-medium text-neutral-700 hover:text-brand-saffron transition-colors">
-                ← Back to Streams
-              </button>
-            </Link>
           </div>
         </div>
       </header>
@@ -150,10 +155,14 @@ export default function MaterialsSubjectPickerPage() {
                 ? `No subjects have been added for this stream yet.`
                 : 'You have not been assigned any subjects for this stream. Please contact your administrator.'}
             </p>
-            <Link href="/dashboard/materials">
-              <button className="px-6 py-2.5 bg-brand-saffron text-white rounded-lg hover:bg-brand-saffron/90 transition-colors font-medium">
-                ← Back to Streams
-              </button>
+            <Link
+              href="/dashboard/materials"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-brand-saffron text-white rounded-lg hover:bg-brand-saffron/90 transition-colors font-medium"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Streams
             </Link>
           </div>
         )}
