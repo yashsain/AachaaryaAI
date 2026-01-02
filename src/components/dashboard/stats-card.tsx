@@ -28,8 +28,6 @@ export function StatsCard({
   className,
   delay = 0,
 }: StatsCardProps) {
-  const [hasAnimated, setHasAnimated] = React.useState(false)
-
   // Animated counter
   const springValue = useSpring(0, {
     bounce: 0.25,
@@ -40,12 +38,10 @@ export function StatsCard({
     Math.round(latest).toLocaleString()
   )
 
+  // Update spring value whenever the value prop changes
   React.useEffect(() => {
-    if (!hasAnimated) {
-      springValue.set(value)
-      setHasAnimated(true)
-    }
-  }, [value, springValue, hasAnimated])
+    springValue.set(value)
+  }, [value, springValue])
 
   return (
     <motion.div

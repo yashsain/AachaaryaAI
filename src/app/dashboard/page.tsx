@@ -13,9 +13,53 @@ import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatsCard } from '@/components/dashboard/stats-card'
 import { QuickActionCard } from '@/components/dashboard/quick-action-card'
+import { useEffect, useState, useRef } from 'react'
 
 export default function DashboardPage() {
   const { session, teacher, institute, loading, teacherLoading, error, retry, clearError, signOut } = useRequireSession()
+
+  // State for dashboard statistics
+  const [stats, setStats] = useState({
+    test_papers: 0,
+    questions: 0,
+    materials: 0,
+    time_saved_hours: 0,
+  })
+  const [statsLoading, setStatsLoading] = useState(true)
+  const hasFetchedStats = useRef(false)
+
+  // Fetch dashboard statistics - only once when teacher is available
+  useEffect(() => {
+    async function fetchStats() {
+      // Only fetch once when teacher and session are ready
+      if (!teacher || !session || hasFetchedStats.current) return
+
+      hasFetchedStats.current = true
+      console.log('[DASHBOARD] Fetching stats once...')
+
+      try {
+        const response = await fetch('/api/dashboard/stats', {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          console.log('[DASHBOARD] Stats received:', data.stats)
+          setStats(data.stats)
+        } else {
+          console.error('[DASHBOARD] Failed to fetch stats:', response.status)
+        }
+      } catch (error) {
+        console.error('[DASHBOARD] Error fetching stats:', error)
+      } finally {
+        setStatsLoading(false)
+      }
+    }
+
+    fetchStats()
+  }, [teacher, session])
 
   // Show error screen if there's an auth error
   if (error) {
@@ -70,28 +114,28 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard
           title="Test Papers Created"
-          value={0}
+          value={stats.test_papers}
           icon={FileText}
           trend={{ value: 12, direction: 'up' }}
           delay={0}
         />
         <StatsCard
           title="Questions Generated"
-          value={0}
+          value={stats.questions}
           icon={TrendingUp}
           trend={{ value: 8, direction: 'up' }}
           delay={0.1}
         />
         <StatsCard
           title="Materials Uploaded"
-          value={0}
+          value={stats.materials}
           icon={Upload}
           trend={{ value: 15, direction: 'up' }}
           delay={0.2}
         />
         <StatsCard
           title="Time Saved"
-          value={0}
+          value={stats.time_saved_hours}
           unit="hrs"
           icon={Clock}
           trend={{ value: 20, direction: 'up' }}
