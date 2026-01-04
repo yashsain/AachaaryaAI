@@ -148,6 +148,11 @@ export default function MaterialsBrowsePage() {
     setChapters(prev => [...prev, { ...chapter, materials: [], material_count: 0 }])
   }
 
+  const handleChapterDeleted = (chapterId: string) => {
+    // Remove deleted chapter from the list
+    setChapters(prev => prev.filter(chapter => chapter.id !== chapterId))
+  }
+
   const totalMaterials = chapters.reduce((sum, chapter) => sum + chapter.material_count, 0)
 
   // Show error screen if there's an auth error
@@ -296,6 +301,7 @@ export default function MaterialsBrowsePage() {
                   chapter={chapter}
                   subjectId={subject_id}
                   onUpload={handleUploadClick}
+                  onDelete={handleChapterDeleted}
                   isDefaultExpanded={chapters.length === 1}
                 />
               </motion.div>

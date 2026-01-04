@@ -22,6 +22,7 @@ export function Header({ className }: HeaderProps) {
   const [isSearchOpen, setIsSearchOpen] = React.useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false)
   const { teacher, signOut } = useSession()
+  const userMenuRef = React.useRef<HTMLDivElement>(null)
 
   // Global search keyboard shortcut (Cmd+K / Ctrl+K)
   React.useEffect(() => {
@@ -35,6 +36,26 @@ export function Header({ className }: HeaderProps) {
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [])
+
+  // Close user menu when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsUserMenuOpen(false)
+      }
+    }
+
+    if (isUserMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isUserMenuOpen])
 
   return (
     <>
@@ -79,7 +100,7 @@ export function Header({ className }: HeaderProps) {
             <NotificationDropdown />
 
             {/* User Menu */}
-            <div className="relative">
+            <div className="relative" ref={userMenuRef}>
               <button
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 className={cn(
@@ -112,27 +133,19 @@ export function Header({ className }: HeaderProps) {
               {/* Dropdown Menu */}
               <AnimatePresence>
                 {isUserMenuOpen && (
-                  <>
-                    {/* Backdrop */}
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setIsUserMenuOpen(false)}
-                    />
-
-                    {/* Menu */}
-                    <motion.div
-                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                      transition={{ duration: 0.2, ease: 'easeOut' }}
-                      className={cn(
-                        'absolute right-0 top-full mt-3 w-72',
-                        'bg-white rounded-2xl shadow-2xl shadow-neutral-900/10',
-                        'border border-neutral-200/60',
-                        'py-3 z-50',
-                        'backdrop-blur-xl bg-white/95'
-                      )}
-                    >
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    className={cn(
+                      'absolute right-0 top-full mt-3 w-72',
+                      'bg-white rounded-2xl shadow-2xl shadow-neutral-900/10',
+                      'border border-neutral-200/60',
+                      'py-3 z-50',
+                      'backdrop-blur-xl bg-white/95'
+                    )}
+                  >
                       {/* Profile Info */}
                       <div className="px-5 py-4 border-b border-neutral-100">
                         <p className="text-base font-bold text-neutral-900">
@@ -191,7 +204,6 @@ export function Header({ className }: HeaderProps) {
                         </button>
                       </div>
                     </motion.div>
-                  </>
                 )}
               </AnimatePresence>
             </div>

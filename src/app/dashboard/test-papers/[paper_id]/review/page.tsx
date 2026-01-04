@@ -39,6 +39,9 @@ interface Question {
   section_id: string | null
   section_name: string | null
   section_order: number | null
+  passage_id: string | null
+  passage_text: string | null
+  passage_order: number | null
   archetype: string
   structural_form: string
   cognitive_load: string
@@ -71,6 +74,53 @@ interface Section {
   status: 'pending' | 'ready' | 'in_review' | 'finalized'
   question_count: number
   marks_per_question: number
+}
+
+interface PassageGroup {
+  passage_id: string | null
+  passage_text: string | null
+  passage_order: number | null
+  questions: Question[]
+}
+
+/**
+ * Group questions by comprehension passage
+ * Questions with the same passage_id are grouped together
+ * Questions without a passage are treated as individual groups
+ */
+function groupQuestionsByPassage(questions: Question[]): PassageGroup[] {
+  const groups: PassageGroup[] = []
+  const passageMap = new Map<string, number>() // passage_id -> group index
+
+  questions.forEach(q => {
+    if (q.passage_id) {
+      // Question belongs to a passage
+      if (!passageMap.has(q.passage_id)) {
+        // First question in this passage - create new group
+        passageMap.set(q.passage_id, groups.length)
+        groups.push({
+          passage_id: q.passage_id,
+          passage_text: q.passage_text,
+          passage_order: q.passage_order,
+          questions: [q]
+        })
+      } else {
+        // Add to existing passage group
+        const groupIndex = passageMap.get(q.passage_id)!
+        groups[groupIndex].questions.push(q)
+      }
+    } else {
+      // Non-passage question - create individual group
+      groups.push({
+        passage_id: null,
+        passage_text: null,
+        passage_order: null,
+        questions: [q]
+      })
+    }
+  })
+
+  return groups
 }
 
 export default function ReviewQuestionsPage() {
@@ -106,6 +156,9 @@ export default function ReviewQuestionsPage() {
   // Finalize states
   const [finalizing, setFinalizing] = useState(false)
   const [finalizingSectionId, setFinalizingSectionId] = useState<string | null>(null)
+
+  // Auto-select state
+  const [autoSelecting, setAutoSelecting] = useState(false)
 
   useEffect(() => {
     if (teacher && !loading && !teacherLoading && paper_id) {
@@ -272,6 +325,72 @@ export default function ReviewQuestionsPage() {
     } catch (err) {
       console.error('[TOGGLE_SELECTION_ERROR]', err)
       fetchQuestions()
+    }
+  }
+
+  const handleAutoSelect = async () => {
+    if (!statistics) return
+
+    setAutoSelecting(true)
+    try {
+      const remaining = statistics.target_count - statistics.selected_count
+
+      if (remaining <= 0) {
+        toast.info('You have already selected the target number of questions')
+        return
+      }
+
+      // Get all unselected questions from the FILTERED view (respects current filters)
+      const unselectedQuestions = filteredQuestions.filter(q => !q.is_selected)
+
+      if (unselectedQuestions.length === 0) {
+        toast.warning('No unselected questions available in the current filter')
+        return
+      }
+
+      // Calculate how many to select
+      const toSelectCount = Math.min(remaining, unselectedQuestions.length)
+
+      // Randomly shuffle and select
+      const shuffled = [...unselectedQuestions].sort(() => Math.random() - 0.5)
+      const questionsToSelect = shuffled.slice(0, toSelectCount)
+
+      console.log(`[AUTO_SELECT] Selecting ${toSelectCount} questions from ${unselectedQuestions.length} unselected`)
+
+      // Batch update all questions in database
+      const questionIds = questionsToSelect.map(q => q.id)
+
+      console.log(`[AUTO_SELECT] Updating ${questionIds.length} questions in database`)
+
+      // Using centralized session (no redundant getSession call)
+      if (!session) {
+        setPageError('Session expired')
+        return
+      }
+
+      // Batch update in database
+      const { error: updateError } = await supabase
+        .from('questions')
+        .update({ is_selected: true })
+        .in('id', questionIds)
+
+      if (updateError) {
+        console.error('[AUTO_SELECT_DB_ERROR]', updateError)
+        toast.error('Failed to select questions in database')
+        return
+      }
+
+      // Refresh all data from server to get accurate statistics
+      await fetchQuestions()
+
+      toast.success(`✨ Auto-selected ${toSelectCount} question${toSelectCount > 1 ? 's' : ''}`, {
+        duration: 3000,
+      })
+    } catch (error) {
+      console.error('[AUTO_SELECT_ERROR]', error)
+      toast.error('Failed to auto-select questions')
+    } finally {
+      setAutoSelecting(false)
     }
   }
 
@@ -647,6 +766,40 @@ export default function ReviewQuestionsPage() {
               </div>
             </div>
           </div>
+
+          {/* Auto-Select Section */}
+          {statistics && statistics.selected_count < statistics.target_count && (
+            <div className="bg-gradient-to-br from-primary-50 to-primary-100/50 rounded-2xl border-2 border-primary-200/80 p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
+                    <span className="text-2xl">✨</span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-primary-900 mb-1">
+                      Quick Selection
+                    </h3>
+                    <p className="text-sm text-primary-700 font-medium">
+                      Need <span className="font-bold">{statistics.target_count - statistics.selected_count}</span> more question{statistics.target_count - statistics.selected_count > 1 ? 's' : ''} to reach your target
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={handleAutoSelect}
+                  disabled={autoSelecting || filteredQuestions.filter(q => !q.is_selected).length === 0}
+                  isLoading={autoSelecting}
+                  loadingText="Selecting..."
+                  className="bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  <span className="flex items-center gap-2">
+                    ✨ Auto-Select Questions
+                  </span>
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Questions List */}
@@ -659,18 +812,71 @@ export default function ReviewQuestionsPage() {
             <p className="text-neutral-600">Try adjusting your filter criteria</p>
           </div>
         ) : section_id ? (
-          // Single section view: Show flat list (already filtered by API)
-          <div className="space-y-4">
-            {filteredQuestions.map((question, index) => (
-              <QuestionCard
-                key={question.id}
-                question={question}
-                index={index + 1}
-                onToggleSelection={toggleSelection}
-                onEdit={setEditingQuestion}
-                onRegenerate={setRegeneratingQuestion}
-                canSelect={!!question.is_selected || (statistics ? statistics.selected_count < statistics.target_count : false)}
-              />
+          // Single section view: Group by passages
+          <div className="space-y-6">
+            {groupQuestionsByPassage(filteredQuestions).map((group, groupIndex) => (
+              <div key={group.passage_id || `non-passage-${groupIndex}`}>
+                {group.passage_text ? (
+                  // Passage-based questions: Unified container
+                  <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                    {/* Passage Header */}
+                    <div className="bg-gradient-to-r from-primary-50 to-primary-100/50 px-8 py-5 border-b-2 border-primary-200/50">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">📖</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="px-3 py-1.5 bg-primary-600 text-white text-xs font-bold rounded-lg shadow-sm uppercase tracking-wide">
+                              PASSAGE
+                            </span>
+                            <span className="text-sm font-semibold text-primary-900">
+                              Questions {group.questions[0].question_order}{group.questions.length > 1 && `-${group.questions[group.questions.length - 1].question_order}`}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Passage Text */}
+                    <div className="px-8 py-6 bg-gradient-to-br from-neutral-50 to-neutral-100/50">
+                      <p className="text-sm text-neutral-800 whitespace-pre-wrap leading-relaxed font-medium">
+                        {group.passage_text}
+                      </p>
+                    </div>
+
+                    {/* Questions */}
+                    <div className="p-6 space-y-5 bg-gradient-to-br from-white to-neutral-50/30">
+                      {group.questions.map((question, index) => (
+                        <div key={question.id}>
+                          {index > 0 && <div className="border-t border-neutral-200/60 my-5" />}
+                          <QuestionCard
+                            question={question}
+                            index={question.question_order}
+                            onToggleSelection={toggleSelection}
+                            onEdit={setEditingQuestion}
+                            onRegenerate={setRegeneratingQuestion}
+                            canSelect={!!question.is_selected || (statistics ? statistics.selected_count < statistics.target_count : false)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  // Non-passage questions: Normal display
+                  <div className="space-y-4">
+                    {group.questions.map((question) => (
+                      <QuestionCard
+                        key={question.id}
+                        question={question}
+                        index={question.question_order}
+                        onToggleSelection={toggleSelection}
+                        onEdit={setEditingQuestion}
+                        onRegenerate={setRegeneratingQuestion}
+                        canSelect={!!question.is_selected || (statistics ? statistics.selected_count < statistics.target_count : false)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         ) : paper?.has_sections ? (
@@ -748,18 +954,71 @@ export default function ReviewQuestionsPage() {
                       </div>
                     </div>
 
-                  {/* Section Questions */}
-                  <div className="space-y-5 pl-6 border-l-4 border-primary-500/30">
-                    {section.questions.map((question, index) => (
-                      <QuestionCard
-                        key={question.id}
-                        question={question}
-                        index={index + 1}
-                        onToggleSelection={toggleSelection}
-                        onEdit={setEditingQuestion}
-                        onRegenerate={setRegeneratingQuestion}
-                        canSelect={!!question.is_selected || selectedInSection < expectedCount}
-                      />
+                  {/* Section Questions - Grouped by Passages */}
+                  <div className="space-y-6 pl-6 border-l-4 border-primary-500/30">
+                    {groupQuestionsByPassage(section.questions).map((group, groupIndex) => (
+                      <div key={group.passage_id || `non-passage-${groupIndex}`}>
+                        {group.passage_text ? (
+                          // Passage-based questions: Unified container
+                          <div className="bg-white rounded-2xl shadow-lg border-l-4 border-primary-500 overflow-hidden">
+                            {/* Passage Header */}
+                            <div className="bg-gradient-to-r from-primary-50 to-primary-100/50 px-8 py-5 border-b-2 border-primary-200/50">
+                              <div className="flex items-center gap-3">
+                                <span className="text-2xl">📖</span>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-3">
+                                    <span className="px-3 py-1.5 bg-primary-600 text-white text-xs font-bold rounded-lg shadow-sm uppercase tracking-wide">
+                                      PASSAGE
+                                    </span>
+                                    <span className="text-sm font-semibold text-primary-900">
+                                      Questions {group.questions[0].question_order}{group.questions.length > 1 && `-${group.questions[group.questions.length - 1].question_order}`}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Passage Text */}
+                            <div className="px-8 py-6 bg-gradient-to-br from-neutral-50 to-neutral-100/50">
+                              <p className="text-sm text-neutral-800 whitespace-pre-wrap leading-relaxed font-medium">
+                                {group.passage_text}
+                              </p>
+                            </div>
+
+                            {/* Questions */}
+                            <div className="p-6 space-y-5 bg-gradient-to-br from-white to-neutral-50/30">
+                              {group.questions.map((question, qIndex) => (
+                                <div key={question.id}>
+                                  {qIndex > 0 && <div className="border-t border-neutral-200/60 my-5" />}
+                                  <QuestionCard
+                                    question={question}
+                                    index={question.question_order}
+                                    onToggleSelection={toggleSelection}
+                                    onEdit={setEditingQuestion}
+                                    onRegenerate={setRegeneratingQuestion}
+                                    canSelect={!!question.is_selected || selectedInSection < expectedCount}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          // Non-passage questions: Normal display
+                          <div className="space-y-4">
+                            {group.questions.map((question) => (
+                              <QuestionCard
+                                key={question.id}
+                                question={question}
+                                index={question.question_order}
+                                onToggleSelection={toggleSelection}
+                                onEdit={setEditingQuestion}
+                                onRegenerate={setRegeneratingQuestion}
+                                canSelect={!!question.is_selected || selectedInSection < expectedCount}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -769,18 +1028,71 @@ export default function ReviewQuestionsPage() {
             })()}
           </div>
         ) : (
-          // Legacy single-subject paper: Show flat list
-          <div className="space-y-4">
-            {filteredQuestions.map((question, index) => (
-              <QuestionCard
-                key={question.id}
-                question={question}
-                index={index + 1}
-                onToggleSelection={toggleSelection}
-                onEdit={setEditingQuestion}
-                onRegenerate={setRegeneratingQuestion}
-                canSelect={!!question.is_selected || (statistics ? statistics.selected_count < statistics.target_count : false)}
-              />
+          // Legacy single-subject paper: Group by passages
+          <div className="space-y-6">
+            {groupQuestionsByPassage(filteredQuestions).map((group, groupIndex) => (
+              <div key={group.passage_id || `non-passage-${groupIndex}`}>
+                {group.passage_text ? (
+                  // Passage-based questions: Unified container
+                  <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                    {/* Passage Header */}
+                    <div className="bg-gradient-to-r from-primary-50 to-primary-100/50 px-8 py-5 border-b-2 border-primary-200/50">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">📖</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="px-3 py-1.5 bg-primary-600 text-white text-xs font-bold rounded-lg shadow-sm uppercase tracking-wide">
+                              PASSAGE
+                            </span>
+                            <span className="text-sm font-semibold text-primary-900">
+                              Questions {group.questions[0].question_order}{group.questions.length > 1 && `-${group.questions[group.questions.length - 1].question_order}`}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Passage Text */}
+                    <div className="px-8 py-6 bg-gradient-to-br from-neutral-50 to-neutral-100/50">
+                      <p className="text-sm text-neutral-800 whitespace-pre-wrap leading-relaxed font-medium">
+                        {group.passage_text}
+                      </p>
+                    </div>
+
+                    {/* Questions */}
+                    <div className="p-6 space-y-5 bg-gradient-to-br from-white to-neutral-50/30">
+                      {group.questions.map((question, index) => (
+                        <div key={question.id}>
+                          {index > 0 && <div className="border-t border-neutral-200/60 my-5" />}
+                          <QuestionCard
+                            question={question}
+                            index={question.question_order}
+                            onToggleSelection={toggleSelection}
+                            onEdit={setEditingQuestion}
+                            onRegenerate={setRegeneratingQuestion}
+                            canSelect={!!question.is_selected || (statistics ? statistics.selected_count < statistics.target_count : false)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  // Non-passage questions: Normal display
+                  <div className="space-y-4">
+                    {group.questions.map((question) => (
+                      <QuestionCard
+                        key={question.id}
+                        question={question}
+                        index={question.question_order}
+                        onToggleSelection={toggleSelection}
+                        onEdit={setEditingQuestion}
+                        onRegenerate={setRegeneratingQuestion}
+                        canSelect={!!question.is_selected || (statistics ? statistics.selected_count < statistics.target_count : false)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}
@@ -829,7 +1141,7 @@ interface QuestionCardProps {
   canSelect: boolean
 }
 
-function QuestionCard({ question, index, onToggleSelection, onEdit, onRegenerate, canSelect }: QuestionCardProps) {
+function QuestionCard({ question, index: _index, onToggleSelection, onEdit, onRegenerate, canSelect }: QuestionCardProps) {
   const [expanded, setExpanded] = useState(false)
 
   return (
@@ -929,12 +1241,20 @@ function QuestionCard({ question, index, onToggleSelection, onEdit, onRegenerate
           >
             Edit
           </Button>
+          {/* TEMPORARY: Regenerate with AI - Coming Soon */}
           <Button
             variant="ai"
             size="sm"
             onClick={() => onRegenerate(question)}
+            disabled={true}
+            className="opacity-50 cursor-not-allowed relative"
           >
-            Regenerate with AI
+            <span className="flex items-center gap-2">
+              Regenerate with AI
+              <span className="px-2 py-0.5 bg-warning-500 text-white text-xs font-bold rounded-lg">
+                Coming Soon
+              </span>
+            </span>
           </Button>
         </div>
       </div>

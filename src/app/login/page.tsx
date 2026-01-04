@@ -192,7 +192,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen bg-neutral-50">
       {/* Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center bg-linear-to-br from-primary-500 to-primary-600 p-12 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center bg-gradient-to-br from-primary-500 to-primary-600 p-12 relative overflow-hidden">
         {/* Decorative gradient orbs */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-primary-700/30 rounded-full blur-3xl"></div>
@@ -275,7 +275,7 @@ export default function LoginPage() {
                     height={53}
                     className="mx-auto mb-4"
                   />
-                  <h1 className="text-3xl font-bold bg-linear-to-r from-primary-500 to-primary-600 bg-clip-text text-transparent">
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-500 to-primary-600 bg-clip-text text-transparent">
                     aachaaryAI
                   </h1>
                 </div>
@@ -283,7 +283,7 @@ export default function LoginPage() {
                 {/* Institute Code Card */}
                 <div className="bg-white rounded-2xl shadow-lg p-8 border border-neutral-200">
                   <div className="text-center mb-8">
-                    <div className="w-14 h-14 bg-linear-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <div className="w-14 h-14 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center mx-auto mb-4">
                       <Building2 className="h-7 w-7 text-white" />
                     </div>
                     <h2 className="text-2xl font-bold text-neutral-900 mb-2">Welcome</h2>
@@ -357,10 +357,7 @@ export default function LoginPage() {
                     height={67}
                     className="mx-auto mb-4 rounded-lg"
                   />
-                  <h1
-                    className="text-3xl font-bold mb-2"
-                    style={{ color: institute.primary_color }}
-                  >
+                  <h1 className="text-3xl font-bold text-primary-600 mb-2">
                     {institute.name}
                   </h1>
                   {institute.tagline && (
@@ -420,9 +417,6 @@ export default function LoginPage() {
                       size="lg"
                       isLoading={loginLoading}
                       className="w-full"
-                      style={{
-                        background: `linear-gradient(to right, ${institute.primary_color}, ${institute.primary_color}dd)`,
-                      }}
                     >
                       Sign In
                     </Button>

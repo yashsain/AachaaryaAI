@@ -54,8 +54,9 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = React.useState(false)
+  const [logoError, setLogoError] = React.useState(false)
   const pathname = usePathname()
-  const { teacher, signOut } = useSession()
+  const { teacher, institute, signOut } = useSession()
 
   const isActive = (href: string) => {
     if (href === '/dashboard') {
@@ -63,6 +64,12 @@ export function Sidebar({ className }: SidebarProps) {
     }
     return pathname.startsWith(href)
   }
+
+  // Determine which logo to show
+  const shouldShowInstituteLogo = institute?.logo_url && !logoError
+  const logoSrc = shouldShowInstituteLogo ? (institute.logo_url ?? '/logo.png') : '/logo.png'
+  const logoAlt = shouldShowInstituteLogo ? `${institute.name} Logo` : 'aachaaryAI Logo'
+  const brandName = institute?.name || 'aachaaryAI'
 
   return (
     <motion.aside
@@ -92,11 +99,12 @@ export function Sidebar({ className }: SidebarProps) {
               className="mx-auto"
             >
               <Image
-                src="/logo.png"
-                alt="aachaaryAI Logo"
+                src={logoSrc}
+                alt={logoAlt}
                 width={32}
                 height={32}
-                className="rounded-lg"
+                className="rounded-lg object-contain"
+                onError={() => setLogoError(true)}
               />
             </motion.div>
           ) : (
@@ -105,18 +113,26 @@ export function Sidebar({ className }: SidebarProps) {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
               transition={{ duration: 0.2 }}
-              className="flex items-center gap-3"
+              className="flex flex-col gap-1"
             >
-              <Image
-                src="/logo.png"
-                alt="aachaaryAI Logo"
-                width={32}
-                height={32}
-                className="rounded-lg"
-              />
-              <span className="font-semibold text-lg text-neutral-900">
-                aachaaryAI
-              </span>
+              <div className="flex items-center gap-3">
+                <Image
+                  src={logoSrc}
+                  alt={logoAlt}
+                  width={32}
+                  height={32}
+                  className="rounded-lg object-contain"
+                  onError={() => setLogoError(true)}
+                />
+                <span className="font-semibold text-lg text-neutral-900">
+                  {brandName}
+                </span>
+              </div>
+              {institute && (
+                <span className="text-xs text-neutral-500 ml-11">
+                  Powered by aachaaryAI
+                </span>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -245,6 +261,15 @@ export function Sidebar({ className }: SidebarProps) {
             )}
           </AnimatePresence>
         </button>
+
+        {/* aachaaryAI Attribution (when collapsed) */}
+        {isCollapsed && institute && (
+          <div className="mt-3 text-center">
+            <span className="text-xs text-neutral-400 writing-mode-vertical transform rotate-180">
+              aachaaryAI
+            </span>
+          </div>
+        )}
       </div>
     </motion.aside>
   )

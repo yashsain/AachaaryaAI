@@ -38,6 +38,7 @@ const protocolRegistry: Map<ProtocolKey, Protocol> = new Map([
   ['reet mains level 2-english-teaching-methods', reetMainsLevel2EnglishTeachingMethodsProtocol],
   ['reet mains level 2-hindi-teaching-methods', reetMainsLevel2HindiTeachingMethodsProtocol],
   ['reet mains level 2-rajasthan general knowledge', reetMainsLevel2RajasthanGKProtocol],
+  ['reet mains level 2-rajasthan general knowledge (current)', reetMainsLevel2RajasthanGKProtocol], // Maps to same protocol as Rajasthan GK
   ['reet mains level 2-psychology (child development & pedagogy)', reetMainsLevel2EducationalPsychologyProtocol],
   ['reet mains level 2-information technology', reetMainsLevel2InformationTechnologyProtocol],
 

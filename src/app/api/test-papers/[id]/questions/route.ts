@@ -96,6 +96,7 @@ export async function GET(
         created_at,
         chapter_id,
         section_id,
+        passage_id,
         chapters (
           id,
           name
@@ -104,6 +105,11 @@ export async function GET(
           id,
           section_name,
           section_order
+        ),
+        comprehension_passages (
+          id,
+          passage_text,
+          passage_order
         )
       `)
       .eq('paper_id', paperId)
@@ -128,6 +134,7 @@ export async function GET(
     const parsedQuestions = questions?.map((q: any) => {
       const questionData = q.question_data
       const sectionData = q.test_paper_sections // From the JOIN
+      const passageData = q.comprehension_passages // From the JOIN
 
       // Extract archetype, structuralForm, difficulty from question_data if available
       return {
@@ -147,6 +154,10 @@ export async function GET(
         section_id: q.section_id,
         section_name: sectionData?.section_name || null,
         section_order: sectionData?.section_order || null,
+        // Passage information (for comprehension questions)
+        passage_id: q.passage_id || null,
+        passage_text: passageData?.passage_text || null,
+        passage_order: passageData?.passage_order || null,
         // Metadata from question_data
         archetype: questionData.archetype || 'unknown',
         structural_form: questionData.structuralForm || questionData.structural_form || 'unknown',

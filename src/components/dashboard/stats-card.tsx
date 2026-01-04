@@ -66,7 +66,7 @@ export function StatsCard({
         {/* Content */}
         <div className="relative">
           {/* Icon */}
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-linear-to-br from-primary-500 to-primary-600 mb-4">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 mb-4">
             <Icon className="h-6 w-6 text-white" />
           </div>
 

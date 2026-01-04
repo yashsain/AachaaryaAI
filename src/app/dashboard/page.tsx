@@ -13,6 +13,7 @@ import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatsCard } from '@/components/dashboard/stats-card'
 import { QuickActionCard } from '@/components/dashboard/quick-action-card'
+import { InstituteHeader } from '@/components/dashboard/institute-header'
 import { useEffect, useState, useRef } from 'react'
 
 export default function DashboardPage() {
@@ -96,19 +97,10 @@ export default function DashboardPage() {
     )
   }
 
-  const firstName = teacher.name.split(' ')[0]
-
   return (
     <div className="space-y-8">
-      {/* Welcome Section */}
-      <div className="space-y-2">
-        <h1 className="text-4xl font-bold text-neutral-900">
-          Welcome back, {firstName}! 👋
-        </h1>
-        <p className="text-lg text-neutral-600">
-          Here's what's happening with your test papers today.
-        </p>
-      </div>
+      {/* Institute Branding Header */}
+      <InstituteHeader institute={institute} teacherName={teacher.name} />
 
       {/* Stats Grid - Bento Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
