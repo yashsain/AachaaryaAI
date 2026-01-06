@@ -313,12 +313,32 @@ export default function ReviewQuestionsPage() {
               .update({ status: 'in_review', updated_at: new Date().toISOString() })
               .eq('id', question.section_id)
 
+            // Clear paper-level PDF state when questions are modified
+            // This forces regeneration after finalization
+            await supabase
+              .from('test_papers')
+              .update({
+                pdf_url: null,
+                status: 'review',
+                finalized_at: null
+              })
+              .eq('id', paper_id)
+
             // Update local state
             setSections(prev => prev.map(s =>
               s.id === question.section_id ? { ...s, status: 'in_review' } : s
             ))
 
+            // Update paper state in local component
+            setPaper(prev => prev ? { ...prev, status: 'review' } : null)
+
             console.log('[TOGGLE_SELECTION] Reverted section to in_review:', section.section_name)
+            console.log('[TOGGLE_SELECTION] Cleared paper PDF state - regeneration required')
+
+            // Notify user that PDF needs regeneration
+            toast.info('PDF cleared. Please regenerate PDF after finalizing all sections.', {
+              duration: 5000,
+            })
           }
         }
       }

@@ -152,7 +152,7 @@ Every question must fall into exactly ONE archetype category.
 ## STRUCTURAL FORMS DISTRIBUTION (Target Counts)
 
 Generate exactly:
-- **${structuralCounts.standardMCQ} Standard 4-Option MCQ**: Traditional single stem with 4 options (1, 2, 3, 4).
+- **${structuralCounts.standardMCQ} Standard 4-Option MCQ**: Traditional single stem with 4 options A, B, C, D.
 - **${structuralCounts.matchFollowing} Match-the-Following**: Always use 4×4 matrix with coded options (see template below).
 - **${structuralCounts.assertionReason} Assertion-Reason**: Two statements with 4 options about truth and linkage (see template below).
 - **${structuralCounts.negativePhrasing} Negative Phrasing**: Use "Which is NOT correct", "incorrect statement", "exception" format.
@@ -213,10 +213,10 @@ C. [IT Concept 3]                 III. [Description/Technology 3]
 D. [IT Concept 4]                 IV. [Description/Technology 4]
 
 Choose the correct answer from the options given below:
-(1) A-III, B-I, C-IV, D-II
-(2) A-I, B-II, C-III, D-IV
-(3) A-II, B-IV, C-I, D-III
-(4) A-IV, B-III, C-II, D-I
+(A) A-III, B-I, C-IV, D-II
+(B) A-I, B-II, C-III, D-IV
+(C) A-II, B-IV, C-I, D-III
+(D) A-IV, B-III, C-II, D-I
 \`\`\`
 
 **CRITICAL**: Put the ENTIRE matrix (Column I, Column II, all A-D and I-IV items) INSIDE questionText. Options field ONLY contains coded combinations like "A-III, B-I, C-IV, D-II".
@@ -232,16 +232,16 @@ C. Third Generation               III. VLSI
 D. Fourth Generation              IV. Transistors
 
 Choose the correct answer from the options given below:
-(1) A-II, B-IV, C-I, D-III
-(2) A-I, B-II, C-III, D-IV
-(3) A-IV, B-I, C-II, D-III
-(4) A-III, B-IV, C-I, D-II
+(A) A-II, B-IV, C-I, D-III
+(B) A-I, B-II, C-III, D-IV
+(C) A-IV, B-I, C-II, D-III
+(D) A-III, B-IV, C-I, D-II
 \`\`\`
 
 **JSON Structure for Match Questions**:
 - **questionText**: Contains the COMPLETE matrix with Column I items (A-D), Column II items (I-IV), and ending phrase
-- **options**: Contains ONLY coded answer combinations like "(1)": "A-II, B-IV, C-I, D-III"
-- **correctAnswer**: One of the coded options, e.g., "(1)"
+- **options**: Contains ONLY coded answer combinations like "A": "A-II, B-IV, C-I, D-III"
+- **correctAnswer**: One of the coded options, e.g., "A"
 - **structuralForm**: "matchFollowing"
 
 ---
@@ -291,7 +291,7 @@ Choose the correct answer from the options given below:
 
 ## ANSWER KEY BALANCE
 
-- Distribute correct answers evenly: approximately 25% each for options (1), (2), (3), (4)
+- Distribute correct answers evenly: approximately 25% each for options A, B, C, D
 - Never place more than 3 consecutive questions with the same correct answer
 - Randomize answer positions naturally
 
@@ -321,12 +321,12 @@ Generate questions in this exact JSON format:
       "archetype": "directRecall" | "directApplication" | "integrative" | "discriminator" | "exceptionOutlier",
       "structuralForm": "standardMCQ" | "matchFollowing" | "assertionReason" | "negativePhrasing" | "multiStatement",
       "cognitiveLoad": "low" | "medium" | "high",
-      "correctAnswer": "(1)" | "(2)" | "(3)" | "(4)",
+      "correctAnswer": "A" | "B" | "C" | "D",
       "options": {
-        "(1)": "Full text of option 1",
-        "(2)": "Full text of option 2",
-        "(3)": "Full text of option 3",
-        "(4)": "Full text of option 4"
+        "A": "Full text of option A",
+        "B": "Full text of option B",
+        "C": "Full text of option C",
+        "D": "Full text of option D"
       },
       "explanation": "Clear explanation of why the correct answer is right and why other options are wrong",
       "difficulty": "easy" | "medium" | "hard",

@@ -84,7 +84,7 @@ Every question must fall into exactly ONE archetype category.
 ## STRUCTURAL FORMS DISTRIBUTION (Target Counts)
 
 Generate exactly:
-- **${structuralCounts.standardMCQ} Standard 4-Option MCQ**: Traditional single stem with 4 options (1), (2), (3), (4). Direct, concise question followed by 4 mutually exclusive options.
+- **${structuralCounts.standardMCQ} Standard 4-Option MCQ**: Traditional single stem with 4 options A, B, C, D. Direct, concise question followed by 4 mutually exclusive options.
 - **${structuralCounts.scenarioBasedMCQ || 0} Scenario-Based MCQ**: Present a classroom situation, student behavior, or teaching context (2-3 sentences), then ask a question. Example: "Neha is watching the latest movie 'Drishyam-2' since she wants to know what happens to hero and his family. This is the best example of -"
 - **${structuralCounts.matchFollowing || 0} Match-the-Following**: Always use 4×4 matrix with coded options (see template below). Rare format - use sparingly.
 - **${structuralCounts.negativePhrasing} Negative Phrasing**: Use "Which is NOT correct", "incorrect statement", "Which of the following is not related to..." format. Common format for exception/outlier questions.
@@ -220,7 +220,7 @@ Ramesh doesn't like to participate in family gathering because every time he doe
 
 ## ANSWER KEY BALANCE
 
-- Distribute correct answers evenly: approximately 25% each for options (1), (2), (3), (4)
+- Distribute correct answers evenly: approximately 25% each for options A, B, C, D
 - Never place more than 3 consecutive questions with the same correct answer
 - Randomize answer positions naturally
 
@@ -271,12 +271,12 @@ Generate questions in this exact JSON format:
       "archetype": "directRecall" | "theoryAttribution" | "directApplication" | "discriminator" | "exceptionOutlier" | "calculationNumerical",
       "structuralForm": "standardMCQ" | "scenarioBasedMCQ" | "matchFollowing" | "negativePhrasing",
       "cognitiveLoad": "low" | "medium" | "high",
-      "correctAnswer": "(1)" | "(2)" | "(3)" | "(4)",
+      "correctAnswer": "A" | "B" | "C" | "D",
       "options": {
-        "(1)": "Full text of option 1",
-        "(2)": "Full text of option 2",
-        "(3)": "Full text of option 3",
-        "(4)": "Full text of option 4"
+        "A": "Full text of option A",
+        "B": "Full text of option B",
+        "C": "Full text of option C",
+        "D": "Full text of option D"
       },
       "explanation": "Clear explanation of why the correct answer is right and why other options are wrong",
       "difficulty": "easy" | "medium" | "hard",

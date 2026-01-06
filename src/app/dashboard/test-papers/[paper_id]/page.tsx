@@ -437,7 +437,7 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            {allFinalized && paper.status !== 'finalized' && (
+            {allFinalized && !paper.pdf_url && (
               <Button
                 variant="primary"
                 size="lg"
@@ -449,7 +449,7 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
                 {generatingPDF ? 'Generating PDF...' : 'Generate Final PDF'}
               </Button>
             )}
-            {allFinalized && paper.pdf_url && (
+            {paper.pdf_url && (
               <Button
                 size="lg"
                 onClick={() => router.push(`/dashboard/test-papers/${paperId}/pdf`)}

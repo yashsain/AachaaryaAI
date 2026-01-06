@@ -391,6 +391,8 @@ Before finalizing questions, verify:
 - Use formal/standard Hindi (शुद्ध हिंदी) not colloquial
 - Technical terms can use English words in Devanagari (e.g., "रेलवे", "यूनिवर्सिटी")
 - Numbers can be in Devanagari (०१२३४५६७८९) or Arabic (0123456789) - prefer Arabic for consistency
+- Ordinal numbers < 10: Use Hindi words ONLY (पहला/प्रथम, दूसरा/द्वितीय, तीसरा/तृतीय) - NEVER "1ला", "2रा", "3रा"
+- Ordinal numbers ≥ 10: Using "वाँ" suffix is correct (7वाँ, 42वाँ, 44वाँ)
 - Maintain grammatical correctness (व्याकरण शुद्धता)
 
 ---
@@ -422,12 +424,12 @@ Before finalizing questions, verify:
       "archetype": "singleFactRecall" | "comparative" | "exceptionNegative" | "fillInBlank" | "definitional" | "causal" | "commonality",
       "structuralForm": "standard4OptionMCQ",
       "cognitiveLoad": "low" | "medium" | "high",
-      "correctAnswer": "(A)" | "(B)" | "(C)" | "(D)",
+      "correctAnswer": "A" | "B" | "C" | "D",
       "options": {
-        "(A)": "Full text of option A",
-        "(B)": "Full text of option B",
-        "(C)": "Full text of option C",
-        "(D)": "Full text of option D"
+        "A": "Full text of option A",
+        "B": "Full text of option B",
+        "C": "Full text of option C",
+        "D": "Full text of option D"
       },
       "explanation": "Clear explanation of correct answer",
       "difficulty": "easy" | "medium" | "hard",
@@ -473,8 +475,8 @@ const validators: Protocol['validators'] = [
       if (optionKeys.length !== 4) {
         errors.push(`Question ${q.questionNumber}: Must have exactly 4 options (found ${optionKeys.length}). REET uses 4-option format, not 5.`)
       }
-      if (!optionKeys.every(k => ['(A)', '(B)', '(C)', '(D)'].includes(k))) {
-        errors.push(`Question ${q.questionNumber}: Options must be labeled (A), (B), (C), (D)`)
+      if (!optionKeys.every(k => ['A', 'B', 'C', 'D'].includes(k))) {
+        errors.push(`Question ${q.questionNumber}: Options must be labeled A, B, C, D`)
       }
     }
 

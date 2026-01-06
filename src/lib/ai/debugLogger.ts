@@ -9,6 +9,13 @@ import { join } from 'path'
 
 const DEBUG_DIR = join(process.cwd(), 'debug_logs')
 
+// Helper function to check if file logging should be disabled
+function isFileLoggingDisabled(): boolean {
+  // Disable file logging in Vercel production and preview environments
+  const vercelEnv = process.env.VERCEL_ENV
+  return vercelEnv === 'production' || vercelEnv === 'preview'
+}
+
 /**
  * Log Gemini request to file
  */
@@ -24,6 +31,13 @@ export function logGeminiRequest(
     protocolConfig: any
   }
 ) {
+  // Skip file logging on Vercel production/preview
+  if (isFileLoggingDisabled()) {
+    console.log(`[DEBUG_LOG] File logging disabled (VERCEL_ENV=${process.env.VERCEL_ENV})`)
+    console.log(`[DEBUG_LOG] Request: paper-${paperId}, chapter ${chapterIndex} (${chapterName})`)
+    return null
+  }
+
   const timestamp = new Date().toISOString().replace(/:/g, '-')
   const filename = `${timestamp}_paper-${paperId}_ch${chapterIndex}_${sanitize(chapterName)}_REQUEST.json`
   const filepath = join(DEBUG_DIR, filename)
@@ -59,6 +73,13 @@ export function logGeminiResponse(
     validationResult: any
   }
 ) {
+  // Skip file logging on Vercel production/preview
+  if (isFileLoggingDisabled()) {
+    console.log(`[DEBUG_LOG] File logging disabled (VERCEL_ENV=${process.env.VERCEL_ENV})`)
+    console.log(`[DEBUG_LOG] Response: paper-${paperId}, chapter ${chapterIndex} (${chapterName}), ${data.parsedQuestions.length} questions`)
+    return null
+  }
+
   const timestamp = new Date().toISOString().replace(/:/g, '-')
   const filename = `${timestamp}_paper-${paperId}_ch${chapterIndex}_${sanitize(chapterName)}_RESPONSE.json`
   const filepath = join(DEBUG_DIR, filename)
@@ -90,6 +111,13 @@ export function logDBPreview(
   chapterIndex: number,
   dbRecords: any[]
 ) {
+  // Skip file logging on Vercel production/preview
+  if (isFileLoggingDisabled()) {
+    console.log(`[DEBUG_LOG] File logging disabled (VERCEL_ENV=${process.env.VERCEL_ENV})`)
+    console.log(`[DEBUG_LOG] DB Preview: paper-${paperId}, chapter ${chapterIndex} (${chapterName}), ${dbRecords.length} records`)
+    return null
+  }
+
   const timestamp = new Date().toISOString().replace(/:/g, '-')
   const filename = `${timestamp}_paper-${paperId}_ch${chapterIndex}_${sanitize(chapterName)}_DB_PREVIEW.json`
   const filepath = join(DEBUG_DIR, filename)
@@ -127,6 +155,13 @@ export function logGenerationSummary(
     timing: Record<string, number>
   }
 ) {
+  // Skip file logging on Vercel production/preview
+  if (isFileLoggingDisabled()) {
+    console.log(`[DEBUG_LOG] File logging disabled (VERCEL_ENV=${process.env.VERCEL_ENV})`)
+    console.log(`[DEBUG_LOG] Summary: paper-${paperId}, ${summary.totalQuestionsGenerated} questions, ${summary.chaptersProcessed}/${summary.totalChapters} chapters`)
+    return null
+  }
+
   const timestamp = new Date().toISOString().replace(/:/g, '-')
   const filename = `${timestamp}_paper-${paperId}_SUMMARY.json`
   const filepath = join(DEBUG_DIR, filename)

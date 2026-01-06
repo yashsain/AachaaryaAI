@@ -34,6 +34,13 @@ export async function POST(
     console.log('[DRY_RUN] STARTING QUESTION GENERATION - DRY RUN MODE')
     console.log('[DRY_RUN] No database writes will occur')
     console.log('[DRY_RUN] All requests and responses will be logged to debug_logs/')
+
+    // Warn about Vercel environment limitations
+    if (process.env.VERCEL_ENV === 'production' || process.env.VERCEL_ENV === 'preview') {
+      console.log('[DRY_RUN_WARNING] Running on Vercel - file logging is DISABLED')
+      console.log('[DRY_RUN_WARNING] Only console output will be available')
+    }
+
     console.log('='.repeat(80))
 
     const supabase = createServerClient(await cookies())
@@ -429,17 +436,27 @@ export async function POST(
     console.log(`Questions generated: ${summary.totalQuestionsGenerated}`)
     console.log(`Validation errors: ${allValidationErrors.length}`)
     console.log(`Validation warnings: ${allValidationWarnings.length}`)
-    console.log(`\nAll logs saved to: debug_logs/`)
+
+    // Conditional log directory message based on environment
+    const isVercel = process.env.VERCEL_ENV === 'production' || process.env.VERCEL_ENV === 'preview'
+    if (isVercel) {
+      console.log(`\nFile logging disabled on Vercel - check console logs above`)
+    } else {
+      console.log(`\nAll logs saved to: debug_logs/`)
+    }
+
     console.log('='.repeat(80))
 
     return NextResponse.json({
       success: true,
       dryRun: true,
-      message: 'Dry run completed - no database writes occurred',
+      message: isVercel
+        ? 'Dry run completed - file logging disabled on Vercel (check console logs)'
+        : 'Dry run completed - no database writes occurred',
       paper_id: paperId,
       chapterResults,
       summary,
-      logsDirectory: 'debug_logs/'
+      logsDirectory: isVercel ? undefined : 'debug_logs/'
     }, { status: 200 })
 
   } catch (error) {

@@ -186,10 +186,10 @@ C. [Term/Concept 3]               III. [Definition/Description 3]
 D. [Term/Concept 4]               IV. [Definition/Description 4]
 
 Choose the correct answer from the options given below:
-(1) A-III, B-I, C-IV, D-II
-(2) A-I, B-II, C-III, D-IV
-(3) A-II, B-IV, C-I, D-III
-(4) A-IV, B-III, C-II, D-I
+(A) A-III, B-I, C-IV, D-II
+(B) A-I, B-II, C-III, D-IV
+(C) A-II, B-IV, C-I, D-III
+(D) A-IV, B-III, C-II, D-I
 \`\`\`
 
 **CRITICAL**: Put the ENTIRE matrix (Column I, Column II, all A-D and I-IV items) INSIDE questionText. Options field ONLY contains coded combinations like "A-III, B-I, C-IV, D-II".
@@ -203,13 +203,13 @@ Assertion (A): [Statement about concept]
 Reason (R): [Statement about reasoning or explanation]
 
 In the light of the above statements, choose the correct answer from the options given below:
-(1) Both A and R are true and R is the correct explanation of A
-(2) Both A and R are true but R is NOT the correct explanation of A
-(3) A is true but R is false
-(4) A is false but R is true
+(A) Both A and R are true and R is the correct explanation of A
+(B) Both A and R are true but R is NOT the correct explanation of A
+(C) A is true but R is false
+(D) A is false but R is true
 \`\`\`
 
-**CRITICAL**: The word "explanation" MUST appear in option (1) and option (2). The ending phrase "In the light of the above statements, choose the correct answer from the options given below:" is MANDATORY in questionText.
+**CRITICAL**: The word "explanation" MUST appear in option (A) and option (B). The ending phrase "In the light of the above statements, choose the correct answer from the options given below:" is MANDATORY in questionText.
 
 ### Multi-Statement Combination Template:
 \`\`\`
@@ -219,10 +219,10 @@ Statement I: [First statement]
 Statement II: [Second statement]
 
 In the light of the above statements, choose the correct answer from the options given below:
-(1) Both Statement I and Statement II are true
-(2) Both Statement I and Statement II are false
-(3) Statement I is true but Statement II is false
-(4) Statement I is false but Statement II is true
+(A) Both Statement I and Statement II are true
+(B) Both Statement I and Statement II are false
+(C) Statement I is true but Statement II is false
+(D) Statement I is false but Statement II is true
 \`\`\`
 
 OR use this variant:
@@ -235,10 +235,10 @@ C. [Statement C]
 D. [Statement D]
 
 Choose the correct answer from the options given below:
-(1) A and B only
-(2) B and C only
-(3) A, B and D only
-(4) B, C and D only
+(A) A and B only
+(B) B and C only
+(C) A, B and D only
+(D) B, C and D only
 \`\`\`
 
 ---
@@ -313,7 +313,7 @@ Choose the correct answer from the options given below:
 
 ## ANSWER KEY BALANCE
 
-- Distribute correct answers evenly: approximately 25% each for options (1), (2), (3), (4)
+- Distribute correct answers evenly: approximately 25% each for options A, B, C, D
 - Never place more than 3 consecutive questions with the same correct answer
 - Randomize answer positions naturally
 
@@ -342,12 +342,12 @@ Generate questions in this exact JSON format:
       "archetype": "directRecall" | "directApplication" | "integrative" | "discriminator" | "exceptionOutlier",
       "structuralForm": "standardMCQ" | "matchFollowing" | "assertionReason" | "negativePhrasing" | "multiStatement",
       "cognitiveLoad": "low" | "medium" | "high",
-      "correctAnswer": "(1)" | "(2)" | "(3)" | "(4)",
+      "correctAnswer": "A" | "B" | "C" | "D",
       "options": {
-        "(1)": "Full text of option 1",
-        "(2)": "Full text of option 2",
-        "(3)": "Full text of option 3",
-        "(4)": "Full text of option 4"
+        "A": "Full text of option A",
+        "B": "Full text of option B",
+        "C": "Full text of option C",
+        "D": "Full text of option D"
       },
       "explanation": "Clear explanation of why the correct answer is right and why other options are wrong",
       "difficulty": "easy" | "medium" | "hard",
@@ -364,7 +364,7 @@ Generate questions in this exact JSON format:
 {
   "questionText": "Match Column I with Column II regarding cell organelles:",
   "options": {
-    "(1)": "A-II, B-I, C-IV, D-III"
+    "A": "A-II, B-I, C-IV, D-III"
   }
 }
 \`\`\`
@@ -378,12 +378,12 @@ Generate questions in this exact JSON format:
   "archetype": "directRecall",
   "structuralForm": "matchFollowing",
   "cognitiveLoad": "high",
-  "correctAnswer": "(1)",
+  "correctAnswer": "A",
   "options": {
-    "(1)": "A-II, B-I, C-IV, D-III",
-    "(2)": "A-I, B-II, C-III, D-IV",
-    "(3)": "A-III, B-IV, C-I, D-II",
-    "(4)": "A-IV, B-III, C-II, D-I"
+    "A": "A-II, B-I, C-IV, D-III",
+    "B": "A-I, B-II, C-III, D-IV",
+    "C": "A-III, B-IV, C-I, D-II",
+    "D": "A-IV, B-III, C-II, D-I"
   },
   "explanation": "Mitochondria produce energy (A-II), Ribosomes synthesize proteins (B-I), Golgi apparatus packages and secretes (C-IV), Endoplasmic reticulum synthesizes lipids (D-III).",
   "difficulty": "medium",
@@ -399,7 +399,7 @@ Generate questions in this exact JSON format:
 {
   "questionText": "Assertion (A): DNA replication is semi-conservative.\\nReason (R): Each daughter DNA contains one old and one new strand.",
   "options": {
-    "(1)": "Both are true and R explains A"
+    "A": "Both are true and R explains A"
   }
 }
 \`\`\`
@@ -413,12 +413,12 @@ Generate questions in this exact JSON format:
   "archetype": "integrative",
   "structuralForm": "assertionReason",
   "cognitiveLoad": "high",
-  "correctAnswer": "(1)",
+  "correctAnswer": "A",
   "options": {
-    "(1)": "Both A and R are true and R is the correct explanation of A",
-    "(2)": "Both A and R are true but R is NOT the correct explanation of A",
-    "(3)": "A is true but R is false",
-    "(4)": "A is false but R is true"
+    "A": "Both A and R are true and R is the correct explanation of A",
+    "B": "Both A and R are true but R is NOT the correct explanation of A",
+    "C": "A is true but R is false",
+    "D": "A is false but R is true"
   },
   "explanation": "Both statements are correct. DNA replication is indeed semi-conservative because each new DNA molecule retains one original (parental) strand and synthesizes one new strand, which directly explains the mechanism of semi-conservative replication.",
   "difficulty": "medium",
@@ -466,9 +466,9 @@ Generate ${questionCount} questions now following ALL rules above.
 **FOR ASSERTION-REASON QUESTIONS** (${structuralCounts.assertionReason} required):
 - Put Assertion (A) and Reason (R) in questionText
 - End questionText with: "In the light of the above statements, choose the correct answer from the options given below:"
-- Option (1) MUST say: "Both A and R are true and R is the correct explanation of A"
-- Option (2) MUST say: "Both A and R are true but R is NOT the correct explanation of A"
-- The word "explanation" must appear in options (1) and (2)
+- Option (A) MUST say: "Both A and R are true and R is the correct explanation of A"
+- Option (B) MUST say: "Both A and R are true but R is NOT the correct explanation of A"
+- The word "explanation" must appear in options (A) and (B)
 - If you omit the ending phrase or "explanation", the question will be rejected
 
 **JSON OUTPUT**:

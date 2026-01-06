@@ -92,7 +92,8 @@ const config: HindiProtocolConfig = {
     'Questions must have only ONE unambiguously correct answer',
     'Distractors must be plausible but clearly incorrect',
     'Do not overuse complex Sanskrit-derived words - maintain modern Hindi balance',
-    'Devanagari matras, anusvara, visarga, chandrabindu must be spelled correctly'
+    'Devanagari matras, anusvara, visarga, chandrabindu must be spelled correctly',
+    'Ordinal numbers < 10 MUST use Hindi words (पहला/प्रथम, दूसरा/द्वितीय, तीसरा/तृतीय) - NEVER "1ला", "2रा", "3रा"'
   ]
 }
 

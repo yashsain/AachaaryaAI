@@ -210,6 +210,8 @@ This is part of a ${totalQuestions}-question paper testing comprehensive Social 
 - Use proper Devanagari script (देवनागरी लिपि)
 - Use formal/standard Hindi (मानक हिंदी), not colloquial
 - Use formal/academic register
+- Ordinal numbers < 10: Use Hindi words ONLY (पहला/प्रथम, दूसरा/द्वितीय, तीसरा/तृतीय) - NEVER "1ला", "2रा", "3रा"
+- Ordinal numbers ≥ 10: Using "वाँ" suffix is correct (7वाँ, 42वाँ, 44वाँ)
 
 ---
 
@@ -236,12 +238,12 @@ ${archetypeList}
       "structuralForm": "standard4OptionMCQ",
       "cognitiveLoad": "low" | "medium" | "high",
       "decisionPoints": 1 | 2 | 3 | 4 | 5 | 6,
-      "correctAnswer": "(A)" | "(B)" | "(C)" | "(D)",
+      "correctAnswer": "A" | "B" | "C" | "D",
       "options": {
-        "(A)": "विकल्प A का पूर्ण पाठ हिंदी में",
-        "(B)": "विकल्प B का पूर्ण पाठ हिंदी में",
-        "(C)": "विकल्प C का पूर्ण पाठ हिंदी में",
-        "(D)": "विकल्प D का पूर्ण पाठ हिंदी में"
+        "A": "विकल्प A का पूर्ण पाठ हिंदी में",
+        "B": "विकल्प B का पूर्ण पाठ हिंदी में",
+        "C": "विकल्प C का पूर्ण पाठ हिंदी में",
+        "D": "विकल्प D का पूर्ण पाठ हिंदी में"
       },
       "explanation": "सही उत्तर की स्पष्ट व्याख्या हिंदी में",
       "difficulty": "easy" | "medium" | "hard",
@@ -299,8 +301,8 @@ const validators: Protocol['validators'] = [
       if (optionKeys.length !== 4) {
         errors.push(`Question ${q.questionNumber}: Must have exactly 4 options (found ${optionKeys.length}). REET uses 4-option format.`)
       }
-      if (!optionKeys.every(k => ['(A)', '(B)', '(C)', '(D)'].includes(k))) {
-        errors.push(`Question ${q.questionNumber}: Options must be labeled (A), (B), (C), (D)`)
+      if (!optionKeys.every(k => ['A', 'B', 'C', 'D'].includes(k))) {
+        errors.push(`Question ${q.questionNumber}: Options must be labeled A, B, C, D`)
       }
     }
 

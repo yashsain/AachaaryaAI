@@ -105,6 +105,8 @@ LANGUAGE REQUIREMENTS:
 - NO English or Roman transliteration allowed in generated content
 - Use proper Devanagari script (देवनागरी लिपि)
 - Technical terms can use transliteration where standard (e.g., माण्टेसरी, स्क्रीवेन)
+- Ordinal numbers < 10: Use Hindi words ONLY (पहला/प्रथम, दूसरा/द्वितीय, तीसरा/तृतीय) - NEVER "1ला", "2रा", "3रा"
+- Ordinal numbers ≥ 10: Using "वाँ" suffix is correct (7वाँ, 42वाँ, 44वाँ)
 `
     : ''
 

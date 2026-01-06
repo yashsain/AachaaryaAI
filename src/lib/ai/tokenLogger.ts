@@ -11,8 +11,17 @@ import * as path from 'path'
 const TOKEN_LOGS_DIR = path.join(process.cwd(), 'debug_logs', 'token_usage')
 const MONTHLY_LOGS_DIR = path.join(TOKEN_LOGS_DIR, 'monthly')
 
+// Helper function to check if file logging should be disabled
+function isFileLoggingDisabled(): boolean {
+  // Disable file logging in Vercel production and preview environments
+  const vercelEnv = process.env.VERCEL_ENV
+  return vercelEnv === 'production' || vercelEnv === 'preview'
+}
+
 // Ensure directories exist
 function ensureDirectoriesExist() {
+  if (isFileLoggingDisabled()) return // Skip directory creation on Vercel
+
   if (!fs.existsSync(TOKEN_LOGS_DIR)) {
     fs.mkdirSync(TOKEN_LOGS_DIR, { recursive: true })
   }
@@ -115,6 +124,13 @@ interface MonthlySummary {
  */
 export function logTokenUsage(log: TokenUsageLog): void {
   try {
+    // Skip file logging on Vercel production/preview
+    if (isFileLoggingDisabled()) {
+      console.log(`[TOKEN_LOGGER] File logging disabled (VERCEL_ENV=${process.env.VERCEL_ENV})`)
+      console.log(`[TOKEN_LOGGER] ${log.operationType}: ${log.tokenUsage.totalTokens} tokens, ₹${log.costs.totalCostINR.toFixed(4)} (${log.modelUsed})`)
+      return
+    }
+
     ensureDirectoriesExist()
 
     // Create daily log file path
@@ -161,6 +177,8 @@ export function logTokenUsage(log: TokenUsageLog): void {
  * Update daily summary with new log entry
  */
 function updateDailySummary(log: TokenUsageLog): void {
+  if (isFileLoggingDisabled()) return // Already logged in parent function
+
   const summaryPath = path.join(TOKEN_LOGS_DIR, `${log.date}_SUMMARY.json`)
 
   let summary: DailySummary = {
@@ -227,6 +245,8 @@ function updateDailySummary(log: TokenUsageLog): void {
  * Update monthly summary with new log entry
  */
 function updateMonthlySummary(log: TokenUsageLog): void {
+  if (isFileLoggingDisabled()) return // Already logged in parent function
+
   const month = log.date.substring(0, 7) // YYYY-MM
   const summaryPath = path.join(MONTHLY_LOGS_DIR, `${month}_SUMMARY.json`)
 
@@ -316,6 +336,11 @@ function updateMonthlySummary(log: TokenUsageLog): void {
  * Get daily summary for a specific date
  */
 export function getDailySummary(date: string): DailySummary | null {
+  if (isFileLoggingDisabled()) {
+    console.warn('[TOKEN_LOGGER] getDailySummary() not available on Vercel')
+    return null
+  }
+
   const summaryPath = path.join(TOKEN_LOGS_DIR, `${date}_SUMMARY.json`)
 
   if (!fs.existsSync(summaryPath)) {
@@ -330,6 +355,11 @@ export function getDailySummary(date: string): DailySummary | null {
  * Get monthly summary for a specific month
  */
 export function getMonthlySummary(month: string): MonthlySummary | null {
+  if (isFileLoggingDisabled()) {
+    console.warn('[TOKEN_LOGGER] getMonthlySummary() not available on Vercel')
+    return null
+  }
+
   const summaryPath = path.join(MONTHLY_LOGS_DIR, `${month}_SUMMARY.json`)
 
   if (!fs.existsSync(summaryPath)) {
@@ -356,6 +386,11 @@ export function getMonthlySummary(month: string): MonthlySummary | null {
  * Get all monthly summaries
  */
 export function getAllMonthlySummaries(): { month: string; summary: MonthlySummary }[] {
+  if (isFileLoggingDisabled()) {
+    console.warn('[TOKEN_LOGGER] getAllMonthlySummaries() not available on Vercel')
+    return []
+  }
+
   if (!fs.existsSync(MONTHLY_LOGS_DIR)) {
     return []
   }

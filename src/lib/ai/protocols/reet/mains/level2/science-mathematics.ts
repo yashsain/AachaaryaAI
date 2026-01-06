@@ -362,12 +362,12 @@ Question stem here?
       "archetype": "numericalCalculation" | "singleFactRecall" | "wordProblem" | "exceptionNegative" | "comparative" | "dataInterpretation" | "diagramBased" | "multiItemSelection" | "processMechanism" | "causal",
       "structuralForm": "standard4OptionMCQ",
       "cognitiveLoad": "low" | "medium" | "high",
-      "correctAnswer": "(A)" | "(B)" | "(C)" | "(D)",
+      "correctAnswer": "A" | "B" | "C" | "D",
       "options": {
-        "(A)": "Full text of option A",
-        "(B)": "Full text of option B",
-        "(C)": "Full text of option C",
-        "(D)": "Full text of option D"
+        "A": "Full text of option A",
+        "B": "Full text of option B",
+        "C": "Full text of option C",
+        "D": "Full text of option D"
       },
       "explanation": "Clear explanation of correct answer and why others are wrong",
       "difficulty": "easy" | "medium" | "hard"
@@ -564,8 +564,8 @@ const validators: Protocol['validators'] = [
       if (optionKeys.length !== 4) {
         errors.push(`Question ${q.questionNumber}: Must have exactly 4 options (found ${optionKeys.length}). REET uses 4-option format, not 5.`)
       }
-      if (!optionKeys.every(k => ['(A)', '(B)', '(C)', '(D)'].includes(k))) {
-        errors.push(`Question ${q.questionNumber}: Options must be labeled (A), (B), (C), (D)`)
+      if (!optionKeys.every(k => ['A', 'B', 'C', 'D'].includes(k))) {
+        errors.push(`Question ${q.questionNumber}: Options must be labeled A, B, C, D`)
       }
     }
 

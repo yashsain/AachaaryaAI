@@ -7,10 +7,15 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { generatePDF, streamToBuffer, generateTestCode, formatDate, formatDuration } from '@/lib/pdf/utils/pdfGenerator'
+import { generateTestCode, formatDate, formatDuration } from '@/lib/pdf/utils/pdfGenerator'
 import { getInstituteLogo, getDefaultLogo } from '@/lib/pdf/utils/imageProcessor'
 import { TemplateConfig, QuestionForPDF, PDFSection } from '@/lib/pdf/types'
 import { generatePaperPath, STORAGE_BUCKETS } from '@/lib/storage/storageService'
+import { generateHTMLTemplate } from '@/lib/pdf/templates/htmlTemplateGenerator'
+import { generatePDFFromHTML } from '@/lib/pdf/utils/puppeteerGenerator'
+
+// Allow up to 60 seconds for PDF generation (Puppeteer can be slow on cold starts)
+export const maxDuration = 60
 
 interface GeneratePDFParams {
   params: Promise<{
@@ -345,19 +350,34 @@ export async function POST(
       topics: topics,
       examType: stream?.name || 'Practice Test',
       streamName: stream?.name || undefined,
+      // Option E (Fifth Option) support for REET exams only
+      // Label is auto-detected per question based on language (Hindi/English)
+      enableOptionE: stream?.name?.toLowerCase().includes('reet') || false,
       questions: questionsForPDF,
       // Multi-section support
       hasSections: hasSections,
       sections: sections,
     }
 
-    console.log('[GENERATE_PDF] Template config ready. Generating PDF...')
+    console.log('[GENERATE_PDF] Template config ready. Generating PDF with Puppeteer...')
 
-    // Generate PDF
-    const pdfStream = await generatePDF(config)
-    const pdfBuffer = await streamToBuffer(pdfStream)
+    // Generate HTML from template
+    const htmlContent = generateHTMLTemplate(config)
+    console.log('[GENERATE_PDF] HTML template generated, length:', htmlContent.length)
 
-    console.log('[GENERATE_PDF] PDF generated. Size:', pdfBuffer.length, 'bytes')
+    // Generate PDF using Puppeteer (perfect Hindi/Devanagari rendering)
+    const pdfBuffer = await generatePDFFromHTML(htmlContent, {
+      format: 'A4',
+      printBackground: true,
+      margin: {
+        top: '15mm',
+        right: '15mm',
+        bottom: '15mm',
+        left: '15mm',
+      },
+    })
+
+    console.log('[GENERATE_PDF] PDF generated with Puppeteer. Size:', pdfBuffer.length, 'bytes')
 
     // Generate storage path using helper function (institute isolation)
     const fileName = generatePaperPath(institute.id, paperId, 'question_paper')

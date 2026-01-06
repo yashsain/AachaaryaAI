@@ -73,6 +73,10 @@ export interface TemplateConfig {
   // Optional settings
   showSolutions?: boolean         // Future: Phase 6.2
   bilingual?: boolean             // Future: Phase 6.2
+
+  // Option E (Fifth Option) support for Rajasthan exams
+  enableOptionE?: boolean         // true for REET exams, false for NEET/JEE
+                                  // Label auto-detected per question (Hindi vs English)
 }
 
 export interface PDFGenerationOptions {

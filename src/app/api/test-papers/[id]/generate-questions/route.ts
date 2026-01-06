@@ -11,6 +11,7 @@ import { validateQuestionsWithProtocol, Question } from '@/lib/ai/questionValida
 import { parseGeminiJSON, getDiagnosticInfo } from '@/lib/ai/jsonCleaner'
 import { logApiUsage, calculateCost } from '@/lib/ai/tokenTracker'
 import { getProtocol } from '@/lib/ai/protocols'
+import { sanitizeQuestionText } from '@/lib/ai/questionSanitizer'
 
 export const maxDuration = 300 // 5 minutes timeout
 
@@ -286,14 +287,19 @@ async function generateQuestionsForSections(
             }
 
             // Step 8: Insert questions into database WITH section_id
+            // CRITICAL: Sanitize question text to remove editorial notes like "(नोट: ...)"
             const questionsToInsert = questions.map((q, index) => ({
               institute_id: teacher.institute_id,
               paper_id: paperId,
               chapter_id: chapterId,
               section_id: section.id, // NEW: Tag with section ID
-              question_text: q.questionText,
+              question_text: sanitizeQuestionText(q.questionText), // SANITIZED
               question_data: {
-                options: q.options,
+                options: Object.fromEntries(
+                  Object.entries(q.options).map(([key, val]) =>
+                    [key, sanitizeQuestionText(val)] // SANITIZED
+                  )
+                ),
                 correctAnswer: q.correctAnswer,
                 archetype: q.archetype,
                 structuralForm: q.structuralForm,
@@ -301,7 +307,7 @@ async function generateQuestionsForSections(
                 difficulty: q.difficulty,
                 ncertFidelity: q.ncertFidelity
               },
-              explanation: q.explanation,
+              explanation: sanitizeQuestionText(q.explanation), // SANITIZED
               marks: section.marks_per_question || 4,
               negative_marks: section.negative_marks || 0,
               is_selected: false,
@@ -682,13 +688,18 @@ export async function POST(
         }
 
         // Step 8: Insert questions into database
+        // CRITICAL: Sanitize question text to remove editorial notes like "(नोट: ...)"
         const questionsToInsert = questions.map((q, index) => ({
           institute_id: teacher.institute_id,
           paper_id: paperId,
           chapter_id: chapterId,
-          question_text: q.questionText,
+          question_text: sanitizeQuestionText(q.questionText), // SANITIZED
           question_data: {
-            options: q.options,
+            options: Object.fromEntries(
+              Object.entries(q.options).map(([key, val]) =>
+                [key, sanitizeQuestionText(val)] // SANITIZED
+              )
+            ),
             correctAnswer: q.correctAnswer,
             archetype: q.archetype,
             structuralForm: q.structuralForm,
@@ -696,7 +707,7 @@ export async function POST(
             difficulty: q.difficulty,
             ncertFidelity: q.ncertFidelity
           },
-          explanation: q.explanation,
+          explanation: sanitizeQuestionText(q.explanation), // SANITIZED
           marks: 4, // Legacy papers use default marks (no section-level config)
           negative_marks: 0, // Legacy papers use default negative marks
           is_selected: false,
