@@ -147,7 +147,8 @@ function buildRajasthanGKPrompt(
   config: ProtocolConfig,
   chapterName: string,
   questionCount: number,
-  totalQuestions: number
+  totalQuestions: number,
+  isBilingual: boolean = false
 ): string {
   const difficulty = 'balanced' // Default
   const archetypeCounts = getArchetypeCounts(difficulty, questionCount)
@@ -172,10 +173,111 @@ This is part of a ${totalQuestions}-question paper testing Rajasthan-specific kn
 - Every candidate takes this section regardless of subject specialization
 - Tests comprehensive knowledge of Rajasthan
 
-**LANGUAGE**: ALL questions MUST be in Hindi (हिंदी)
+**LANGUAGE**: ${isBilingual
+  ? `BILINGUAL MODE - Generate questions in BOTH Hindi and English
+- Hindi is PRIMARY (always required) - Use Devanagari script
+- English is SECONDARY (for bilingual support)
+- Both languages must convey the SAME meaning and difficulty
+- Generate both languages in a SINGLE response
+
+⚠️ CRITICAL BILINGUAL RULE - MUST FOLLOW ⚠️
+
+Hindi fields (questionText, options) MUST NEVER contain English text in parentheses.
+
+❌ ABSOLUTELY FORBIDDEN EXAMPLES (from actual broken questions):
+   - "सीसा और जस्ता (Zinc and Lead)"
+   - "निशानेबाजी (Shooting)"
+   - "मृत्युदंड (Death Sentence) के मामले में..."
+   - "उन्मुक्ति (Immunity) प्राप्त है"
+   - "दीवानी मामले (Civil Proceedings) चलाने..."
+   - "वरंट (Adhipatra)" - using transliterated English in Hindi
+
+✅ REQUIRED FORMAT:
+   - questionText: "सीसा और जस्ता"
+   - questionText_en: "Zinc and Lead"
+   - options.A: "निशानेबाजी"
+   - options_en.A: "Shooting"
+
+THIS IS NOT OPTIONAL. Violating this rule makes your output UNUSABLE.
+
+**Pre-Generation Checklist** (ask yourself BEFORE generating):
+1. Will my Hindi fields be PURE Hindi with NO English in parentheses?
+2. Will my English fields be PURE English with NO Hindi in parentheses?
+3. Am I using proper Hindi words (अधिपत्र) not transliterations (वरंट)?
+4. If answer to ANY is "no" → STOP. You're about to make a critical error.
+
+**Translation Guidelines**:
+- Proper nouns: Transliterate correctly (जैसलमेर → Jaisalmer, महाराणा प्रताप → Maharana Pratap)
+- Technical terms: Use standard English equivalents
+- Cultural terms: Transliterate with context preservation
+- Numbers/Dates: Keep identical in both languages
+- Do NOT translate names of places, people, schemes - transliterate only
+- Maintain factual accuracy and question difficulty in both languages
+- Avoid literal word-by-word translation - preserve meaning and context
+
+**CRITICAL - Clean Language Separation (NO Parenthetical Translations)**:
+1. NEVER put English translations in parentheses after Hindi words:
+   ❌ WRONG: "सीसा और जस्ता (Zinc and Lead)"
+   ✅ CORRECT: questionText: "सीसा और जस्ता", questionText_en: "Zinc and Lead"
+
+   ❌ WRONG: "निशानेबाजी (Shooting)"
+   ✅ CORRECT: questionText: "निशानेबाजी", questionText_en: "Shooting"
+
+   ❌ WRONG questionText (hindi version): "मृत्युदंड (Death Sentence) के मामले में राज्यपाल और राष्ट्रपति की शक्तियों में क्या अंतर है?"
+   ✅ CORRECT questionText (hindi version): "मृत्युदंड के मामले में राज्यपाल और राष्ट्रपति की शक्तियों में क्या अंतर है?"
+
+   ❌ WRONG questionText (hindi version): "अनुच्छेद 361 के तहत राज्यपाल को कौन सी उन्मुक्ति (Immunity) प्राप्त है?"
+   ✅ CORRECT questionText (hindi version): "अनुच्छेद 361 के तहत राज्यपाल को कौन सी उन्मुक्ति प्राप्त है?"
+
+   ❌ WRONG questionText (hindi version): "राज्यपाल के विरुद्ध दीवानी मामले (Civil Proceedings) चलाने के लिए कितने समय की पूर्व सूचना आवश्यक है?"
+   ✅ CORRECT questionText (hindi version): "राज्यपाल के विरुद्ध दीवानी मामले चलाने के लिए कितने समय की पूर्व सूचना आवश्यक है?"
+
+
+2. NEVER put Hindi/Sanskrit transliterations in parentheses after English words:
+   ❌ WRONG: questionText_en: "Warrant (Adhipatra)"
+   ✅ CORRECT: questionText_en: "Warrant", questionText: "अधिपत्र"
+
+3. Use proper Hindi/Sanskrit words, NOT English transliterations in Hindi text:
+   ❌ WRONG: "वरंट (Adhipatra)" - using transliterated English
+   ✅ CORRECT: "अधिपत्र" - proper Hindi/Sanskrit word
+
+4. Keep each language pure and separate - use the dedicated fields:
+   - questionText = Pure Hindi only (proper Hindi words, not transliterations)
+   - questionText_en = Pure English only (no Hindi/Sanskrit in parentheses)
+   - options = Pure Hindi only
+   - options_en = Pure English only
+
+5. For legal/administrative terms, use proper Hindi equivalents:
+   - English: "Warrant" → Hindi: "अधिपत्र" (NOT "वरंट")
+   - English: "Governor" → Hindi: "राज्यपाल" (NOT "गवर्नर")
+
+⚠️ MANDATORY POST-GENERATION VALIDATION ⚠️
+
+BEFORE returning your JSON, perform this validation:
+
+**Step 1**: Search for "questionText" in your JSON
+   - Does it contain ANY English words in (parentheses)? → If YES: DELETE the parentheses part immediately
+
+**Step 2**: Search for "options" and check all A, B, C, D values
+   - Does ANY option contain English in (parentheses)? → If YES: DELETE the parentheses part immediately
+
+**Step 3**: Examples of what to find and fix:
+   - FIND: "मृत्युदंड (Death Sentence) के मामले में" → FIX TO: "मृत्युदंड के मामले में"
+   - FIND: "उन्मुक्ति (Immunity) प्राप्त है" → FIX TO: "उन्मुक्ति प्राप्त है"
+   - FIND: "दीवानी मामले (Civil Proceedings)" → FIX TO: "दीवानी मामले"
+   - FIND: "निशानेबाजी (Shooting)" → FIX TO: "निशानेबाजी"
+
+**Step 4**: Check for English transliterations in Hindi text:
+   - FIND: "वरंट" → FIX TO: "अधिपत्र" (use proper Hindi word)
+   - FIND: "गवर्नर" → FIX TO: "राज्यपाल" (use proper Hindi word)
+
+**Step 5**: If you found and fixed ANY violations → Good, now your JSON is correct
+   - If you found ZERO violations → Perfect, your JSON is already correct
+
+DO NOT SKIP THIS VALIDATION. Your output will be rejected if Hindi fields contain English parentheses or transliterations.`
+  : `ALL questions MUST be in Hindi (हिंदी)
 - Use Devanagari script for all questions and options
-- Primary language for REET exam in Rajasthan
-- English translation can be added later via separate translation service
+- Primary language for REET exam in Rajasthan is Hindi (हिंदी)`}
 
 ---
 
@@ -351,6 +453,29 @@ Question stem here?
 - ❌ "All of the above" (0% observed)
 - ❌ Subset inclusion
 - ❌ Non-mutually exclusive options
+- ❌ **DUPLICATE OPTIONS - All 4 options MUST be textually unique**
+  - WRONG: (A) राम शर्मा (B) सीता देवी (C) मोहन सिंह (D) मोहन सिंह ← DUPLICATE!
+  - CORRECT: All 4 options have different text
+- ❌ Identical names/values in multiple options (even with different labels)
+- **CRITICAL FOR NAME-BASED QUESTIONS**: When options contain people's names, ensure all 4 are DIFFERENT individuals
+  - Example: Governor question with options about rulers - all 4 must be different people
+  - NEVER repeat the same person's name in two options
+
+- ❌ **NAME VARIATION DUPLICATES - SAME PERSON IN DIFFERENT FORMATS**
+  - **MOST CRITICAL**: The same individual appearing with different name formats is UNACCEPTABLE
+  - ❌ WRONG: (A) शैलेंद्र कुमार सिंह (full name) ... (D) एस.के. सिंह (initials) ← SAME PERSON!
+    - "एस.के. सिंह" is just "S.K. Singh" which stands for "Shailendra Kumar Singh"
+    - These are NOT different people - it's the SAME individual with full name vs initials
+  - ❌ WRONG: Full name vs abbreviated forms of the SAME person
+    - Example: (A) दरबारा सिंह (B) डी. सिंह ← SAME PERSON!
+    - Example: (A) निर्मलचंद्र जैन (B) एन.सी. जैन ← SAME PERSON!
+  - ❌ WRONG: Same person with/without titles
+    - Example: (A) डॉ. करणी सिंह (B) करणी सिंह ← SAME PERSON!
+  - ✅ CORRECT: All 4 options are DIFFERENT individuals
+    - Example: (A) दरबारा सिंह (B) निर्मलचंद्र जैन (C) शैलेंद्र कुमार सिंह (D) मदनलाल खुराना
+    - All 4 are completely different people (not same person with different formats)
+
+  **VERIFICATION RULE**: Before finalizing, ask yourself: "Are all 4 options different INDIVIDUALS, or is the same person appearing in multiple formats?"
 
 ### NEVER use in question stems:
 - ❌ Meta-references: "according to NCERT", "as per study material"
@@ -361,6 +486,54 @@ Question stem here?
 - ✅ MUST use exactly 4 options (A, B, C, D)
 - ✅ Bilingual questions are acceptable and encouraged
 - ✅ MUST be factually accurate for all Rajasthan-specific content
+
+### EXPLANATION REQUIREMENTS (MANDATORY):
+- ✅ Explanations MUST be concrete, factual, and helpful
+- ✅ Explain WHY the correct answer is right
+- ✅ Explain WHY each incorrect option is wrong
+- ❌ **NEVER write meta-commentary about the question quality**
+- ❌ **NEVER admit errors in the question within the explanation**
+- ❌ **NEVER write "this option should be X" or "the question has issues"**
+- **If you detect an error while writing explanation, FIX THE QUESTION - don't document the error**
+
+**WRONG Explanation Example** (NEVER do this):
+"यह विकल्प D को 'मदनलाल खुराना' होना चाहिए" ← Admitting error in explanation!
+
+**CORRECT Explanation Example**:
+"एस.के. सिंह राजस्थान के राज्यपाल नहीं रहे हैं। सही राज्यपालों में दरबारा सिंह, निर्मलचंद जैन, और शैलेंद्र कुमार सिंह शामिल हैं।"
+
+---
+
+## CRITICAL EXAMPLE - NAME VARIATION DUPLICATES (NEVER DO THIS)
+
+**BAD QUESTION** (from actual generation error - Q26):
+
+Q26. निम्न में से किस राज्यपाल की मृत्यु पद पर रहते हुए नहीं हुई?
+(A) दरबारा सिंह
+(B) निर्मलचंद्र जैन
+(C) शैलेंद्र कुमार सिंह ← FULL NAME
+(D) एस.के. सिंह ← INITIALS OF THE SAME PERSON!
+
+**THE ACTUAL ERROR** (from explanation):
+The generated explanation revealed: "एस.के. सिंह ही शैलेंद्र कुमार सिंह हैं"
+Translation: "S.K. Singh IS Shailendra Kumar Singh"
+- This means options C and D are THE SAME PERSON in different formats!
+- C: Full name (शैलेंद्र कुमार सिंह)
+- D: Initials (एस.के. = S.K. = Shailendra Kumar)
+
+**WHY THIS IS UNACCEPTABLE**:
+- Options C and D are the SAME INDIVIDUAL appearing in two different name formats
+- This is a NAME VARIATION DUPLICATE - much more subtle than textual duplicates
+- The explanation ADMITTED the error by stating they are the same person (NEVER do this)
+- Makes the question invalid and unsolvable
+- Shows the AI generated options without verifying individual uniqueness
+
+**HOW TO FIX**:
+- Ensure all 4 governor names are DIFFERENT individuals (not the same person with different name formats)
+- Correct example: (A) दरबारा सिंह (B) निर्मलचंद्र जैन (C) शैलेंद्र कुमार सिंह (D) मदनलाल खुराना
+- All 4 options are now DIFFERENT PEOPLE (not same person as full name vs initials)
+
+**FROZEN RULE**: Before finalizing ANY question with names, verify all options contain DIFFERENT individuals.
 
 ---
 
@@ -380,10 +553,13 @@ Before finalizing questions, verify:
 
 ## OPTION CONSTRUCTION RULES
 
+- **All 4 options MUST be textually unique (no duplicates - even single character difference matters)**
+- **Name-based questions**: Use 4 DIFFERENT people's names - never repeat a name
 - All 4 options should be approximately equal length
 - All 4 options should use the same grammatical structure
 - All 4 options should be plausible (not obviously wrong)
 - For Rajasthan questions: Use authentic Rajasthan options (real districts, real rulers, real schemes)
+- Make distractors plausible using DIFFERENT but related entities (different governors, different forts, different schemes)
 - All questions and options MUST be in Hindi with proper Devanagari script
 
 ### HINDI LANGUAGE REQUIREMENTS:
@@ -415,30 +591,67 @@ Before finalizing questions, verify:
 
 ## OUTPUT FORMAT (JSON Schema)
 
+${isBilingual
+  ? `**BILINGUAL FORMAT** (Generate both Hindi and English):
+
 \`\`\`json
 {
   "questions": [
     {
       "questionNumber": 1,
-      "questionText": "Full question text here",
+      "questionText": "प्रश्न का हिंदी पाठ यहां (Full question in Hindi Devanagari)",
+      "questionText_en": "Full question text in English",
       "archetype": "singleFactRecall" | "comparative" | "exceptionNegative" | "fillInBlank" | "definitional" | "causal" | "commonality",
       "structuralForm": "standard4OptionMCQ",
       "cognitiveLoad": "low" | "medium" | "high",
       "correctAnswer": "A" | "B" | "C" | "D",
       "options": {
-        "A": "Full text of option A",
-        "B": "Full text of option B",
-        "C": "Full text of option C",
-        "D": "Full text of option D"
+        "A": "विकल्प A हिंदी में (Option A in Hindi)",
+        "B": "विकल्प B हिंदी में (Option B in Hindi)",
+        "C": "विकल्प C हिंदी में (Option C in Hindi)",
+        "D": "विकल्प D हिंदी में (Option D in Hindi)"
       },
-      "explanation": "Clear explanation of correct answer",
+      "options_en": {
+        "A": "Option A in English",
+        "B": "Option B in English",
+        "C": "Option C in English",
+        "D": "Option D in English"
+      },
+      "explanation": "व्याख्या हिंदी में (Explanation in Hindi)",
+      "explanation_en": "Clear explanation in English",
+      "difficulty": "easy" | "medium" | "hard",
+      "language": "bilingual",
+      "contentDomain": "geography" | "history" | "culture" | "demographics" | "currentAffairs" | "education" | "rteAct"
+    }
+  ]
+}
+\`\`\``
+  : `**MONOLINGUAL FORMAT** (Hindi only):
+
+\`\`\`json
+{
+  "questions": [
+    {
+      "questionNumber": 1,
+      "questionText": "प्रश्न का हिंदी पाठ यहां (Full question in Hindi)",
+      "archetype": "singleFactRecall" | "comparative" | "exceptionNegative" | "fillInBlank" | "definitional" | "causal" | "commonality",
+      "structuralForm": "standard4OptionMCQ",
+      "cognitiveLoad": "low" | "medium" | "high",
+      "correctAnswer": "A" | "B" | "C" | "D",
+      "options": {
+        "A": "विकल्प A हिंदी में",
+        "B": "विकल्प B हिंदी में",
+        "C": "विकल्प C हिंदी में",
+        "D": "विकल्प D हिंदी में"
+      },
+      "explanation": "व्याख्या हिंदी में",
       "difficulty": "easy" | "medium" | "hard",
       "language": "hindi",
       "contentDomain": "geography" | "history" | "culture" | "demographics" | "currentAffairs" | "education" | "rteAct"
     }
   ]
 }
-\`\`\`
+\`\`\``}
 
 ---
 
@@ -451,7 +664,22 @@ Generate ${questionCount} questions now following ALL rules above.
 - Factual accuracy for Rajasthan content is MANDATORY
 - Extract content from study materials but verify facts
 - NO meta-references ("according to", "as per material")
+${isBilingual
+  ? `- Generate BOTH Hindi and English in SINGLE response
+- Include questionText + questionText_en, options + options_en, explanation + explanation_en
+- Set "language": "bilingual" in each question
+- Ensure both languages convey identical meaning and difficulty`
+  : `- ALL content in Hindi (Devanagari script)
+- Set "language": "hindi" in each question`}
 - Return ONLY valid JSON
+
+**QUALITY VERIFICATION** (check before returning):
+✓ All 4 options are textually unique - NO DUPLICATES (character-by-character check)
+✓ For name-based questions: All 4 options contain DIFFERENT people's names
+✓ Explanation is concrete and factual - NO meta-commentary about errors
+✓ Explanation explains correct answer AND why wrong options are incorrect
+✓ No option says "None of the above" or "All of the above"
+✓ All Rajasthan facts are accurate and current
 
 Return the JSON now:`
 }
@@ -483,6 +711,57 @@ const validators: Protocol['validators'] = [
     // Standard prohibitions
     for (const q of questions) {
       errors.push(...validateProhibitedPatterns(q))
+    }
+
+    return errors
+  },
+  (questions: Question[]) => {
+    const errors: string[] = []
+    const devanagariPattern = /[\u0900-\u097F]/
+
+    // Validate bilingual questions (if any question has language: 'bilingual')
+    for (const q of questions) {
+      if (q.language === 'bilingual') {
+        // Check English question text exists
+        if (!q.questionText_en || q.questionText_en.trim().length === 0) {
+          errors.push(`Question ${q.questionNumber}: Bilingual question missing English translation (questionText_en)`)
+        }
+
+        // Check English options exist and match Hindi options count
+        if (!q.options_en || typeof q.options_en !== 'object') {
+          errors.push(`Question ${q.questionNumber}: Bilingual question missing English options (options_en)`)
+        } else {
+          const hindiKeys = Object.keys(q.options)
+          const englishKeys = Object.keys(q.options_en)
+          if (hindiKeys.length !== englishKeys.length) {
+            errors.push(`Question ${q.questionNumber}: Mismatch between Hindi (${hindiKeys.length}) and English (${englishKeys.length}) option counts`)
+          }
+          // Check English options have no Devanagari
+          for (const [key, value] of Object.entries(q.options_en)) {
+            if (devanagariPattern.test(value)) {
+              errors.push(`Question ${q.questionNumber}: English option ${key} contains Devanagari script`)
+            }
+          }
+        }
+
+        // Check English explanation exists
+        if (!q.explanation_en || q.explanation_en.trim().length === 0) {
+          errors.push(`Question ${q.questionNumber}: Bilingual question missing English explanation (explanation_en)`)
+        }
+
+        // Validate English content doesn't contain Devanagari
+        if (q.questionText_en && devanagariPattern.test(q.questionText_en)) {
+          errors.push(`Question ${q.questionNumber}: English questionText contains Devanagari script`)
+        }
+        if (q.explanation_en && devanagariPattern.test(q.explanation_en)) {
+          errors.push(`Question ${q.questionNumber}: English explanation contains Devanagari script`)
+        }
+
+        // Validate Hindi content contains Devanagari
+        if (!devanagariPattern.test(q.questionText)) {
+          errors.push(`Question ${q.questionNumber}: Hindi questionText missing Devanagari script`)
+        }
+      }
     }
 
     return errors

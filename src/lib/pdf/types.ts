@@ -27,6 +27,19 @@ export interface QuestionForPDF {
   passage_id?: string | null
   passage_text?: string | null
   passage_order?: number | null
+  // Bilingual support (English translations)
+  language?: 'hindi' | 'english' | 'bilingual'
+  question_text_en?: string | null
+  options_en?: {
+    A?: string
+    B?: string
+    C?: string
+    D?: string
+  } | null
+  explanation_en?: string | null
+  passage_en?: string | null
+  // Question metadata (from question_data JSONB)
+  structural_form?: string | null  // e.g., "matchFollowing", "standard4OptionMCQ"
 }
 
 export interface ContactInfo {

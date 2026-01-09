@@ -37,7 +37,8 @@ function buildEducationalPsychologyPrompt(
   config: ProtocolConfig,
   chapterName: string,
   questionCount: number,
-  totalQuestions: number
+  totalQuestions: number,
+  isBilingual: boolean = false
 ): string {
   const archetypeCounts = getArchetypeCounts(config, questionCount)
   const structuralCounts = getStructuralFormCounts(config, questionCount)
@@ -64,6 +65,88 @@ This is part of a ${totalQuestions}-question paper. Generate questions following
 **Question Format:** Multiple Choice Questions (4 options)
 **Negative Marking:** Applicable
 **Alignment:** NCF (National Curriculum Framework) and NEP (National Education Policy) principles
+
+**LANGUAGE**: ${isBilingual
+  ? `BILINGUAL MODE - Generate questions in BOTH Hindi and English
+- Hindi is PRIMARY (always required) - Use Devanagari script
+- English is SECONDARY (for bilingual support)
+- Both languages must convey the SAME meaning and difficulty
+- Generate both languages in a SINGLE response
+
+⚠️ CRITICAL BILINGUAL RULE - READ THIS FIRST ⚠️
+
+Hindi fields (questionText, options) MUST NEVER contain English text in parentheses.
+
+❌ ABSOLUTELY FORBIDDEN EXAMPLES:
+   - "मूर्त संक्रियात्मक अवस्था (Concrete Operational)"
+   - "संवेदी-गामक अवस्था (Sensorimotor)"
+   - "स्किनर (Skinner)"
+
+✅ REQUIRED FORMAT:
+   - questionText: "मूर्त संक्रियात्मक अवस्था"
+   - questionText_en: "Concrete Operational stage"
+   - options.A: "संवेदी-गामक अवस्था"
+   - options_en.A: "Sensorimotor stage"
+
+THIS IS NOT OPTIONAL. Violating this rule makes your output UNUSABLE.
+
+**Pre-Generation Checklist** (ask yourself BEFORE generating):
+1. Will my Hindi fields be PURE Hindi with NO English in parentheses?
+2. Will my English fields be PURE English with NO Hindi in parentheses?
+3. Am I using separate questionText/questionText_en and options/options_en fields?
+4. If answer to ANY is "no" → STOP. You're about to make a critical error.
+
+**Translation Guidelines**:
+- Proper nouns: Use English for psychologist names (Piaget, Vygotsky, Maslow)
+- Technical terms: Use standard English equivalents in English version
+- Psychological concepts: Translate accurately (e.g., अंतर्मुखी → Introvert, बहिर्मुखी → Extrovert)
+- Numbers/Dates: Keep identical in both languages
+- Maintain factual accuracy and question difficulty in both languages
+- Avoid literal word-by-word translation - preserve meaning and context
+- Scenario-based questions: Translate scenarios naturally while preserving context
+
+**CRITICAL - Clean Language Separation (NO Parenthetical Translations)**:
+1. NEVER put English translations in parentheses after Hindi words:
+   ❌ WRONG: "स्किनर (Skinner) का सिद्धांत"
+   ✅ CORRECT: questionText: "स्किनर का सिद्धांत", questionText_en: "Skinner's theory"
+
+2. NEVER put Hindi transliterations in parentheses after English words:
+   ❌ WRONG: questionText_en: "Piaget (पियाजे) said..."
+   ✅ CORRECT: questionText_en: "Piaget said...", questionText: "पियाजे ने कहा..."
+
+3. Use proper Hindi words, NOT English transliterations in Hindi text:
+   ❌ WRONG: "थ्योरी (Theory)" or "कॉन्सेप्ट (Concept)"
+   ✅ CORRECT: Hindi option: "सिद्धांत", English option: "theory"
+   ✅ CORRECT: Hindi option: "अवधारणा", English option: "concept"
+
+4. Keep each language pure and separate - use the dedicated fields:
+   - questionText = Pure Hindi only
+   - questionText_en = Pure English only
+   - options = Pure Hindi only
+   - options_en = Pure English only
+
+⚠️ MANDATORY POST-GENERATION VALIDATION ⚠️
+
+BEFORE returning your JSON, perform this validation:
+
+**Step 1**: Search for "questionText" in your JSON
+   - Does it contain ANY English words in (parentheses)? → If YES: DELETE the parentheses part immediately
+
+**Step 2**: Search for "options" and check all A, B, C, D values
+   - Does ANY option contain English in (parentheses)? → If YES: DELETE the parentheses part immediately
+
+**Step 3**: Examples of what to find and fix:
+   - FIND: "मूर्त संक्रियात्मक अवस्था (Concrete Operational)" → FIX TO: "मूर्त संक्रियात्मक अवस्था"
+   - FIND: "संवेदी-गामक अवस्था (Sensorimotor)" → FIX TO: "संवेदी-गामक अवस्था"
+   - FIND: "स्किनर (Skinner)" → FIX TO: "स्किनर"
+
+**Step 4**: If you found and fixed ANY violations → Good, now your JSON is correct
+   - If you found ZERO violations → Perfect, your JSON is already correct
+
+DO NOT SKIP THIS VALIDATION. Your output will be rejected if Hindi fields contain English parentheses.`
+  : `ALL questions MUST be in Hindi (हिंदी)
+- Use Devanagari script for all questions and options
+- Primary language for REET exam in Rajasthan`}
 
 ---
 
@@ -198,9 +281,50 @@ Ramesh doesn't like to participate in family gathering because every time he doe
 - Subset inclusion (where Option A is completely contained in Option B)
 - Lopsided visual weight (one massive option + three tiny options)
 - Non-mutually exclusive options (options must be distinct)
+- **DUPLICATE OPTIONS - All 4 options MUST be textually unique**
+  - WRONG: (A) Piaget (B) Vygotsky (C) Bruner (D) Bruner ← DUPLICATE!
+  - CORRECT: All 4 options have different text
+- Identical names/values in multiple options (even with different labels)
+- **CRITICAL FOR NAME-BASED QUESTIONS** (psychologist names, theorist names):
+  - When options contain people's names, ensure all 4 are DIFFERENT individuals
+  - Example: "Who proposed?" question - all 4 must be different psychologists
+  - NEVER repeat the same person's name in two options
+
+- ❌ **NAME VARIATION DUPLICATES - SAME PERSON IN DIFFERENT FORMATS**
+  - **MOST CRITICAL**: The same individual appearing with different name formats is UNACCEPTABLE
+  - ❌ WRONG: (A) Jean Piaget (full name) ... (D) J. Piaget (initials) ← SAME PERSON!
+    - "J. Piaget" is just the abbreviated form of "Jean Piaget"
+    - These are NOT different people - it's the SAME psychologist with full name vs initials
+  - ❌ WRONG: Full name vs abbreviated forms of the SAME psychologist
+    - Example: (A) Burrhus Frederic Skinner (B) B.F. Skinner ← SAME PERSON!
+    - Example: (A) Jerome Bruner (B) J. Bruner ← SAME PERSON!
+    - Example: (A) Lev Vygotsky (B) L.S. Vygotsky ← SAME PERSON!
+  - ❌ WRONG: Same person with/without titles or full/partial names
+    - Example: (A) Dr. Howard Gardner (B) Howard Gardner ← SAME PERSON!
+    - Example: (A) Jean Piaget (B) Piaget ← SAME PERSON!
+  - ✅ CORRECT: All 4 options are DIFFERENT psychologists/theorists
+    - Example: (A) Jean Piaget (B) Lev Vygotsky (C) Jerome Bruner (D) Howard Gardner
+    - All 4 are completely different people (not same person with different formats)
+
+  **VERIFICATION RULE**: Before finalizing, ask yourself: "Are all 4 options different INDIVIDUALS (psychologists/theorists), or is the same person appearing in multiple formats?"
 
 ### Answer Key - NEVER violate:
 - No more than 3 consecutive questions with the same correct answer
+
+### Explanation Requirements - MANDATORY:
+- ✅ Explanations MUST be concrete, factual, and helpful
+- ✅ Explain WHY the correct answer is right (with theoretical basis)
+- ✅ Explain WHY each incorrect option is wrong
+- ❌ **NEVER write meta-commentary about the question quality**
+- ❌ **NEVER admit errors in the question within the explanation**
+- ❌ **NEVER write "this option should be X" or "the question has issues"**
+- **If you detect an error while writing explanation, FIX THE QUESTION - don't document the error**
+
+**WRONG Explanation Example** (NEVER do this):
+"Option D should be 'Maslow' instead of 'Bruner'" ← Admitting error in explanation!
+
+**CORRECT Explanation Example**:
+"Piaget proposed the theory of cognitive development with four stages. Vygotsky focused on sociocultural theory and ZPD. Bruner developed the discovery learning approach. Gardner proposed the theory of Multiple Intelligences, which identifies 8 distinct types of intelligence."
 
 ### Match Questions - MUST follow:
 - Always 4×4 matrix format
@@ -211,10 +335,12 @@ Ramesh doesn't like to participate in family gathering because every time he doe
 
 ## OPTION CONSTRUCTION RULES
 
+- **All 4 options MUST be textually unique (no duplicates - even single character difference matters)**
+- **Name-based questions** (psychologists, theorists): Use 4 DIFFERENT people's names - never repeat a name
 - All 4 options must be approximately equal length (87% of questions)
 - All 4 options must use the same grammatical structure (98% of questions)
 - All 4 options must be mutually exclusive
-- Make distractors plausible - use similar psychological theories, related concepts, common misconceptions about child development
+- Make distractors plausible using DIFFERENT but related entities - use similar psychological theories from DIFFERENT psychologists, related concepts, common misconceptions about child development
 
 ---
 
@@ -260,6 +386,43 @@ Ramesh doesn't like to participate in family gathering because every time he doe
 
 ## OUTPUT FORMAT (JSON Schema)
 
+${isBilingual
+  ? `**BILINGUAL FORMAT** (Generate both Hindi and English):
+
+\`\`\`json
+{
+  "questions": [
+    {
+      "questionNumber": 1,
+      "questionText": "प्रश्न का हिंदी पाठ यहां (Full question in Hindi Devanagari)",
+      "questionText_en": "Full question text in English",
+      "archetype": "directRecall" | "theoryAttribution" | "directApplication" | "discriminator" | "exceptionOutlier" | "calculationNumerical",
+      "structuralForm": "standardMCQ" | "scenarioBasedMCQ" | "matchFollowing" | "negativePhrasing",
+      "cognitiveLoad": "low" | "medium" | "high",
+      "correctAnswer": "A" | "B" | "C" | "D",
+      "options": {
+        "A": "विकल्प A हिंदी में (Option A in Hindi)",
+        "B": "विकल्प B हिंदी में (Option B in Hindi)",
+        "C": "विकल्प C हिंदी में (Option C in Hindi)",
+        "D": "विकल्प D हिंदी में (Option D in Hindi)"
+      },
+      "options_en": {
+        "A": "Option A in English",
+        "B": "Option B in English",
+        "C": "Option C in English",
+        "D": "Option D in English"
+      },
+      "explanation": "व्याख्या हिंदी में (Explanation in Hindi)",
+      "explanation_en": "Clear explanation in English",
+      "difficulty": "easy" | "medium" | "hard",
+      "language": "bilingual",
+      "ncertFidelity": "strict" | "moderate" | "loose"
+    }
+  ]
+}
+\`\`\``
+  : `**MONOLINGUAL FORMAT** (Hindi only):
+
 Generate questions in this exact JSON format:
 
 \`\`\`json
@@ -280,11 +443,12 @@ Generate questions in this exact JSON format:
       },
       "explanation": "Clear explanation of why the correct answer is right and why other options are wrong",
       "difficulty": "easy" | "medium" | "hard",
+      "language": "hindi",
       "ncertFidelity": "strict" | "moderate" | "loose"
     }
   ]
 }
-\`\`\`
+\`\`\``}
 
 ---
 
@@ -344,6 +508,25 @@ Generate ${questionCount} questions now following ALL rules above.
 - Do NOT add any text before { or after }
 - Ensure all ${questionCount} questions are in the "questions" array
 - Validate your JSON structure before returning
+${isBilingual
+  ? `
+**BILINGUAL MODE REQUIREMENTS**:
+- Generate BOTH Hindi and English in SINGLE response
+- Include questionText + questionText_en, options + options_en, explanation + explanation_en
+- Set "language": "bilingual" in each question
+- Ensure both languages convey identical meaning and difficulty`
+  : `
+**MONOLINGUAL MODE**:
+- ALL content in Hindi (Devanagari script)
+- Set "language": "hindi" in each question`}
+
+**QUALITY VERIFICATION** (check before returning):
+✓ All 4 options are textually unique - NO DUPLICATES (character-by-character check)
+✓ For name-based questions: All 4 options contain DIFFERENT psychologists/theorists
+✓ Explanation is concrete and factual - NO meta-commentary about errors
+✓ Explanation explains correct answer AND why wrong options are incorrect
+✓ No option says "None of the above" or "All of the above"
+✓ All psychological theories and concepts are 100% accurate
 
 Return the JSON now:`
 }
@@ -448,7 +631,59 @@ export const reetMainsLevel2EducationalPsychologyProtocol: Protocol = {
 
   buildPrompt: buildEducationalPsychologyPrompt,
 
-  validators: [],
+  validators: [
+    // Bilingual validation
+    (questions: any[]) => {
+      const errors: string[] = []
+      const devanagariPattern = /[\u0900-\u097F]/
+
+      for (const q of questions) {
+        if (q.language === 'bilingual') {
+          // Check English question text exists
+          if (!q.questionText_en || q.questionText_en.trim().length === 0) {
+            errors.push(`Question ${q.questionNumber}: Bilingual question missing English translation (questionText_en)`)
+          }
+
+          // Check English options exist and match Hindi options count
+          if (!q.options_en || typeof q.options_en !== 'object') {
+            errors.push(`Question ${q.questionNumber}: Bilingual question missing English options (options_en)`)
+          } else {
+            const hindiKeys = Object.keys(q.options)
+            const englishKeys = Object.keys(q.options_en)
+            if (hindiKeys.length !== englishKeys.length) {
+              errors.push(`Question ${q.questionNumber}: Mismatch between Hindi (${hindiKeys.length}) and English (${englishKeys.length}) option counts`)
+            }
+            // Check English options have no Devanagari
+            for (const [key, value] of Object.entries(q.options_en)) {
+              if (devanagariPattern.test(value as string)) {
+                errors.push(`Question ${q.questionNumber}: English option ${key} contains Devanagari script`)
+              }
+            }
+          }
+
+          // Check English explanation exists
+          if (!q.explanation_en || q.explanation_en.trim().length === 0) {
+            errors.push(`Question ${q.questionNumber}: Bilingual question missing English explanation (explanation_en)`)
+          }
+
+          // Validate English content doesn't contain Devanagari
+          if (q.questionText_en && devanagariPattern.test(q.questionText_en)) {
+            errors.push(`Question ${q.questionNumber}: English questionText contains Devanagari script`)
+          }
+          if (q.explanation_en && devanagariPattern.test(q.explanation_en)) {
+            errors.push(`Question ${q.questionNumber}: English explanation contains Devanagari script`)
+          }
+
+          // Validate Hindi content contains Devanagari
+          if (!devanagariPattern.test(q.questionText)) {
+            errors.push(`Question ${q.questionNumber}: Hindi questionText missing Devanagari script`)
+          }
+        }
+      }
+
+      return errors
+    }
+  ],
 
   metadata: {
     description: 'REET Mains Level 2 - Educational Psychology (Common Section - 20 marks)',

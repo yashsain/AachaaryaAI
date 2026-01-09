@@ -126,13 +126,95 @@ export const reetMainsLevel2InformationTechnologyProtocol: Protocol = {
     warmupPercentage: 0.10
   },
 
-  buildPrompt: (config, chapterName, questionCount, totalQuestions) => {
+  buildPrompt: (config, chapterName, questionCount, totalQuestions, isBilingual = false) => {
     const archetypeCounts = getArchetypeCounts(config, questionCount)
     const structuralCounts = getStructuralFormCounts(config, questionCount)
 
     return `You are an expert REET Mains Level 2 Information Technology question paper generator. Generate ${questionCount} high-quality REET Mains-style Information Technology questions from the provided study materials for the chapter: "${chapterName}".
 
 This is part of a ${totalQuestions}-question paper. Generate questions following the REET Mains Level 2 Information Technology protocol strictly.
+
+**LANGUAGE**: ${isBilingual
+  ? `BILINGUAL MODE - Generate questions in BOTH Hindi and English
+- Hindi is PRIMARY (always required) - Use Devanagari script
+- English is SECONDARY (for bilingual support)
+- Both languages must convey the SAME meaning and difficulty
+- Generate both languages in a SINGLE response
+
+⚠️ CRITICAL BILINGUAL RULE - READ THIS FIRST ⚠️
+
+Hindi fields (questionText, options) MUST NEVER contain English text in parentheses.
+
+❌ ABSOLUTELY FORBIDDEN EXAMPLES (from actual broken questions):
+   - "हार्डवेयर (Hardware) क्या है?"
+   - "सॉफ्टवेयर (Software) का प्रकार"
+   - "इनपुट डिवाइस (Input Device) की परिभाषा"
+
+✅ REQUIRED FORMAT:
+   - questionText: "हार्डवेयर क्या है?"
+   - questionText_en: "What is Hardware?"
+   - options.A: "सॉफ्टवेयर का प्रकार"
+   - options_en.A: "Type of Software"
+
+THIS IS NOT OPTIONAL. Violating this rule makes your output UNUSABLE.
+
+**Pre-Generation Checklist** (ask yourself BEFORE generating):
+1. Will my Hindi fields be PURE Hindi with NO English in parentheses?
+2. Will my English fields be PURE English with NO Hindi in parentheses?
+3. Am I using separate questionText/questionText_en and options/options_en fields?
+4. If answer to ANY is "no" → STOP. You're about to make a critical error.
+
+**Translation Guidelines**:
+- Technical IT terms: Use standard English terms in English version (CPU, RAM, ROM, etc.)
+- Software names: Keep identical in both languages (Microsoft Word, Windows, Excel)
+- Concepts: Translate accurately (e.g., हार्डवेयर → Hardware, सॉफ्टवेयर → Software)
+- Numbers/Dates: Keep identical in both languages
+- Acronyms: Use English acronyms in both versions (HTML, HTTP, URL)
+- Maintain factual accuracy and question difficulty in both languages
+- Avoid literal word-by-word translation - preserve meaning and context
+
+**CRITICAL - Clean Language Separation (NO Parenthetical Translations)**:
+1. NEVER put English translations in parentheses after Hindi words:
+   ❌ WRONG: "हार्डवेयर (Hardware) क्या है?"
+   ✅ CORRECT: questionText: "हार्डवेयर क्या है?", questionText_en: "What is Hardware?"
+
+2. NEVER put Hindi transliterations in parentheses after English words:
+   ❌ WRONG: questionText_en: "What is RAM (रैम)?"
+   ✅ CORRECT: questionText_en: "What is RAM?", questionText: "RAM क्या है?"
+
+3. Technical acronyms with expansions are ALLOWED (same in both languages):
+   ✅ CORRECT: "SaaS (Software as a Service)" - use in BOTH questionText and questionText_en
+   ✅ CORRECT: "IaaS (Infrastructure as a Service)" - use in BOTH languages
+   ✅ CORRECT: "HTTP (HyperText Transfer Protocol)" - use in BOTH languages
+
+4. Keep each language pure and separate - use the dedicated fields:
+   - questionText = Pure Hindi only (except technical acronyms)
+   - questionText_en = Pure English only
+   - options = Pure Hindi only (except technical acronyms)
+   - options_en = Pure English only
+
+⚠️ MANDATORY POST-GENERATION VALIDATION ⚠️
+
+BEFORE returning your JSON, perform this validation:
+
+**Step 1**: Search for "questionText" in your JSON
+   - Does it contain ANY English words in (parentheses)? → If YES: DELETE the parentheses part immediately
+
+**Step 2**: Search for "options" and check all A, B, C, D values
+   - Does ANY option contain English in (parentheses)? → If YES: DELETE the parentheses part immediately
+
+**Step 3**: Examples of what to find and fix:
+   - FIND: "हार्डवेयर (Hardware) क्या है?" → FIX TO: "हार्डवेयर क्या है?"
+   - FIND: "सॉफ्टवेयर (Software) का प्रकार" → FIX TO: "सॉफ्टवेयर का प्रकार"
+   - FIND: "इनपुट डिवाइस (Input Device)" → FIX TO: "इनपुट डिवाइस"
+
+**Step 4**: If you found and fixed ANY violations → Good, now your JSON is correct
+   - If you found ZERO violations → Perfect, your JSON is already correct
+
+DO NOT SKIP THIS VALIDATION. Your output will be rejected if Hindi fields contain English parentheses.`
+  : `ALL questions MUST be in Hindi (हिंदी)
+- Use Devanagari script for all questions and options
+- Primary language for REET exam in Rajasthan`}
 
 ---
 
@@ -274,18 +356,63 @@ Choose the correct answer from the options given below:
 - Subset inclusion (where Option A is completely contained in Option B)
 - Lopsided visual weight (one massive option + three tiny options)
 - Non-mutually exclusive options (options must be distinct)
+- **DUPLICATE OPTIONS - All 4 options MUST be textually unique**
+  - WRONG: (A) RAM (B) ROM (C) CPU (D) CPU ← DUPLICATE!
+  - CORRECT: All 4 options have different text
+- Identical names/values in multiple options (even with different labels)
+- **CRITICAL FOR NAME-BASED QUESTIONS** (software names, hardware names, people):
+  - When options contain names, ensure all 4 are DIFFERENT
+  - Example: Operating systems question - all 4 must be different OS names
+  - NEVER repeat the same term in two options
+
+- ❌ **NAME VARIATION DUPLICATES - SAME ITEM IN DIFFERENT FORMATS**
+  - **MOST CRITICAL**: The same item appearing with different name formats is UNACCEPTABLE
+  - ❌ WRONG: (A) Microsoft Word (full name) ... (D) MS Word (abbreviation) ← SAME SOFTWARE!
+    - "MS Word" is just the abbreviated form of "Microsoft Word"
+    - These are NOT different software - it's the SAME application with full name vs abbreviation
+  - ❌ WRONG: Full form vs abbreviated forms of the SAME term
+    - Example: (A) Central Processing Unit (B) CPU ← SAME COMPONENT!
+    - Example: (A) Random Access Memory (B) RAM ← SAME COMPONENT!
+    - Example: (A) Hypertext Markup Language (B) HTML ← SAME LANGUAGE!
+    - Example: (A) World Wide Web (B) WWW ← SAME THING!
+  - ❌ WRONG: Same software/hardware with version numbers or brand variations
+    - Example: (A) Windows 10 (B) Microsoft Windows ← SAME OS!
+    - Example: (A) MS Office (B) Microsoft Office ← SAME SUITE!
+  - ✅ CORRECT: All 4 options are DIFFERENT items (software, hardware, or concepts)
+    - Example: (A) Microsoft Word (B) LibreOffice Writer (C) Google Docs (D) Notepad
+    - Example: (A) CPU (B) RAM (C) Hard Disk (D) Motherboard
+    - All 4 are completely different items (not same item with different formats)
+
+  **VERIFICATION RULE**: Before finalizing, ask yourself: "Are all 4 options different ITEMS (software/hardware/concepts), or is the same item appearing in multiple formats (full name vs abbreviation)?"
 
 ### Answer Key - NEVER violate:
 - No more than 3 consecutive questions with the same correct answer
+
+### Explanation Requirements - MANDATORY:
+- ✅ Explanations MUST be concrete, factual, and helpful
+- ✅ Explain WHY the correct answer is right (with technical reasoning)
+- ✅ Explain WHY each incorrect option is wrong
+- ❌ **NEVER write meta-commentary about the question quality**
+- ❌ **NEVER admit errors in the question within the explanation**
+- ❌ **NEVER write "this option should be X" or "the question has issues"**
+- **If you detect an error while writing explanation, FIX THE QUESTION - don't document the error**
+
+**WRONG Explanation Example** (NEVER do this):
+"Option D should be 'Hard Disk' instead of 'CPU'" ← Admitting error in explanation!
+
+**CORRECT Explanation Example**:
+"RAM (Random Access Memory) is volatile memory used for temporary data storage. ROM (Read-Only Memory) is non-volatile and stores firmware. CPU (Central Processing Unit) executes instructions. A hard disk is a storage device for permanent data retention, making it the correct answer."
 
 ---
 
 ## OPTION CONSTRUCTION RULES
 
+- **All 4 options MUST be textually unique (no duplicates - even single character difference matters)**
+- **Name-based questions** (software, hardware, technology names): Use 4 DIFFERENT items - never repeat
 - All 4 options must be approximately equal length (87% of questions)
 - All 4 options must use the same grammatical structure (98% of questions)
 - All 4 options must be mutually exclusive
-- Make distractors plausible - use common IT misconceptions, partially correct facts, reversal traps
+- Make distractors plausible using DIFFERENT but related entities - use common IT misconceptions from DIFFERENT technologies, partially correct facts, reversal traps
 
 ---
 
@@ -310,6 +437,43 @@ Choose the correct answer from the options given below:
 
 ## OUTPUT FORMAT (JSON Schema)
 
+${isBilingual
+  ? `**BILINGUAL FORMAT** (Generate both Hindi and English):
+
+\`\`\`json
+{
+  "questions": [
+    {
+      "questionNumber": 1,
+      "questionText": "प्रश्न का हिंदी पाठ यहां (Full question in Hindi Devanagari)",
+      "questionText_en": "Full question text in English",
+      "archetype": "directRecall" | "directApplication" | "integrative" | "discriminator" | "exceptionOutlier",
+      "structuralForm": "standardMCQ" | "matchFollowing" | "assertionReason" | "negativePhrasing" | "multiStatement",
+      "cognitiveLoad": "low" | "medium" | "high",
+      "correctAnswer": "A" | "B" | "C" | "D",
+      "options": {
+        "A": "विकल्प A हिंदी में (Option A in Hindi)",
+        "B": "विकल्प B हिंदी में (Option B in Hindi)",
+        "C": "विकल्प C हिंदी में (Option C in Hindi)",
+        "D": "विकल्प D हिंदी में (Option D in Hindi)"
+      },
+      "options_en": {
+        "A": "Option A in English",
+        "B": "Option B in English",
+        "C": "Option C in English",
+        "D": "Option D in English"
+      },
+      "explanation": "व्याख्या हिंदी में (Explanation in Hindi)",
+      "explanation_en": "Clear explanation in English",
+      "difficulty": "easy" | "medium" | "hard",
+      "language": "bilingual",
+      "ncertFidelity": "strict" | "moderate" | "loose"
+    }
+  ]
+}
+\`\`\``
+  : `**MONOLINGUAL FORMAT** (Hindi only):
+
 Generate questions in this exact JSON format:
 
 \`\`\`json
@@ -330,11 +494,12 @@ Generate questions in this exact JSON format:
       },
       "explanation": "Clear explanation of why the correct answer is right and why other options are wrong",
       "difficulty": "easy" | "medium" | "hard",
+      "language": "hindi",
       "ncertFidelity": "strict" | "moderate" | "loose"
     }
   ]
 }
-\`\`\`
+\`\`\``}
 
 ---
 
@@ -368,11 +533,82 @@ Example IT Match Question topics:
 - Do NOT add any text before { or after }
 - Ensure all ${questionCount} questions are in the "questions" array
 - Validate your JSON structure before returning
+${isBilingual
+  ? `
+**BILINGUAL MODE REQUIREMENTS**:
+- Generate BOTH Hindi and English in SINGLE response
+- Include questionText + questionText_en, options + options_en, explanation + explanation_en
+- Set "language": "bilingual" in each question
+- Ensure both languages convey identical meaning and difficulty`
+  : `
+**MONOLINGUAL MODE**:
+- ALL content in Hindi (Devanagari script)
+- Set "language": "hindi" in each question`}
+
+**QUALITY VERIFICATION** (check before returning):
+✓ All 4 options are textually unique - NO DUPLICATES (character-by-character check)
+✓ For name-based questions: All 4 options contain DIFFERENT software/hardware/technology names
+✓ Explanation is concrete and factual - NO meta-commentary about errors
+✓ Explanation explains correct answer AND why wrong options are incorrect
+✓ No option says "None of the above" or "All of the above"
+✓ All IT terminology is current and accurate (2024-2025 standards)
 
 Return the JSON now:`
   },
 
-  validators: [],
+  validators: [
+    // Bilingual validation
+    (questions: any[]) => {
+      const errors: string[] = []
+      const devanagariPattern = /[\u0900-\u097F]/
+
+      for (const q of questions) {
+        if (q.language === 'bilingual') {
+          // Check English question text exists
+          if (!q.questionText_en || q.questionText_en.trim().length === 0) {
+            errors.push(`Question ${q.questionNumber}: Bilingual question missing English translation (questionText_en)`)
+          }
+
+          // Check English options exist and match Hindi options count
+          if (!q.options_en || typeof q.options_en !== 'object') {
+            errors.push(`Question ${q.questionNumber}: Bilingual question missing English options (options_en)`)
+          } else {
+            const hindiKeys = Object.keys(q.options)
+            const englishKeys = Object.keys(q.options_en)
+            if (hindiKeys.length !== englishKeys.length) {
+              errors.push(`Question ${q.questionNumber}: Mismatch between Hindi (${hindiKeys.length}) and English (${englishKeys.length}) option counts`)
+            }
+            // Check English options have no Devanagari
+            for (const [key, value] of Object.entries(q.options_en)) {
+              if (devanagariPattern.test(value as string)) {
+                errors.push(`Question ${q.questionNumber}: English option ${key} contains Devanagari script`)
+              }
+            }
+          }
+
+          // Check English explanation exists
+          if (!q.explanation_en || q.explanation_en.trim().length === 0) {
+            errors.push(`Question ${q.questionNumber}: Bilingual question missing English explanation (explanation_en)`)
+          }
+
+          // Validate English content doesn't contain Devanagari
+          if (q.questionText_en && devanagariPattern.test(q.questionText_en)) {
+            errors.push(`Question ${q.questionNumber}: English questionText contains Devanagari script`)
+          }
+          if (q.explanation_en && devanagariPattern.test(q.explanation_en)) {
+            errors.push(`Question ${q.questionNumber}: English explanation contains Devanagari script`)
+          }
+
+          // Validate Hindi content contains Devanagari
+          if (!devanagariPattern.test(q.questionText)) {
+            errors.push(`Question ${q.questionNumber}: Hindi questionText missing Devanagari script`)
+          }
+        }
+      }
+
+      return errors
+    }
+  ],
 
   metadata: {
     description: 'REET Mains Level 2 - Information Technology (Common Section - 10 marks)',

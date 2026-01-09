@@ -17,9 +17,10 @@ export function buildPrompt(
   config: ProtocolConfig,
   chapterName: string,
   questionCount: number,
-  totalQuestions: number
+  totalQuestions: number,
+  isBilingual?: boolean
 ): string {
-  return protocol.buildPrompt(config, chapterName, questionCount, totalQuestions)
+  return protocol.buildPrompt(config, chapterName, questionCount, totalQuestions, isBilingual)
 }
 
 /**

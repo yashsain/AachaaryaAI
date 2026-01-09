@@ -179,7 +179,7 @@ export async function POST(
 
     console.log('[GENERATE_PDF] Found', questions.length, 'selected questions')
 
-    // Parse questions for PDF (including passage data)
+    // Parse questions for PDF (including passage data and bilingual fields)
     const questionsForPDF: QuestionForPDF[] = questions.map((q: any) => ({
       id: q.id,
       question_text: q.question_text,
@@ -199,6 +199,14 @@ export async function POST(
       passage_id: q.passage_id || null,
       passage_text: q.comprehension_passages?.passage_text || null,
       passage_order: q.comprehension_passages?.passage_order || null,
+      // Bilingual fields (from question_data JSONB)
+      language: q.question_data.language || 'hindi',
+      question_text_en: q.question_data.questionText_en || null,
+      options_en: q.question_data.options_en || null,
+      explanation_en: q.question_data.explanation_en || null,
+      passage_en: q.question_data.passage_en || null,
+      // Question metadata (from question_data JSONB)
+      structural_form: q.question_data.structuralForm || null,
     }))
 
     // Calculate total marks

@@ -75,7 +75,8 @@ export type PromptBuilderFunction = (
   config: ProtocolConfig,
   chapterName: string,
   questionCount: number,
-  totalQuestions: number
+  totalQuestions: number,
+  isBilingual?: boolean  // Optional: generate bilingual questions (Hindi + English)
 ) => string
 
 /**

@@ -58,22 +58,19 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
       background: #fff;
     }
 
-    /* Page setup with automatic page numbering */
+    /* Page setup - Ultra-compact margins for maximum content */
     @page {
       size: A4;
-      margin: 15mm 15mm 30mm 15mm; /* Increased bottom margin for footer + Option E */
+      margin: 8mm 8mm 12mm 8mm; /* Bottom 12mm for footer margin box */
 
       @bottom-center {
-        content: "Page " counter(page);
-        font-size: 8pt;
-        color: #666;
+        content: element(footer); /* Display running footer at page bottom */
       }
     }
 
     /* Ensure content doesn't overflow into footer area */
     .page {
-      min-height: calc(100vh - 35mm);
-      padding-bottom: 20mm; /* Increased padding to prevent question cut-off */
+      min-height: calc(100vh - 20mm); /* Adjusted for 8mm+12mm margins */
     }
 
     @media print {
@@ -261,77 +258,90 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
       height: 15px;
     }
 
-    /* Section header */
+    /* Section header - Compact styling */
     .section-header {
-      font-size: 11pt;
+      font-size: 10pt; /* Reduced from 11pt */
       font-weight: bold;
-      margin-top: 15px;
-      margin-bottom: 8px;
-      padding: 5px 8px;
+      margin-top: 10px; /* Reduced from 15px */
+      margin-bottom: 6px; /* Reduced from 8px */
+      padding: 4px 6px; /* Reduced from 5px 8px */
       background: #F0F0F0;
       border-left: 3pt solid #0D9488;
       page-break-after: avoid; /* Keep section header with its questions */
     }
 
     .section-subject {
-      font-size: 9pt;
+      font-size: 8pt; /* Reduced from 9pt */
       font-weight: normal;
       margin-top: 2px;
     }
 
     .section-marks-info {
-      font-size: 9pt;
+      font-size: 8pt; /* Reduced from 9pt */
       color: #666;
-      margin-bottom: 8px;
-      padding-left: 8px;
+      margin-bottom: 6px; /* Reduced from 8px */
+      padding-left: 6px; /* Reduced from 8px */
     }
 
-    /* Questions */
+    /* Questions - CSS Multi-Column for vertical flow (fill left column first) */
     .questions-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 15px;
+      column-count: 2;           /* Two columns */
+      column-gap: 8px;           /* Space between columns */
+      column-fill: auto;         /* Fill left column completely, then right */
+      margin-bottom: 10px;       /* Reduced from 15px */
     }
 
     .question-column {
+      /* Not needed with Flexbox, but kept for compatibility */
       min-width: 0;
     }
 
     .question-container {
-      margin-bottom: 12px;
-      padding-bottom: 8px;
+      /* No width needed - column-count handles column sizing */
+      margin-bottom: 6px; /* Reduced from 12px - 50% tighter */
+      padding-bottom: 4px; /* Reduced from 8px - 50% tighter */
       border-bottom: 0.5pt solid #E0E0E0;
-      page-break-inside: avoid; /* Keep entire question together */
-      orphans: 3; /* Minimum 3 lines at bottom of page */
-      widows: 3; /* Minimum 3 lines at top of page */
+
+      /* Allow questions to split across columns (user preference) */
+      /* REMOVED: break-inside: avoid - allows questions to flow naturally */
+
+      /* Proper rendering */
+      display: block;
+      box-sizing: border-box;
+
+      /* Allow more flexibility for column/page breaks */
+      orphans: 2; /* Reduced from 5 - minimum 2 lines at bottom */
+      widows: 2;  /* Reduced from 5 - minimum 2 lines at top */
     }
 
     .question-header {
-      margin-bottom: 5px;
+      margin-bottom: 3px; /* Reduced from 5px for tighter layout */
     }
 
     .question-number {
       font-weight: bold;
-      font-size: 10pt;
+      font-size: 8.5pt; /* Reduced from 10pt - uniform with options */
       display: inline;
       margin-right: 5px;
     }
 
     .question-text {
-      font-size: 10pt;
-      line-height: 1.5;
+      font-size: 8.5pt; /* Reduced from 10pt - SAME AS OPTIONS */
+      line-height: 1.3; /* Reduced from 1.5 for tighter spacing */
       display: inline;
     }
 
     .options {
-      margin-top: 5px;
+      margin-top: 3px; /* Reduced from 5px for tighter layout */
       padding-left: 15px;
+
+      /* Allow options to split across columns if needed (user preference) */
+      /* REMOVED: break-inside: avoid - allows natural flow */
     }
 
     .option {
-      font-size: 9pt;
-      margin-bottom: 3px;
+      font-size: 8.5pt; /* Reduced from 9pt - SAME AS QUESTION TEXT */
+      margin-bottom: 2px; /* Reduced from 3px for tighter spacing */
       display: flex;
     }
 
@@ -345,54 +355,95 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
       flex: 1;
     }
 
-    /* Passage */
+    /* Bilingual support - Block structure (English first, then Hindi) */
+    .english-block {
+      margin-bottom: 4px; /* Space between English and Hindi blocks */
+    }
+
+    .hindi-block {
+      margin-top: 4px;
+    }
+
+    .question-text-en {
+      font-size: 8.5pt;
+      line-height: 1.3;
+      color: #000;
+      margin-bottom: 3px;
+    }
+
+    .question-text-hi {
+      font-size: 8.5pt;
+      line-height: 1.3;
+      color: #000;
+      margin-bottom: 3px;
+    }
+
+    /* Options layout - 2 columns for short options, 1 column for long */
+    .options-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr; /* Two equal columns */
+      column-gap: 8px;
+      row-gap: 2px;
+      padding-left: 15px;
+      margin-top: 3px;
+    }
+
+    .options-1col {
+      padding-left: 15px;
+      margin-top: 3px;
+    }
+
+    .option-2col,
+    .option-1col {
+      font-size: 8.5pt;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: flex-start;
+    }
+
+    /* Option E spanning both columns in 2-col layout (A B / C D / E) */
+    .option-e-span {
+      grid-column: 1 / -1; /* Span both columns */
+      max-width: 50%; /* Keep it same width as single option */
+    }
+
+    /* Passage - Compact styling */
     .passage-container {
-      margin-bottom: 8px;
-      padding: 8px;
+      margin-bottom: 6px; /* Reduced from 8px */
+      padding: 6px; /* Reduced from 8px */
       background: #F8F9FA;
-      border: 1pt solid #DDD;
-      border-radius: 4px;
+      border: 0.5pt solid #DDD; /* Reduced from 1pt - thinner border */
+      border-radius: 3px; /* Reduced from 4px */
+
+      /* Keep passage with following question */
+      break-after: avoid;
+      page-break-after: avoid;
     }
 
     .passage-title {
-      font-size: 8pt;
+      font-size: 7pt; /* Reduced from 8pt */
       font-weight: bold;
-      margin-bottom: 4px;
+      margin-bottom: 3px; /* Reduced from 4px */
       color: #495057;
     }
 
     .passage-text {
-      font-size: 8.5pt;
-      line-height: 1.4;
+      font-size: 7.5pt; /* Reduced from 8.5pt */
+      line-height: 1.3; /* Reduced from 1.4 for tighter spacing */
       color: #212529;
     }
 
-    /* Footer (contact info only - page numbers handled by @page counter) */
+    /* Footer - CSS Paged Media running footer (appears on every page) */
     .footer {
       position: running(footer);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      border-top: 1pt solid #CCC;
-      padding-top: 5px;
-      font-size: 8pt;
-      color: #333;
+      border-top: 0.5pt solid #CCC;
+      padding-top: 2mm;
+      padding-bottom: 1mm;
+      font-size: 6.5pt;
+      color: #555;
       text-align: center;
-    }
-
-    /* Alternative footer positioning for compatibility */
-    .footer-fixed {
-      position: fixed;
-      bottom: 5mm; /* Raised slightly to prevent overlap */
-      left: 0;
-      right: 0;
-      padding: 5px 15mm;
-      border-top: 1pt solid #CCC;
+      line-height: 1.0;
       background: #fff;
-      font-size: 8pt;
-      color: #333;
-      text-align: center;
-      z-index: 1000; /* Ensure footer stays on top */
     }
 
     /* Question page header (smaller, compact) */
@@ -414,6 +465,41 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     .question-page-code {
       font-size: 8pt;
       color: #666;
+    }
+
+    /* Match-the-following table - borderless, clean alignment */
+    .match-table {
+      width: 100%;
+      margin: 5px 0;
+      font-size: 8.5pt;
+      border-collapse: collapse;
+    }
+
+    .match-table td {
+      padding: 2px 8px;
+      vertical-align: top;
+      line-height: 1.3;
+      border: none;
+    }
+
+    .match-table th {
+      padding: 3px 8px;
+      vertical-align: top;
+      line-height: 1.3;
+      border: none;
+      font-weight: bold;
+      text-align: left;
+    }
+
+    .match-table td:first-child,
+    .match-table th:first-child {
+      width: 50%;
+    }
+
+    .match-instruction {
+      margin: 3px 0;
+      font-size: 8.5pt;
+      line-height: 1.3;
     }
   </style>
 </head>
@@ -495,13 +581,14 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
       </div>
     </div>
 
-    <!-- Footer (contact info only - page numbers handled by CSS @page counter) -->
-    ${contactInfo ? `
-    <div class="footer-fixed">
-      ${[contactInfo.address, contactInfo.city, contactInfo.phone, contactInfo.email].filter(Boolean).join(' • ')}
-    </div>
-    ` : ''}
   </div>
+
+  <!-- Running footer (appears on all pages via CSS Paged Media) -->
+  ${contactInfo ? `
+  <div class="footer">
+    ${[contactInfo.address, contactInfo.city, contactInfo.phone, contactInfo.email].filter(Boolean).join(' • ')}
+  </div>
+  ` : ''}
 
   <!-- Questions section (flows naturally after page 1) -->
   <!-- Question page header -->
@@ -531,11 +618,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
           return { ...q, isFirstInPassage: false }
         })
 
-        // Split into two columns
-        const midpoint = Math.ceil(questionsWithPassageFlag.length / 2)
-        const leftColumn = questionsWithPassageFlag.slice(0, midpoint)
-        const rightColumn = questionsWithPassageFlag.slice(midpoint)
-
+        // Render all questions in single container (multi-column will handle split)
         return `
         <div>
           <!-- Section Header -->
@@ -550,49 +633,184 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
           </div>
           ` : ''}
 
-          <!-- Questions Grid -->
+          <!-- Questions Grid (Multi-Column Layout) -->
           <div class="questions-grid">
-            <!-- Left Column -->
-            <div class="question-column">
-              ${leftColumn.map((q, idx) => {
-                const questionNum = questionOffset + idx + 1
-                return renderQuestion(q, questionNum, config)
-              }).join('')}
-            </div>
-
-            <!-- Right Column -->
-            <div class="question-column">
-              ${rightColumn.map((q, idx) => {
-                const questionNum = questionOffset + midpoint + idx + 1
-                return renderQuestion(q, questionNum, config)
-              }).join('')}
-            </div>
+            ${questionsWithPassageFlag.map((q, idx) => {
+              const questionNum = questionOffset + idx + 1
+              return renderQuestion(q, questionNum, config)
+            }).join('')}
           </div>
         </div>
         `
       }).join('')
       :
-      // Single section layout
+      // Single section layout (Multi-Column Layout)
       `<div class="questions-grid">
-        <div class="question-column">
-          ${questions.filter((_, idx) => idx < Math.ceil(questions.length / 2))
-            .map((q, idx) => renderQuestion(q, idx + 1, config)).join('')}
-        </div>
-        <div class="question-column">
-          ${questions.filter((_, idx) => idx >= Math.ceil(questions.length / 2))
-            .map((q, idx) => renderQuestion(q, Math.ceil(questions.length / 2) + idx + 1, config)).join('')}
-        </div>
+        ${questions.map((q, idx) => renderQuestion(q, idx + 1, config)).join('')}
       </div>`
     }
 
-  <!-- Footer (contact info only - page numbers handled by CSS @page counter) -->
-  ${contactInfo ? `
-  <div class="footer-fixed">
-    ${[contactInfo.address, contactInfo.city, contactInfo.phone, contactInfo.email].filter(Boolean).join(' • ')}
-  </div>
-  ` : ''}
 </body>
 </html>`
+}
+
+/**
+ * Helper function to determine if options should use 2-column layout
+ * Returns true if all options are short enough to fit 2 per row
+ */
+function shouldUse2ColumnLayout(options: Record<string, string>): boolean {
+  const MAX_CHARS_FOR_2COL = 30
+  const optionValues = Object.values(options)
+  const maxLength = Math.max(...optionValues.map(opt => opt.length))
+  return maxLength <= MAX_CHARS_FOR_2COL
+}
+
+/**
+ * Helper function to render options with smart layout
+ */
+function renderOptions(
+  options: Record<string, string>,
+  use2Col: boolean,
+  optionELabel: string | null = null
+): string {
+  const containerClass = use2Col ? 'options-2col' : 'options-1col'
+  const optionClass = use2Col ? 'option-2col' : 'option-1col'
+
+  const optionsHtml = Object.entries(options).map(([key, value]) => {
+    const normalizedKey = normalizeOptionKey(key)
+    return `<div class="${optionClass}"><span class="option-label">(${normalizedKey})</span><span class="option-text">${escapeHtml(value)}</span></div>`
+  }).join('')
+
+  // Option E: If 2-col layout and we have 5 options total, make E span both columns
+  let optionE = ''
+  if (optionELabel) {
+    const optionEClass = use2Col ? `${optionClass} option-e-span` : optionClass
+    optionE = `<div class="${optionEClass}"><span class="option-label">(E)</span><span class="option-text">${optionELabel}</span></div>`
+  }
+
+  return `<div class="${containerClass}">${optionsHtml}${optionE}</div>`
+}
+
+/**
+ * Helper function to format match-the-column questions as tables
+ * Uses database-driven detection (structuralForm === 'matchFollowing')
+ * Handles both English and Hindi bilingual formats gracefully
+ * Falls back to regular escapeHtml() for non-match questions
+ */
+function formatMatchText(text: string, structuralForm?: string | null): string {
+  // Database-driven detection (authoritative source)
+  const isMatchQuestion = structuralForm === 'matchFollowing'
+
+  if (!isMatchQuestion) {
+    return escapeHtml(text) // Not a match question, return plain text
+  }
+
+  // Split by newlines (keep empty lines for parsing structure)
+  const lines = text.split('\n')
+
+  if (lines.length === 0) {
+    return escapeHtml(text)
+  }
+
+  // Parse sections
+  let topInstruction = ''
+  let columnHeaders: { col1: string; col2: string } | null = null
+  const dataRows: Array<{ col1: string; col2: string }> = []
+  let bottomInstruction = ''
+
+  let currentSection: 'top' | 'headers' | 'data' | 'bottom' = 'top'
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+
+    // Skip empty lines
+    if (line.length === 0) continue
+
+    // Detect column headers (contains both Column I/II or सूची I/II on same line)
+    const isHeaderLine = /Column\s*I.*Column\s*II|सूची\s*I.*सूची\s*II/i.test(line)
+
+    if (isHeaderLine && currentSection === 'top') {
+      // Parse column headers
+      // Split by "Column II" or "सूची II"
+      const headerMatch = line.match(/(Column\s*I|सूची\s*I)\s*(.+?)\s*(Column\s*II|सूची\s*II)\s*(.+)/i)
+      if (headerMatch) {
+        columnHeaders = {
+          col1: (headerMatch[1] + ' ' + headerMatch[2]).trim(),
+          col2: (headerMatch[3] + ' ' + headerMatch[4]).trim()
+        }
+        currentSection = 'headers'
+      }
+      continue
+    }
+
+    // Detect data rows (start with A., B., C., D. and contain Roman numerals)
+    const dataRowMatch = line.match(/^([A-D]\.)\s*(.+?)\s+(I{1,3}V?\.)\s*(.+)$/i)
+    if (dataRowMatch && currentSection !== 'bottom') {
+      // Extract both columns from same line
+      dataRows.push({
+        col1: (dataRowMatch[1] + ' ' + dataRowMatch[2]).trim(),
+        col2: (dataRowMatch[3] + ' ' + dataRowMatch[4]).trim()
+      })
+      currentSection = 'data'
+      continue
+    }
+
+    // Detect bottom instruction (contains "Choose" or "नीचे दिए गए")
+    const isBottomInstruction = /Choose.*correct.*answer|नीचे दिए गए.*विकल्पों/i.test(line)
+    if (isBottomInstruction || (currentSection === 'data' && !dataRowMatch)) {
+      bottomInstruction = line
+      currentSection = 'bottom'
+      continue
+    }
+
+    // Top instruction (before headers)
+    if (currentSection === 'top') {
+      topInstruction = line
+    }
+  }
+
+  // Build HTML structure
+  let html = ''
+
+  // Top instruction
+  if (topInstruction) {
+    html += `<div class="match-instruction">${escapeHtml(topInstruction)}</div>`
+  }
+
+  // Table with headers and data
+  if (columnHeaders || dataRows.length > 0) {
+    html += '<table class="match-table">'
+
+    // Column headers
+    if (columnHeaders) {
+      html += '<tr>'
+      html += `<th>${escapeHtml(columnHeaders.col1)}</th>`
+      html += `<th>${escapeHtml(columnHeaders.col2)}</th>`
+      html += '</tr>'
+    }
+
+    // Data rows
+    for (const row of dataRows) {
+      html += '<tr>'
+      html += `<td>${escapeHtml(row.col1)}</td>`
+      html += `<td>${escapeHtml(row.col2)}</td>`
+      html += '</tr>'
+    }
+
+    html += '</table>'
+  }
+
+  // Bottom instruction
+  if (bottomInstruction) {
+    html += `<div class="match-instruction">${escapeHtml(bottomInstruction)}</div>`
+  }
+
+  // Fallback: if parsing failed completely, return escaped text
+  if (!html) {
+    return escapeHtml(text)
+  }
+
+  return html
 }
 
 /**
@@ -608,36 +826,67 @@ function renderQuestion(
     ? detectQuestionLanguage(question.question_text)
     : null
 
-  return `
+  // Check if question is bilingual
+  const isBilingual = question.language === 'bilingual' &&
+                      question.question_text_en &&
+                      question.options_en
+
+  // Passage rendering
+  const passageHtml = question.isFirstInPassage && question.passage_text ? `
+    <div class="passage-container">
+      <div class="passage-title">PASSAGE:</div>
+      <div class="passage-text">
+        ${isBilingual && question.passage_en ? `
+          <div class="passage-text-en">${escapeHtml(question.passage_en)}</div>
+          <div class="passage-text-hi">${escapeHtml(question.passage_text)}</div>
+        ` : escapeHtml(question.passage_text)}
+      </div>
+    </div>
+  ` : ''
+
+  if (isBilingual) {
+    // Bilingual: English block first, then Hindi block
+    const useEnglish2Col = shouldUse2ColumnLayout(question.options_en!)
+    const useHindi2Col = shouldUse2ColumnLayout(question.options)
+
+    // Option E labels for bilingual
+    const optionELabelEn = config.enableOptionE ? 'Question not attempted' : null
+    const optionELabelHi = config.enableOptionE ? 'अनुत्तरित प्रश्न' : null
+
+    return `
     <div class="question-container">
-      ${question.isFirstInPassage && question.passage_text ? `
-        <div class="passage-container">
-          <div class="passage-title">PASSAGE:</div>
-          <div class="passage-text">${escapeHtml(question.passage_text)}</div>
-        </div>
-      ` : ''}
+      ${passageHtml}
+
+      <!-- English Block -->
+      <div class="english-block">
+        <div class="question-text-en"><span class="question-number">Q${questionNum}.</span> ${formatMatchText(question.question_text_en!, question.structural_form)}</div>
+        ${renderOptions(question.options_en!, useEnglish2Col, optionELabelEn)}
+      </div>
+
+      <!-- Hindi Block -->
+      <div class="hindi-block">
+        <div class="question-text-hi">${formatMatchText(question.question_text, question.structural_form)}</div>
+        ${renderOptions(question.options, useHindi2Col, optionELabelHi)}
+      </div>
+    </div>
+    `
+  } else {
+    // Non-bilingual: existing structure
+    const use2Col = shouldUse2ColumnLayout(question.options)
+
+    return `
+    <div class="question-container">
+      ${passageHtml}
 
       <div class="question-header">
         <span class="question-number">Q${questionNum}.</span>
-        <span class="question-text">${escapeHtml(question.question_text)}</span>
+        <span class="question-text">${formatMatchText(question.question_text, question.structural_form)}</span>
       </div>
 
-      <div class="options">
-        ${Object.entries(question.options).map(([key, value]) => `
-          <div class="option">
-            <span class="option-label">(${normalizeOptionKey(key)})</span>
-            <span class="option-text">${escapeHtml(value)}</span>
-          </div>
-        `).join('')}
-        ${optionELabel ? `
-          <div class="option">
-            <span class="option-label">(E)</span>
-            <span class="option-text">${optionELabel}</span>
-          </div>
-        ` : ''}
-      </div>
+      ${renderOptions(question.options, use2Col, optionELabel)}
     </div>
-  `
+    `
+  }
 }
 
 /**

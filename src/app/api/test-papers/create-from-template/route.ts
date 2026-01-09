@@ -94,7 +94,8 @@ export async function POST(request: NextRequest) {
           section_order,
           default_question_count,
           marks_per_question,
-          negative_marks
+          negative_marks,
+          is_bilingual
         )
       `)
       .eq('id', template_id)
@@ -173,6 +174,7 @@ export async function POST(request: NextRequest) {
       question_count: templateSection.default_question_count,
       marks_per_question: templateSection.marks_per_question, // Copy marking scheme from template
       negative_marks: templateSection.negative_marks, // Copy negative marks from template
+      is_bilingual: templateSection.is_bilingual || false, // Copy bilingual flag from template
       status: 'pending', // NEW: All sections start as 'pending' (no chapters assigned)
       chapters_assigned_at: null // NEW: No chapters assigned yet
     }))

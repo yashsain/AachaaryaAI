@@ -77,6 +77,7 @@ export async function POST(
         marks_per_question,
         negative_marks,
         status,
+        is_bilingual,
         test_papers!inner (
           id,
           title,
@@ -256,7 +257,8 @@ export async function POST(
           protocolConfig,
           chapterName,
           questionsPerChapter,
-          totalQuestionsToGenerate
+          totalQuestionsToGenerate,
+          section.is_bilingual || false
         )
 
         console.log(`[GENERATE_SECTION] Calling Gemini for ${questionsPerChapter} questions...`)
@@ -414,7 +416,13 @@ export async function POST(
               structuralForm: q.structuralForm,
               cognitiveLoad: q.cognitiveLoad,
               difficulty: q.difficulty,
-              ncertFidelity: q.ncertFidelity
+              ncertFidelity: q.ncertFidelity,
+              language: q.language || (section.is_bilingual ? 'bilingual' : 'hindi'),
+              // Bilingual fields (only when present)
+              ...(q.questionText_en && { questionText_en: q.questionText_en }),
+              ...(q.options_en && { options_en: q.options_en }),
+              ...(q.explanation_en && { explanation_en: q.explanation_en }),
+              ...(q.passage_en && { passage_en: q.passage_en })
             },
             explanation: q.explanation,
             marks: section.marks_per_question || 4,

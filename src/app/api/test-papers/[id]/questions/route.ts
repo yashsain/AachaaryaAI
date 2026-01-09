@@ -164,6 +164,13 @@ export async function GET(
         cognitive_load: questionData.cognitiveLoad || questionData.cognitive_load || 'medium',
         difficulty: questionData.difficulty || 'medium',
         ncert_fidelity: questionData.ncertFidelity || questionData.ncert_fidelity || 'moderate',
+        // Language metadata
+        language: questionData.language || 'hindi',
+        // Bilingual fields (optional - only present if question is bilingual)
+        question_text_en: questionData.questionText_en || null,
+        options_en: questionData.options_en || null,
+        explanation_en: questionData.explanation_en || null,
+        passage_en: questionData.passage_en || null,
       }
     }) || []
 

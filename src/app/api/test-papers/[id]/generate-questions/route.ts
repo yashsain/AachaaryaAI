@@ -52,6 +52,7 @@ async function generateQuestionsForSections(
         marks_per_question,
         negative_marks,
         status,
+        is_bilingual,
         subjects (
           id,
           name
@@ -190,7 +191,8 @@ async function generateQuestionsForSections(
               protocolConfig,
               chapterName,
               questionsPerChapter,
-              totalQuestionsToGenerate
+              totalQuestionsToGenerate,
+              section.is_bilingual || false
             )
 
             console.log(`[GENERATE_QUESTIONS] Calling Gemini for ${questionsPerChapter} questions...`)
@@ -305,7 +307,19 @@ async function generateQuestionsForSections(
                 structuralForm: q.structuralForm,
                 cognitiveLoad: q.cognitiveLoad,
                 difficulty: q.difficulty,
-                ncertFidelity: q.ncertFidelity
+                ncertFidelity: q.ncertFidelity,
+                language: q.language || (section.is_bilingual ? 'bilingual' : 'hindi'),
+                // Bilingual fields (only when present)
+                ...(q.questionText_en && { questionText_en: q.questionText_en }),
+                ...(q.options_en && {
+                  options_en: Object.fromEntries(
+                    Object.entries(q.options_en).map(([key, val]) =>
+                      [key, sanitizeQuestionText(val)] // SANITIZED
+                    )
+                  )
+                }),
+                ...(q.explanation_en && { explanation_en: sanitizeQuestionText(q.explanation_en) }),
+                ...(q.passage_en && { passage_en: q.passage_en })
               },
               explanation: sanitizeQuestionText(q.explanation), // SANITIZED
               marks: section.marks_per_question || 4,

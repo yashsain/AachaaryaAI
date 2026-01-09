@@ -12,16 +12,20 @@ import { Protocol } from './protocols/types'
 export interface Question {
   questionNumber: number
   questionText: string
+  questionText_en?: string  // English translation (for bilingual questions)
   archetype: string
   structuralForm: string
   cognitiveLoad: 'low' | 'medium' | 'high'
   correctAnswer: string
   options: Record<string, string>  // Supports both (1)/(2)/(3)/(4) and (A)/(B)/(C)/(D) formats
+  options_en?: Record<string, string>  // English translation of options (for bilingual questions)
   explanation: string
+  explanation_en?: string  // English translation of explanation (for bilingual questions)
   difficulty?: string
   ncertFidelity?: string
   language?: string  // e.g., 'hindi', 'english', 'bilingual'
   passage?: string  // Full passage text for passageComprehension questions (100-250 words or 10-30 lines for poems)
+  passage_en?: string  // English translation of passage (for bilingual questions)
 }
 
 export interface ValidationResult {
@@ -283,6 +287,76 @@ export function validateBasicQuality(question: Question): string[] {
   }
 
   return warnings
+}
+
+/**
+ * Validate bilingual questions (HARD FAIL)
+ * Checks that bilingual questions have complete translations in both languages
+ */
+export function validateBilingualQuestions(questions: Question[]): string[] {
+  const errors: string[] = []
+  const devanagariPattern = /[\u0900-\u097F]/
+
+  for (const q of questions) {
+    // Only validate if question is marked as bilingual
+    if (q.language === 'bilingual') {
+      // Check English question text exists and is not empty
+      if (!q.questionText_en || q.questionText_en.trim().length === 0) {
+        errors.push(`Q${q.questionNumber}: Bilingual question missing English translation (questionText_en)`)
+      }
+
+      // Check English options exist and match Hindi options count
+      if (!q.options_en || typeof q.options_en !== 'object') {
+        errors.push(`Q${q.questionNumber}: Bilingual question missing English options (options_en)`)
+      } else {
+        const hindiKeys = Object.keys(q.options)
+        const englishKeys = Object.keys(q.options_en)
+
+        if (hindiKeys.length !== englishKeys.length) {
+          errors.push(`Q${q.questionNumber}: Mismatch between Hindi (${hindiKeys.length}) and English (${englishKeys.length}) option counts`)
+        }
+
+        // Validate each English option has no Devanagari script
+        for (const [key, value] of Object.entries(q.options_en)) {
+          if (devanagariPattern.test(value)) {
+            errors.push(`Q${q.questionNumber}: English option ${key} contains Devanagari script`)
+          }
+        }
+      }
+
+      // Check English explanation exists (optional but recommended)
+      if (!q.explanation_en || q.explanation_en.trim().length === 0) {
+        errors.push(`Q${q.questionNumber}: Bilingual question missing English explanation (explanation_en)`)
+      }
+
+      // Validate English content doesn't contain Devanagari
+      if (q.questionText_en && devanagariPattern.test(q.questionText_en)) {
+        errors.push(`Q${q.questionNumber}: English questionText contains Devanagari script`)
+      }
+
+      if (q.explanation_en && devanagariPattern.test(q.explanation_en)) {
+        errors.push(`Q${q.questionNumber}: English explanation contains Devanagari script`)
+      }
+
+      // Validate Hindi content contains Devanagari (should have Hindi script)
+      if (q.questionText && !devanagariPattern.test(q.questionText)) {
+        errors.push(`Q${q.questionNumber}: Hindi questionText missing Devanagari script`)
+      }
+
+      // For passage-based questions, check passage translations
+      if (q.passage && q.passage.trim().length > 0) {
+        if (!q.passage_en || q.passage_en.trim().length === 0) {
+          errors.push(`Q${q.questionNumber}: Bilingual passage-based question missing English passage (passage_en)`)
+        }
+
+        if (q.passage_en && devanagariPattern.test(q.passage_en)) {
+          errors.push(`Q${q.questionNumber}: English passage contains Devanagari script`)
+        }
+      }
+    }
+  }
+
+  return errors
 }
 
 /**
