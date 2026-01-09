@@ -45,9 +45,9 @@ export async function launchBrowser(): Promise<Browser> {
         '--no-zygote',
         '--font-render-hinting=none', // Better for Devanagari
       ],
-      defaultViewport: chromium.defaultViewport,
+      defaultViewport: null, // We set viewport later with page.setViewport()
       executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      headless: true, // Always run headless in serverless
     })
 
     console.log('[PUPPETEER] Browser launched (serverless mode)')
@@ -145,7 +145,8 @@ export async function generatePDFFromHTML(
     console.log(`[PUPPETEER] Total time: ${Date.now() - startTime}ms`)
     console.log(`[PUPPETEER] PDF size: ${pdfBuffer.length} bytes (${(pdfBuffer.length / 1024).toFixed(2)} KB)`)
 
-    return pdfBuffer
+    // Convert Uint8Array to Buffer for compatibility
+    return Buffer.from(pdfBuffer)
   } catch (error) {
     console.error('[PUPPETEER_ERROR] Failed to generate PDF:', error)
 
