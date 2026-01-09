@@ -6,7 +6,7 @@
  */
 
 import puppeteer, { Browser, Page } from 'puppeteer'
-import chromium from '@sparticuz/chromium'
+import chromium from '@sparticuz/chromium-min'
 
 /**
  * Determines if we're running in a serverless environment
@@ -31,9 +31,21 @@ export async function launchBrowser(): Promise<Browser> {
 
   if (serverless) {
     // Serverless configuration (Vercel, AWS Lambda, etc.)
-    console.log('[PUPPETEER] Using @sparticuz/chromium for serverless')
+    console.log('[PUPPETEER] Using @sparticuz/chromium-min for serverless')
 
-    // For Vercel, we need to use the chromium binary
+    // Get Chromium binary URL from environment variable
+    const chromiumPackUrl = process.env.CHROMIUM_PACK_URL
+
+    if (!chromiumPackUrl) {
+      throw new Error(
+        'CHROMIUM_PACK_URL environment variable is required for serverless PDF generation. ' +
+        'Please set it to the URL of chromium-v143-pack.tar hosted on Supabase Storage.'
+      )
+    }
+
+    console.log('[PUPPETEER] Using Chromium binary from:', chromiumPackUrl)
+
+    // For Vercel, we need to use the chromium binary from Supabase
     const browser = await puppeteer.launch({
       args: [
         ...chromium.args,
@@ -46,7 +58,7 @@ export async function launchBrowser(): Promise<Browser> {
         '--font-render-hinting=none', // Better for Devanagari
       ],
       defaultViewport: null, // We set viewport later with page.setViewport()
-      executablePath: await chromium.executablePath(),
+      executablePath: await chromium.executablePath(chromiumPackUrl),
       headless: true, // Always run headless in serverless
     })
 
