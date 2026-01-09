@@ -304,11 +304,10 @@ export async function POST(
       console.log('[GENERATE_PDF] Institute logo processed:', instituteLogo ? 'Success' : 'Failed')
     }
 
-    // Fallback to default logo if institute logo not available or failed
+    // Allow PDF generation without logo (logo is optional)
     if (!instituteLogo) {
-      console.log('[GENERATE_PDF] Using default logo as fallback')
-      instituteLogo = await getDefaultLogo()
-      console.log('[GENERATE_PDF] Default logo loaded:', instituteLogo ? 'Success' : 'Failed')
+      console.log('[GENERATE_PDF] No institute logo available - proceeding without logo')
+      instituteLogo = null
     }
 
     // Generate test code
