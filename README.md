@@ -151,13 +151,13 @@ npm install @tailwindcss/typography@^0.5.19
 Create `.env.local`:
 
 ```env
-# Supabase (from SchoolMitra)
-NEXT_PUBLIC_SUPABASE_URL=https://nvhspniochhnabxaaaeu.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52aHNwbmlvY2hobmFieGFhYWV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4NjQyMDYsImV4cCI6MjA3ODQ0MDIwNn0.W78qT-foDjBDOP4GzH3ojykyNfy-JmqyrOp-5A2wNtE
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52aHNwbmlvY2hobmFieGFhYWV1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Mjg2NDIwNiwiZXhwIjoyMDc4NDQwMjA2fQ.eI7PZIFmEJU7qvg28LU5J1Hhmi26YjBl-DqdhydIoe4
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
-# Gemini API (from SchoolMitra)
-GEMINI_API_KEY=AIzaSyCh75xi7VHVlMeC9kkYrvN7GOO4_A9Ohd8
+# Gemini API
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
 ### 5. Apply Database Migrations

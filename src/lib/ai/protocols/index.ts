@@ -22,6 +22,14 @@ import { reetMainsLevel2RajasthanGKProtocol } from './reet/mains/level2/common_s
 import { reetMainsLevel2EducationalPsychologyProtocol } from './reet/mains/level2/common_sections/educational-psychology'
 import { reetMainsLevel2InformationTechnologyProtocol } from './reet/mains/level2/common_sections/information-technology'
 
+// RPSC Senior Teacher (Grade II) - Paper 1 Protocols
+import {
+  rpscSeniorTeacherPaper1RajasthanGKProtocol,
+  rpscSeniorTeacherPaper1CurrentAffairsProtocol,
+  rpscSeniorTeacherPaper1IndiaWorldGKProtocol,
+  rpscSeniorTeacherPaper1EducationalPsychologyProtocol
+} from './rpsc/senior-teacher-grade2/paper1'
+
 /**
  * Protocol Registry
  * Maps protocol keys (e.g., "neet-biology") to Protocol objects
@@ -41,6 +49,17 @@ const protocolRegistry: Map<ProtocolKey, Protocol> = new Map([
   ['reet mains level 2-rajasthan general knowledge (current)', reetMainsLevel2RajasthanGKProtocol], // Maps to same protocol as Rajasthan GK
   ['reet mains level 2-psychology (child development & pedagogy)', reetMainsLevel2EducationalPsychologyProtocol],
   ['reet mains level 2-information technology', reetMainsLevel2InformationTechnologyProtocol],
+
+  // RPSC Senior Teacher (Grade II) - Paper 1 Protocols
+  ['rpsc senior teacher (grade ii)-geographical, historical, cultural & general knowledge of rajasthan', rpscSeniorTeacherPaper1RajasthanGKProtocol],
+  ['rpsc senior teacher (grade ii)-current affairs (india & rajasthan)', rpscSeniorTeacherPaper1CurrentAffairsProtocol],
+  ['rpsc senior teacher (grade ii)-general knowledge & information regarding india and the world', rpscSeniorTeacherPaper1IndiaWorldGKProtocol],
+  ['rpsc senior teacher (grade ii)-educational psychology (learning & teaching)', rpscSeniorTeacherPaper1EducationalPsychologyProtocol],
+
+  // RPSC Senior Teacher (Grade II) - Database subject name aliases
+  ['rpsc senior teacher (grade ii)-current affairs of rajasthan', rpscSeniorTeacherPaper1CurrentAffairsProtocol],
+  ['rpsc senior teacher (grade ii)-general knowledge of india & the world', rpscSeniorTeacherPaper1IndiaWorldGKProtocol],
+  ['rpsc senior teacher (grade ii)-educational psychology', rpscSeniorTeacherPaper1EducationalPsychologyProtocol],
 
   // JEE Protocols (stubs - to be implemented)
   // ['jee-physics', jeePhysicsProtocol],

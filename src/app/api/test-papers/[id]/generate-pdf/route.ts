@@ -357,9 +357,9 @@ export async function POST(
       topics: topics,
       examType: stream?.name || 'Practice Test',
       streamName: stream?.name || undefined,
-      // Option E (Fifth Option) support for REET exams only
+      // Option E (Fifth Option) - "Question not attempted" - enabled by default for all exams
       // Label is auto-detected per question based on language (Hindi/English)
-      enableOptionE: stream?.name?.toLowerCase().includes('reet') || false,
+      enableOptionE: true,
       questions: questionsForPDF,
       // Multi-section support
       hasSections: hasSections,

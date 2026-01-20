@@ -28,7 +28,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     hasSections,
     sections,
     questions,
-    enableOptionE = false
+    enableOptionE = true
   } = config
 
   return `<!DOCTYPE html>
@@ -91,21 +91,21 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     /* Header */
     .header {
       border-bottom: 2pt solid #000;
-      padding-bottom: 10px;
-      margin-bottom: 15px;
+      padding-bottom: 6px;
+      margin-bottom: 8px;
     }
 
     .header-top {
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 20px;
-      margin-bottom: 10px;
+      gap: 12px;
+      margin-bottom: 6px;
     }
 
     .logo {
-      width: 70px;
-      height: 70px;
+      width: 60px;
+      height: 60px;
       object-fit: contain;
     }
 
@@ -121,7 +121,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     }
 
     .institute-name {
-      font-size: 20pt;
+      font-size: 18pt;
       font-weight: bold;
       color: ${primaryColor};
       line-height: 1.2;
@@ -139,8 +139,8 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
       justify-content: space-between;
       align-items: center;
       border: 1pt solid #999;
-      padding: 6px;
-      margin-top: 8px;
+      padding: 4px;
+      margin-top: 5px;
       background: #E8E8E8;
       font-size: 9pt;
     }
@@ -151,15 +151,15 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
 
     /* Test title */
     .test-title-section {
-      margin: 12px 0;
-      padding: 8px;
+      margin: 8px 0;
+      padding: 6px;
       background: #D3D3D3;
       border-left: 3pt solid ${primaryColor};
       text-align: center;
     }
 
     .test-title {
-      font-size: 12pt;
+      font-size: 11pt;
       font-weight: bold;
     }
 
@@ -355,13 +355,28 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
       flex: 1;
     }
 
-    /* Bilingual support - Block structure (English first, then Hindi) */
+    /* Bilingual support - Two-column page layout (Hindi left column, English right column) */
+    .bilingual-page-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      column-gap: 10px;
+    }
+
+    .hindi-questions-column {
+      /* Left column for all Hindi questions */
+    }
+
+    .english-questions-column {
+      /* Right column for all English questions */
+    }
+
     .english-block {
-      margin-bottom: 4px; /* Space between English and Hindi blocks */
+      /* Styling for English question blocks */
     }
 
     .hindi-block {
-      margin-top: 4px;
+      /* Styling for Hindi question blocks */
     }
 
     .question-text-en {
@@ -501,6 +516,81 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
       font-size: 8.5pt;
       line-height: 1.3;
     }
+
+    /* Bilingual Cover Page Styles */
+    .bilingual-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 6px 0;
+      font-size: 10pt;
+      font-weight: bold;
+    }
+
+    .bilingual-header-center {
+      font-size: 14pt;
+      font-weight: bold;
+      text-align: center;
+      flex: 1;
+    }
+
+    .bilingual-header-side {
+      flex: 0 0 auto;
+      text-align: left;
+    }
+
+    .bilingual-header-side.right {
+      text-align: right;
+    }
+
+    .red-warning-box {
+      border: 2pt solid #DC143C;
+      padding: 6px;
+      margin: 6px 0;
+      background: #FFF5F5;
+      font-size: 8pt;
+      line-height: 1.3;
+    }
+
+    .instructions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 6px 0;
+    }
+
+    .instruction-box {
+      border: 1pt solid #000;
+      padding: 6px;
+      background: #FFF;
+    }
+
+    .instruction-box-title {
+      font-size: 9pt;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 5px;
+      border-bottom: 1pt solid #000;
+      padding-bottom: 3px;
+    }
+
+    .instruction-item {
+      font-size: 7.5pt;
+      margin-bottom: 3px;
+      line-height: 1.2;
+    }
+
+    .bottom-warning {
+      border: 1pt solid #DC143C;
+      background: #DC143C;
+      color: #FFF;
+      padding: 6px;
+      margin: 10px 0;
+      font-size: 7.5pt;
+      text-align: center;
+      line-height: 1.3;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -511,73 +601,79 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
       <div class="header-top">
         ${instituteLogo ? `<img src="${instituteLogo}" alt="Logo" class="logo">` : ''}
         <div class="header-branding">
-          <div class="institute-subtitle">Your AI Teaching Assistant</div>
           <div class="institute-name">${instituteName}</div>
           ${tagline ? `<div class="tagline">${tagline}</div>` : ''}
         </div>
       </div>
+    </div>
 
-      <div class="metadata-box">
-        <div><span class="metadata-label">Max. Marks :</span> ${maxMarks}</div>
-        <div><span class="metadata-label">Date :</span> ${date}</div>
-        <div><span class="metadata-label">Time :</span> ${duration}</div>
-        <div><span class="metadata-label">Test Code :</span> ${testCode}</div>
+    <!-- Bilingual Header Bar -->
+    <div class="bilingual-header">
+      <div class="bilingual-header-side">
+        समय : ${duration}<br>
+        Time : ${duration}
+      </div>
+      <div class="bilingual-header-center">
+        ${testTitle}
+      </div>
+      <div class="bilingual-header-side right">
+        अधिकतम अंक : ${maxMarks}<br>
+        Maximum Marks : ${maxMarks}
       </div>
     </div>
 
-    <!-- Test Title -->
-    <div class="test-title-section">
-      <div class="test-title">${testTitle}</div>
+    <!-- Red Warning Box -->
+    <div class="red-warning-box no-break">
+      <strong>प्रश्न–पुस्तिका के पेपर की सील/पॉलीथीन बैग को खोलने पर प्रश्न–पत्र हल करने से पूर्व परीक्षार्थी यह सुनिश्चित कर लें कि :</strong><br>
+      • प्रश्न-पुस्तिका संख्या तथा ओ.एम.आर. उत्तर-पत्रक पर अंकित बारकोड संख्या समान है।<br>
+      • प्रश्न–पुस्तिका एवं ओ.एम.आर. उत्तर–पत्रक के सभी पृष्ठ व सभी प्रश्न मुद्रित हैं। समस्त प्रश्न, जैसा कि ऊपर वर्णित है, उपलब्ध हैं तथा कोई भी पृष्ठ नहीं/मुद्रण त्रुटि नहीं है।<br><br>
+      किसी भी प्रकार की विसंगति या दोषपूर्ण होने पर परीक्षार्थी दूसरा प्रश्न-पत्र प्राप्त कर लें। यह सुनिश्चित करने की जिम्मेदारी अभ्यर्थी की होगी। परीक्षा प्रारम्भ होने के 5 मिनट पश्चात् ऐसी किसी दावे/आपत्ति पर कोई विचार नहीं किया जायेगा।<br><br>
+      <strong>On opening the paper seal/polythene bag of the Question Booklet before attempting the question paper the candidate should ensure that :</strong><br>
+      • Question Booklet Number and Barcode Number of OMR Answer Sheet are same.<br>
+      • All pages & Questions of Question Booklet and OMR answer sheet are properly printed. All questions as mentioned above are available and no page is missing/misprinted.<br><br>
+      If there is any discrepancy/defect, candidate must obtain another Question Booklet from Invigilator. Candidate himself shall be responsible for ensuring this. No claim/objection in this regard will be entertained after five minutes of start of examination.
     </div>
 
-    <!-- General Instructions -->
-    <div class="instructions-section no-break">
-      <div class="instructions-title">GENERAL INSTRUCTIONS:</div>
-      <div class="instruction">1. Fill in the OMR sheet with your name and registration number using a BLUE/BLACK ball point pen.</div>
-      <div class="instruction">2. There are multiple-choice questions. Each question carries 4 marks for correct answer and -1 mark for incorrect answer.</div>
-      <div class="instruction">3. Choose the correct or most appropriate response for each question.</div>
-      <div class="instruction">4. The test is divided into sections. Attempt all questions.</div>
-      <div class="instruction">5. Rough work can be done in the space provided at the end of the booklet.</div>
-      <div class="instruction">6. Use of calculator, log tables, mobile phones, and any electronic devices is strictly prohibited.</div>
-      <div class="instruction">7. Return the OMR sheet to the invigilator at the end of the examination.</div>
-    </div>
-
-    ${hasSections && sections ? `
-    <!-- Paper Structure -->
-    <div class="paper-structure no-break">
-      <div class="structure-title">PAPER STRUCTURE:</div>
-      ${sections.map((section, index) => {
-        const totalMarks = section.questions.reduce((sum, q) => sum + q.marks, 0)
-        return `<div class="section-info">
-          <span style="font-weight: bold;">Section ${index + 1} - ${section.section_name}:</span>
-          ${section.questions.length} questions${section.subject_name ? ` (${section.subject_name})` : ''} • ${totalMarks} marks
-        </div>`
-      }).join('')}
-    </div>
-    ` : ''}
-
-    <!-- Topics Covered -->
-    <div class="topics-section no-break">
-      <div class="topics-title">TOPICS COVERED:</div>
-      <div class="topics-list">
-        ${topics.map(topic => `<span class="topic-chip">${topic}</span>`).join('')}
+    <!-- Side-by-side Bilingual Instructions -->
+    <div class="instructions-grid no-break">
+      <!-- Hindi Instructions (Left) -->
+      <div class="instruction-box">
+        <div class="instruction-box-title">अनुदेश</div>
+        <div class="instruction-item">1. प्रश्न पत्र को हल करने से पहले, कृपया अपनी प्रश्न पुस्तिका और ओ.एम.आर. उत्तर-पत्रक को जाँच करें और सुनिश्चित करें कि :<br><br>
+* प्रश्न पुस्तिका और ओ.एम.आर. उत्तर-पत्रक की क्रम संख्या समान है।<br>
+* प्रश्न पुस्तिका के सभी पृष्ठ ठीक से मुद्रित है और सभी पृष्ठों पर सारे प्रश्न मुद्रित है।<br><br>
+किसी भी विसंगति/दोष के मामले में, अभ्यर्थी को प्रश्न पुस्तिका और ओ.एम.आर. उत्तर-पत्रक को बदलने के लिए तुरंत अभिक्षक को मामले की सूचना देनी चाहिए। परीक्षा प्रारम्भ होने के पाँच मिनट बाद इस संबंध में किसी भी दावा/आपत्ति पर विचार नहीं किया जाएगा। इसके लिए अभ्यर्थी उत्तरदायी होगा।</div>
+        <div class="instruction-item">2. ओ.एम.आर. उत्तर-पत्रक के पीछे दिए गए सभी निर्देश पढ़ें।</div>
+        <div class="instruction-item">3. ओ.एम.आर. उत्तर-पत्रक पर केवल नीले बॉल प्वाइंट पेन का प्रयोग करें। कृपया, ओ.एम.आर. उत्तर-पत्रक में अपना रोल नंबर और अन्य जानकारी सही ढंग से भरें।</div>
+        <div class="instruction-item">4. सभी प्रश्नों के अंक समान हैं। प्रत्येक गलत उत्तर के लिए प्रश्न का 1/3 अंक काटे जाएंगे।</div>
+        <div class="instruction-item">5. यदि किसी प्रश्न के लिए एक से अधिक उत्तर अंकित किये जाते हैं तो उसे भी गलत उत्तर माना जायेगा।</div>
+        <div class="instruction-item">6. प्रत्येक प्रश्न में पाँच विकल्प/गोले हैं। पहले चार विकल्प/गोले A, B, C और D उपयुक्त उत्तर से संबंधित हैं और पाँचवाँ विकल्प/गोला 'E' 'अनुत्तरित प्रश्न' से संबंधित है।</div>
+        <div class="instruction-item">7. सही उत्तर दर्शाने के लिए अभ्यर्थी को ओ.एम.आर. उत्तर-पत्रक पर संबंधित प्रश्न संख्या के पहले चार विकल्प A, B, C या D में से केवल एक विकल्प/गोले को नीले बॉल प्वाइंट पेन से भरना होगा। यदि अभ्यर्थी किसी प्रश्न का उत्तर नहीं देना चाहता है तो पाँचवें विकल्प/गोले 'E' को गहरा करना होगा।</div>
+        <div class="instruction-item">8. यदि पाँच विकल्पों में से कोई भी विकल्प/गोला गहरा नहीं किया गया तो प्रश्न का 1/3 भाग अंक काट लिया जायेगा।</div>
+        <div class="instruction-item">9. 10 प्रतिशत से अधिक प्रश्नों में किसी भी विकल्प/गोले को अभ्यर्थी द्वारा गहरा नहीं किया गया तो उसे परीक्षा के लिए अयोग्य घोषित कर दिया जाएगा।</div>
+        <div class="instruction-item">10. अभ्यर्थी को प्रत्येक प्रश्न के लिए कोई एक विकल्प/गोला भरा है या नहीं यह सुनिश्चित करने के लिए 10 मिनट अतिरिक्त दिए जाएंगे।</div>
+        <div class="instruction-item">11. यदि प्रश्न के हिन्दी या अंग्रेजी संस्करण में मुद्रण या तथ्यात्मक प्रकृति की किसी प्रकार की अस्पष्ट/गलती है, तो अंग्रेजी संस्करण को अंतिम माना जाएगा।</div>
+        <div class="instruction-item">12. परीक्षा हॉल में मोबाइल फोन/ब्लूटूथ डिवाइस या किसी अन्य इलेक्ट्रॉनिक गैजेट का उपयोग सख्त वर्जित है। यदि किसी अभ्यर्थी के पास ऐसी कोई प्रतिबंधित सामग्री पाई गई तो उसके विरुद्ध नियमानुसार सख्त कार्यवाही की जाएगी।</div>
       </div>
-    </div>
 
-    <!-- Student Information -->
-    <div class="student-info no-break">
-      <div class="student-info-title">STUDENT INFORMATION</div>
-      <div class="student-info-row">
-        <div class="student-info-label">Name:</div>
-        <div class="student-info-line"></div>
-      </div>
-      <div class="student-info-row">
-        <div class="student-info-label">Registration No:</div>
-        <div class="student-info-line"></div>
-      </div>
-      <div class="student-info-row">
-        <div class="student-info-label">Date:</div>
-        <div class="student-info-line"></div>
+      <!-- English Instructions (Right) -->
+      <div class="instruction-box">
+        <div class="instruction-box-title">INSTRUCTIONS</div>
+        <div class="instruction-item">1. Before attempting the question paper, kindly check your Question Booklet (QB) and O.M.R. Answer Sheet and ensure that :<br><br>
+* Serial number of Question Booklet (QB) and O.M.R. Answer Sheet is same.<br>
+* All pages and all questions are properly printed.<br><br>
+In case of any discrepancy/defect, the candidate should immediately report the matter to the Invigilator for replacement of Question Booklet (QB) and O.M.R. Answer Sheet. No claim/objection in this regard will be entertained after five minutes of start of examination, candidate will be liable for the same.</div>
+        <div class="instruction-item">2. Read all instructions on the reverse of O.M.R. Answer Sheet.</div>
+        <div class="instruction-item">3. On O.M.R. Answer Sheet, use blue ball point pen only. Please, fill your Roll No. and other information correctly in O.M.R. Answer Sheet.</div>
+        <div class="instruction-item">4. All questions carry equal marks. For each wrong answer 1/3 mark of the question will be deducted.</div>
+        <div class="instruction-item">5. If more than one response is marked for a question, it would also be treated as wrong answer.</div>
+        <div class="instruction-item">6. Each question has five options/circles. First four options/circles A, B, C and D are related to appropriate answer and fifth option/circle 'E' is related to 'Question not attempted'.</div>
+        <div class="instruction-item">7. To indicate the correct answer, the candidate has to fill in only one option/circle A, B, C or D with blue ball point pen for respective question number on the OMR Answer Sheet. If the candidate does not want to answer any question then the fifth option/circle 'E' should be darkened.</div>
+        <div class="instruction-item">8. 1/3 part of the marks will be deducted for the questions, if none of the option/circle options are darkened.</div>
+        <div class="instruction-item">9. If a candidate leaves more than 10 percent questions or does not darken any of the five options, he/she will be disqualified for the exam.</div>
+        <div class="instruction-item">10. Candidate will be given 10 minutes extra to make sure, if he/she has filled up any one option/circle for each questions.</div>
+        <div class="instruction-item">11. If there is any sort of ambiguity/mistake either of printing or factual in nature in Hindi or English version of questions, then the English Version will be treated as final.</div>
+        <div class="instruction-item">12. Use of Mobile Phone/Bluetooth Device or any other electronic gadget in the examination hall is strictly prohibited. If any such prohibited material is found with any candidate, strict action will be taken against him/her as per rules.</div>
       </div>
     </div>
 
@@ -598,18 +694,23 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
   </div>
 
     ${hasSections && sections ?
-      // Multi-section layout
-      sections.map((section, sectionIndex) => {
-        // Calculate question offset for continuous numbering
-        let questionOffset = 0
-        for (let i = 0; i < sectionIndex; i++) {
-          questionOffset += sections[i].questions.length
+      // Multi-section layout - FLATTEN all sections into ONE continuous grid
+      (() => {
+        // Step 1: Flatten all questions from all sections into single array
+        const allQuestions: Array<QuestionForPDF & { questionNumber: number }> = []
+        let questionCounter = 0
+
+        for (const section of sections) {
+          const sortedQuestions = [...section.questions].sort((a, b) => a.question_order - b.question_order)
+          for (const q of sortedQuestions) {
+            questionCounter++
+            allQuestions.push({ ...q, questionNumber: questionCounter })
+          }
         }
 
-        // Sort questions and mark first in passage
-        const sortedQuestions = [...section.questions].sort((a, b) => a.question_order - b.question_order)
+        // Step 2: Handle passage grouping globally across ALL questions
         const passageGroups = new Map<string, boolean>()
-        const questionsWithPassageFlag = sortedQuestions.map(q => {
+        const questionsWithPassageFlag = allQuestions.map(q => {
           if (q.passage_id && q.passage_text) {
             const isFirst = !passageGroups.has(q.passage_id)
             passageGroups.set(q.passage_id, true)
@@ -618,31 +719,35 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
           return { ...q, isFirstInPassage: false }
         })
 
-        // Render all questions in single container (multi-column will handle split)
-        return `
-        <div>
-          <!-- Section Header -->
-          <div class="section-header">
-            SECTION ${sectionIndex + 1}: ${section.section_name.toUpperCase()}
-            ${section.subject_name ? `<div class="section-subject">(${section.subject_name})</div>` : ''}
-          </div>
+        // Step 3: Check if this is a bilingual paper
+        const isBilingualPaper = questionsWithPassageFlag.length > 0 &&
+          questionsWithPassageFlag[0].language === 'bilingual' &&
+          questionsWithPassageFlag[0].question_text_en &&
+          questionsWithPassageFlag[0].options_en
 
-          ${section.marks_per_question ? `
-          <div class="section-marks-info">
-            Each question carries ${section.marks_per_question} mark${section.marks_per_question > 1 ? 's' : ''}
-          </div>
-          ` : ''}
-
-          <!-- Questions Grid (Multi-Column Layout) -->
-          <div class="questions-grid">
-            ${questionsWithPassageFlag.map((q, idx) => {
-              const questionNum = questionOffset + idx + 1
-              return renderQuestion(q, questionNum, config)
-            }).join('')}
-          </div>
-        </div>
-        `
-      }).join('')
+        if (isBilingualPaper) {
+          // BILINGUAL LAYOUT: Two columns - Each row has Hindi (left) and English (right)
+          // Grid auto-flows: Q1-Hindi, Q1-English (row 1), Q2-Hindi, Q2-English (row 2), etc.
+          return `
+    <div class="bilingual-page-grid">
+      ${questionsWithPassageFlag.map(q => {
+        // Render Hindi version (goes to left cell) then English version (goes to right cell)
+        return renderQuestionHindiOnly(q, q.questionNumber, config) +
+               renderQuestionEnglishOnly(q, q.questionNumber, config)
+      }).join('')}
+    </div>
+          `
+        } else {
+          // NON-BILINGUAL LAYOUT: Single 2-column grid
+          return `
+    <div class="questions-grid">
+      ${questionsWithPassageFlag.map(q => {
+        return renderQuestion(q, q.questionNumber, config)
+      }).join('')}
+    </div>
+          `
+        }
+      })()
       :
       // Single section layout (Multi-Column Layout)
       `<div class="questions-grid">
@@ -845,7 +950,7 @@ function renderQuestion(
   ` : ''
 
   if (isBilingual) {
-    // Bilingual: English block first, then Hindi block
+    // Bilingual: Side-by-side grid (Hindi left, English right)
     const useEnglish2Col = shouldUse2ColumnLayout(question.options_en!)
     const useHindi2Col = shouldUse2ColumnLayout(question.options)
 
@@ -857,16 +962,19 @@ function renderQuestion(
     <div class="question-container">
       ${passageHtml}
 
-      <!-- English Block -->
-      <div class="english-block">
-        <div class="question-text-en"><span class="question-number">Q${questionNum}.</span> ${formatMatchText(question.question_text_en!, question.structural_form)}</div>
-        ${renderOptions(question.options_en!, useEnglish2Col, optionELabelEn)}
-      </div>
+      <!-- Side-by-side bilingual grid: Hindi left, English right -->
+      <div class="bilingual-question-grid">
+        <!-- Hindi Block (Left Column) -->
+        <div class="hindi-block">
+          <div class="question-text-hi"><span class="question-number">Q${questionNum}.</span> ${formatMatchText(question.question_text, question.structural_form)}</div>
+          ${renderOptions(question.options, useHindi2Col, optionELabelHi)}
+        </div>
 
-      <!-- Hindi Block -->
-      <div class="hindi-block">
-        <div class="question-text-hi">${formatMatchText(question.question_text, question.structural_form)}</div>
-        ${renderOptions(question.options, useHindi2Col, optionELabelHi)}
+        <!-- English Block (Right Column) -->
+        <div class="english-block">
+          <div class="question-text-en"><span class="question-number">Q${questionNum}.</span> ${formatMatchText(question.question_text_en!, question.structural_form)}</div>
+          ${renderOptions(question.options_en!, useEnglish2Col, optionELabelEn)}
+        </div>
       </div>
     </div>
     `
@@ -887,6 +995,66 @@ function renderQuestion(
     </div>
     `
   }
+}
+
+/**
+ * Render Hindi-only version of a bilingual question
+ */
+function renderQuestionHindiOnly(
+  question: QuestionForPDF & { isFirstInPassage?: boolean },
+  questionNum: number,
+  config: TemplateConfig
+): string {
+  const useHindi2Col = shouldUse2ColumnLayout(question.options)
+  const optionELabelHi = config.enableOptionE ? 'अनुत्तरित प्रश्न' : null
+
+  // Passage rendering for Hindi
+  const passageHtml = question.isFirstInPassage && question.passage_text ? `
+    <div class="passage-container">
+      <div class="passage-title">PASSAGE:</div>
+      <div class="passage-text">${escapeHtml(question.passage_text)}</div>
+    </div>
+  ` : ''
+
+  return `
+    <div class="question-container">
+      ${passageHtml}
+      <div class="hindi-block">
+        <div class="question-text-hi"><span class="question-number">Q${questionNum}.</span> ${formatMatchText(question.question_text, question.structural_form)}</div>
+        ${renderOptions(question.options, useHindi2Col, optionELabelHi)}
+      </div>
+    </div>
+  `
+}
+
+/**
+ * Render English-only version of a bilingual question
+ */
+function renderQuestionEnglishOnly(
+  question: QuestionForPDF & { isFirstInPassage?: boolean },
+  questionNum: number,
+  config: TemplateConfig
+): string {
+  const useEnglish2Col = shouldUse2ColumnLayout(question.options_en!)
+  const optionELabelEn = config.enableOptionE ? 'Question not attempted' : null
+
+  // Passage rendering for English
+  const passageHtml = question.isFirstInPassage && question.passage_en ? `
+    <div class="passage-container">
+      <div class="passage-title">PASSAGE:</div>
+      <div class="passage-text">${escapeHtml(question.passage_en)}</div>
+    </div>
+  ` : ''
+
+  return `
+    <div class="question-container">
+      ${passageHtml}
+      <div class="english-block">
+        <div class="question-text-en"><span class="question-number">Q${questionNum}.</span> ${formatMatchText(question.question_text_en!, question.structural_form)}</div>
+        ${renderOptions(question.options_en!, useEnglish2Col, optionELabelEn)}
+      </div>
+    </div>
+  `
 }
 
 /**
@@ -959,5 +1127,8 @@ function escapeHtml(text: string): string {
     '"': '&quot;',
     "'": '&#039;'
   }
-  return sanitized.replace(/[&<>"']/g, m => map[m])
+  const escaped = sanitized.replace(/[&<>"']/g, m => map[m])
+
+  // FINALLY: Convert newlines to HTML line breaks for proper formatting in PDF
+  return escaped.replace(/\n/g, '<br>')
 }
