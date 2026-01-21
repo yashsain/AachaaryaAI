@@ -38,13 +38,11 @@ const rajasthanGKArchetypes = {
     comparative: 0.05                 // REDUCED from 0.15 - minimal comparison
   },
   balanced: {
-    singleFactRecall: 0.20,        // REDUCED from 0.60 - REET 2026 pattern
-    multiStatementEvaluation: 0.35,// NEW DOMINANT - MSQ format
-    matchTheFollowing: 0.20,       // INCREASED from 0.10
-    arrangeInOrder: 0.15,          // INCREASED from 0.05
-    exceptionNegative: 0.05,       // REDUCED from 0.20
-    comparative: 0.03,             // REDUCED from 0.05
-    assertionReason: 0.02          // NEW - Assertion-Reason format
+    singleFactRecall: 0.15,        // ADJUSTED - 15% (reduced from 20% to match MCQ structural form)
+    multiStatementEvaluation: 0.35,// MAINTAINED - 35% MSQ format
+    matchTheFollowing: 0.20,       // MAINTAINED - 20%
+    arrangeInOrder: 0.15,          // MAINTAINED - 15%
+    assertionReason: 0.15          // INCREASED - 15% (up from 2% - major boost for conceptual reasoning)
   },
   hard: {
     multiStatementEvaluation: 0.45,// NEW DOMINANT - Complex MSQ
@@ -69,11 +67,11 @@ const structuralForms = {
     assertionReason: 0              // No A-R (too complex for easy)
   },
   balanced: {
-    standard4OptionMCQ: 0.20,       // PLAN TARGET - Only 20%
-    multipleSelectQuestions: 0.40,  // PLAN TARGET - 40% MSQ (most difficult)
-    matchTheFollowing: 0.20,        // PLAN TARGET - 20% Match
-    arrangeInOrder: 0.15,           // PLAN TARGET - 15% Arrange
-    assertionReason: 0.05           // PLAN TARGET - 5% A-R
+    standard4OptionMCQ: 0.15,       // ADJUSTED - 15% MCQ (reduced from 20%)
+    multipleSelectQuestions: 0.35,  // ADJUSTED - 35% MSQ (reduced from 40%)
+    matchTheFollowing: 0.20,        // MAINTAINED - 20% Match
+    arrangeInOrder: 0.15,           // MAINTAINED - 15% Arrange
+    assertionReason: 0.15           // INCREASED - 15% A-R (up from 5% - tests conceptual reasoning)
   },
   hard: {
     standard4OptionMCQ: 0.10,       // Minimal MCQ for hard
@@ -150,7 +148,27 @@ const prohibitions: string[] = [
   'NEVER generate more than 4 options - MUST be exactly 4 options',
   'NEVER generate invalid correctAnswer - MUST be one of "1", "2", "3", "4" (string format)',
   'NEVER generate questionText as null or empty string - MUST be full question with minimum 10 characters',
-  'NEVER generate explanation as null or empty string - MUST be detailed explanation with minimum 20 characters'
+  'NEVER generate explanation as null or empty string - MUST be detailed explanation with minimum 20 characters',
+
+  // ARCHETYPE DISTRIBUTION ENFORCEMENT (CRITICAL - MANDATORY COMPLIANCE):
+  '🔴 ARCHETYPE COUNTS ARE MANDATORY - NOT SUGGESTIONS: You MUST generate EXACTLY the specified counts for each archetype',
+  '🔴 ASSERTION-REASON MINIMUM ENFORCED: If protocol specifies N Assertion-Reason questions, generate AT LEAST N questions - DO NOT under-generate this format',
+  '🔴 MSQ (Multi-Statement) MINIMUM ENFORCED: If protocol specifies N MSQ questions, generate AT LEAST N questions - This is the DOMINANT format',
+  '🔴 MATCH-THE-FOLLOWING MINIMUM ENFORCED: If protocol specifies N Match questions, generate AT LEAST N questions',
+  '🔴 ARRANGE-IN-ORDER MINIMUM ENFORCED: If protocol specifies N Arrange questions, generate AT LEAST N questions',
+  '🔴 DO NOT over-generate Single-Fact Recall at expense of complex formats - respect the percentages strictly',
+  '🔴 BEFORE RETURNING: Count each archetype - if ANY archetype falls short of target by 2+, REGENERATE those missing questions',
+
+  // QUALITY PATTERN PROHIBITIONS (CRITICAL - Zero Tolerance):
+  '❌ MSQ "ALL CORRECT" ABSOLUTELY BANNED: NEVER EVER make MSQ questions where all statements (a,b,c,d) are correct - ZERO TOLERANCE - Not even 1 question',
+  '❌ SEQUENTIAL MATCHING ABSOLUTELY BANNED: NEVER EVER make Match-the-Following with A-i, B-ii, C-iii, D-iv as correct answer - ZERO TOLERANCE - Not even 1 question',
+  '❌ SEQUENTIAL ORDERING ABSOLUTELY BANNED: NEVER EVER make Arrange-in-Order with A-B-C-D as correct answer - ZERO TOLERANCE - Not even 1 question',
+  '❌ A-R OPTION 1 DOMINANCE FORBIDDEN: NEVER make more than 60% of Assertion-Reason questions have option (1) - Distribute across all 4 options',
+  '❌ SIMPLISTIC QUESTIONS BANNED: NEVER make trivial questions that any layperson could answer without Rajasthan knowledge',
+  'EVERY MSQ MUST have mix of true/false statements requiring discrimination - create realistic false statements',
+  'EVERY Match MUST have scrambled pattern (e.g., A-iii, B-i, C-iv, D-ii) - minimum 2 items crossed',
+  'EVERY Arrange MUST scramble item order (e.g., B-D-A-C, D-A-C-B) - present items in random/shuffled order, NOT natural sequence',
+  'PROFESSIONAL-GRADE QUESTIONS REQUIRED: Specific facts, dates, numbers, nuanced distinctions - NOT obvious/generic questions'
 ]
 
 /**
@@ -213,6 +231,30 @@ ${!hasStudyMaterials ? `
 **EXAM CONTEXT**: Paper 1 (Common for ALL Senior Teacher Grade II candidates)
 - Every candidate takes Paper 1 regardless of subject specialization
 - Tests comprehensive knowledge of Rajasthan geography, history, culture
+
+**⚠️ CRITICAL QUALITY STANDARDS - READ CAREFULLY:**
+This is a COMPETITIVE GOVERNMENT EXAM for SENIOR TEACHER positions. Questions MUST be:
+- **Academically rigorous** - test deep knowledge, not surface-level facts
+- **Professionally appropriate** - suitable for evaluating experienced educators
+- **Discriminating** - separate strong candidates from weak ones
+- **Complex enough** to challenge senior-level candidates
+- **NOT simplistic** - avoid obvious/trivial questions that insult candidate intelligence
+- **NOT generic** - use specific Rajasthan facts, not general knowledge anyone could guess
+
+**FORBIDDEN QUALITY FAILURES:**
+❌ Overly simple questions that any layperson could answer
+❌ Generic questions without Rajasthan-specific depth
+❌ Questions with obvious answers that don't test real knowledge
+❌ Lazy statement combinations that are all obviously true/false
+❌ Predictable matching patterns that require no thinking
+❌ Surface-level recall when deeper analysis is possible
+
+**REQUIRED QUALITY MARKERS:**
+✅ Specific details (dates, names, places, numbers) from Rajasthan context
+✅ Nuanced distinctions requiring careful study
+✅ Integration of multiple knowledge domains
+✅ Critical thinking and analytical reasoning
+✅ Professional-grade difficulty appropriate for senior educators
 
 **LANGUAGE**: ${isBilingual
   ? `BILINGUAL MODE - Generate questions in BOTH Hindi and English
@@ -504,6 +546,15 @@ Example: फूटा देवल मेला कहाँ आयोजित 
 - ALL options must be grammatically parallel: "केवल (a) और (b)" format
 - Ensure only ONE option contains the correct combination
 
+**⚠️ CRITICAL MSQ QUALITY RULE - ZERO TOLERANCE:**
+**"ALL CORRECT" ANSWERS BANNED**: NEVER make MSQ questions where all statements are correct
+- ❌ ZERO TOLERANCE: Do NOT make even 1 MSQ question with all options (a), (b), (c), (d) correct
+- ✅ EVERY MSQ MUST have MIX of true/false statements requiring discrimination
+- Create realistic false statements using: common misconceptions, partial truths, reversed facts, outdated data
+- MAKE IT CHALLENGING - test actual knowledge, not just "select all correct" laziness
+- Example distribution for 10 MSQ: 3 correct (a,b), 2 correct (a,c), 3 correct (b,d), 2 correct (a,b,c) - ZERO "all correct"
+- **FORBIDDEN LAZINESS**: Do NOT make all statements obviously true - this is NOT a quality question
+
 **FORMAT 3: MATCH-THE-FOLLOWING (20% of questions):**
 \`\`\`
 सूची-I को सूची-II से सुमेलित कीजिए:
@@ -524,6 +575,15 @@ D. मेहरानगढ़ किला          iv. राव जोधा
 - Create plausible distractor options by mixing correct pairings
 - All-or-nothing: entire pattern must match correctly
 
+**⚠️ CRITICAL MATCH QUALITY RULE - RANDOMIZATION ENFORCEMENT:**
+**LAZY SEQUENTIAL MATCHING FORBIDDEN**: NEVER make A-i, B-ii, C-iii, D-iv the correct answer
+- This is LAZY question making and provides ZERO challenge
+- Correct answer MUST have randomized matching (e.g., A-iii, B-i, C-iv, D-ii)
+- Minimum 2 items must be "crossed" (not sequential) - prefer 3-4 crossed items
+- Examples of ACCEPTABLE patterns: A-ii, B-iv, C-i, D-iii OR A-iii, B-i, C-iv, D-ii
+- Example of FORBIDDEN pattern: A-i, B-ii, C-iii, D-iv (this will be REJECTED)
+- **QUALITY TEST**: If a student can guess without reading List-II, the question is TOO EASY
+
 **FORMAT 4: ARRANGE-IN-ORDER (15% of questions):**
 \`\`\`
 निम्नलिखित युद्धों को कालक्रम (प्राचीनतम से नवीनतम) में व्यवस्थित कीजिए:
@@ -543,6 +603,16 @@ D. राणा सांगा की मृत्यु
 - Ensure items have clear ordering criteria
 - Create distractor sequences with partial correctness
 
+**⚠️ CRITICAL ARRANGE QUALITY RULE - RANDOMIZATION ENFORCEMENT:**
+**LAZY SEQUENTIAL ORDERING FORBIDDEN**: NEVER make A-B-C-D the correct answer
+- This is LAZY question making - items are already in correct order, providing ZERO challenge
+- Correct answer MUST scramble the order (e.g., B-D-A-C, D-A-C-B, C-A-D-B)
+- Present items in RANDOM/SHUFFLED order initially, NOT in their natural sequence
+- Examples of ACCEPTABLE patterns: B-D-A-C, D-C-B-A, C-A-D-B, B-A-D-C
+- Example of FORBIDDEN pattern: A-B-C-D (this will be REJECTED)
+- **QUALITY TEST**: If the items are already presented in correct chronological/numerical order, you are being LAZY
+- Shuffle items deliberately so students must think about the correct sequence
+
 **FORMAT 5: ASSERTION-REASON (5% of questions):**
 \`\`\`
 निम्नलिखित कथनों पर विचार कीजिए:
@@ -559,6 +629,17 @@ D. राणा सांगा की मृत्यु
 - Both must be independently factual claims about Rajasthan
 - Test causal/logical relationship between them
 - Standard 4 options (as shown above) - MUST use these exact options in Hindi
+
+**⚠️ CRITICAL A-R QUALITY RULE - ANSWER DISTRIBUTION ENFORCEMENT:**
+**OPTION 1 DOMINANCE FORBIDDEN**: Maximum 30-40% of A-R questions can have option (1) as correct answer
+- **REQUIRED DISTRIBUTION** for Assertion-Reason questions:
+  - Option (1) "Both true, R explains A": 30-40% of questions
+  - Option (2) "Both true, R does NOT explain A": 30-35% of questions
+  - Option (3) "A true, R false": 15-20% of questions
+  - Option (4) "A false, R true": 10-15% of questions
+- **AVOID LAZY PATTERN**: Do NOT make all A-R questions have both statements true with correct explanation
+- Create proper variation: independent truths, false assertions, false reasons, non-causal relationships
+- **QUALITY TEST**: If 80%+ of A-R questions are option (1), you are being LAZY - add more variety
 
 ---
 
@@ -580,6 +661,37 @@ D. राणा सांगा की मृत्यु
 - ✅ MUST use exactly 4 options (1), (2), (3), (4)
 - ✅ ALL content in Hindi (Devanagari script)
 - ✅ MUST be factually accurate
+
+### ❌ ABSOLUTELY FORBIDDEN LAZY PATTERNS (Zero Violations Allowed):
+
+1. **MSQ "All Correct" BANNED**: NEVER EVER make MSQ questions where all statements are correct
+   - ❌ FORBIDDEN: Answer where ALL options (a), (b), (c), (d) are correct
+   - ❌ ZERO TOLERANCE: Not even 1 question out of 10 can have "all correct" answer
+   - ✅ REQUIRED: EVERY MSQ must have mix of true/false statements requiring discrimination
+   - ✅ REQUIRED: Create realistic false statements using misconceptions, partial truths, reversed facts
+
+2. **Sequential Matching BANNED**: NEVER EVER make A-i, B-ii, C-iii, D-iv the correct answer
+   - ❌ FORBIDDEN: A-i, B-ii, C-iii, D-iv (sequential pattern)
+   - ❌ ZERO TOLERANCE: Not even 1 Match question can have sequential pattern
+   - ✅ REQUIRED: EVERY Match must have scrambled pattern (e.g., A-iii, B-i, C-iv, D-ii)
+   - ✅ REQUIRED: Minimum 2 items crossed, prefer 3-4 crossed items
+
+3. **Sequential Ordering BANNED**: NEVER EVER make A-B-C-D the correct answer
+   - ❌ FORBIDDEN: A-B-C-D (items already in correct chronological order)
+   - ❌ ZERO TOLERANCE: Not even 1 Arrange question can have A-B-C-D answer
+   - ✅ REQUIRED: EVERY Arrange must scramble item order (e.g., B-D-A-C, D-A-C-B, C-A-D-B)
+   - ✅ REQUIRED: Present items in random/shuffled order, NOT natural sequence
+
+4. **A-R Option 1 Dominance**: DO NOT make majority of A-R questions have option (1)
+   - ❌ FORBIDDEN: Making 60%+ of A-R questions have answer "both true, R explains A"
+   - ✅ REQUIRED: Distribute answers across all 4 options (roughly 30% opt1, 30% opt2, 20% opt3, 20% opt4)
+   - Create variation: independent truths, false assertions, false reasons, non-causal relationships
+
+5. **Simplistic Questions BANNED**: NEVER make trivial questions that insult intelligence
+   - ❌ FORBIDDEN: Questions any layperson could answer without Rajasthan knowledge
+   - ✅ REQUIRED: Professional-grade with specific facts, dates, numbers, nuanced distinctions
+
+**⚠️ CRITICAL: If you violate patterns #1, #2, or #3 even ONCE, the entire question set will be REJECTED**
 
 ### EXPLANATION REQUIREMENTS (MANDATORY):
 - ✅ Explain WHY correct answer is right

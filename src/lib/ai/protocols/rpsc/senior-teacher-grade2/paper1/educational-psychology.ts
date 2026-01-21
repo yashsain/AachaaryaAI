@@ -39,12 +39,12 @@ const edPsychArchetypes = {
     arrangeInOrder: 0.05             // NEW - simple stage sequences
   },
   balanced: {
-    theoryIdentification: 0.05,      // REDUCED from 0.35 - REET 2026 pattern
-    matchTheFollowing: 0.25,         // NEW - Match theorist-theory-concept
-    multiStatementEvaluation: 0.40,  // NEW DOMINANT - MSQ format
-    scenarioApplication: 0.15,       // REDUCED from 0.30
-    definitional: 0.05,              // REDUCED from 0.25
-    arrangeInOrder: 0.10             // NEW - Arrange stages/taxonomies
+    theoryIdentification: 0.10,      // ADJUSTED - 10% (theory identification, basic recall)
+    matchTheFollowing: 0.20,         // ADJUSTED - 20% Match theorist-theory-concept
+    multiStatementEvaluation: 0.35,  // ADJUSTED - 35% MSQ format (reduced from 40%)
+    scenarioApplication: 0.05,       // ADJUSTED - 5% (reduced from 15%)
+    arrangeInOrder: 0.15,            // ADJUSTED - 15% Arrange stages/taxonomies (increased from 10%)
+    assertionReason: 0.15            // ADDED - 15% A-R (theory-application causal reasoning)
   },
   hard: {
     multiStatementEvaluation: 0.45,  // NEW DOMINANT - Complex MSQ
@@ -68,11 +68,11 @@ const structuralForms = {
     assertionReason: 0              // No A-R (too complex for easy)
   },
   balanced: {
-    standard4OptionMCQ: 0.20,       // PLAN TARGET - Only 20%
-    multipleSelectQuestions: 0.40,  // PLAN TARGET - 40% MSQ (most difficult)
-    matchTheFollowing: 0.25,        // PLAN TARGET - 25% Match
-    arrangeInOrder: 0.10,           // PLAN TARGET - 10% Arrange
-    assertionReason: 0.05           // PLAN TARGET - 5% A-R
+    standard4OptionMCQ: 0.15,       // ADJUSTED - 15% (reduced from 20%)
+    multipleSelectQuestions: 0.35,  // ADJUSTED - 35% MSQ (reduced from 40%)
+    matchTheFollowing: 0.20,        // ADJUSTED - 20% Match (reduced from 25%)
+    arrangeInOrder: 0.15,           // ADJUSTED - 15% Arrange (increased from 10%)
+    assertionReason: 0.15           // INCREASED - 15% A-R (up from 5% - critical for theory-application reasoning)
   },
   hard: {
     standard4OptionMCQ: 0.10,       // Minimal MCQ for hard
@@ -155,7 +155,28 @@ const prohibitions: string[] = [
   'NEVER use these archetypes: singleFactRecall, exceptionNegative, comparative, statementValidation, matching, sequencing',
   'ONLY use these 7 allowed archetypes: multiStatementEvaluation, matchTheFollowing, arrangeInOrder, assertionReason, scenarioApplication, theoryIdentification, definitional',
   'NEVER use archetypes from other protocols - use only the 7 allowed for Educational Psychology',
-  'NEVER use old archetype names from previous versions - use only the 7 allowed names above'
+  'NEVER use old archetype names from previous versions - use only the 7 allowed names above',
+
+  // ARCHETYPE DISTRIBUTION ENFORCEMENT (CRITICAL - MANDATORY COMPLIANCE):
+  '🔴 ARCHETYPE COUNTS ARE MANDATORY - NOT SUGGESTIONS: You MUST generate EXACTLY the specified counts for each archetype',
+  '🔴 ASSERTION-REASON MINIMUM ENFORCED: If protocol specifies N Assertion-Reason questions, generate AT LEAST N questions - DO NOT under-generate this format',
+  '🔴 MSQ (Multi-Statement) MINIMUM ENFORCED: If protocol specifies N MSQ questions, generate AT LEAST N questions - This is the DOMINANT format',
+  '🔴 MATCH-THE-FOLLOWING MINIMUM ENFORCED: If protocol specifies N Match questions, generate AT LEAST N questions',
+  '🔴 ARRANGE-IN-ORDER MINIMUM ENFORCED: If protocol specifies N Arrange questions, generate AT LEAST N questions',
+  '🔴 DO NOT over-generate basic recall at expense of complex formats - respect the percentages strictly',
+  '🔴 BEFORE RETURNING: Count each archetype - if ANY archetype falls short of target by 2+, REGENERATE those missing questions',
+
+  // QUALITY PATTERN PROHIBITIONS (CRITICAL - Zero Tolerance):
+  '❌ MSQ "ALL CORRECT" ABSOLUTELY BANNED: NEVER EVER make MSQ questions where all statements (a,b,c,d) are correct - ZERO TOLERANCE - Not even 1 question',
+  '❌ SEQUENTIAL MATCHING ABSOLUTELY BANNED: NEVER EVER make Match-the-Following with A-i, B-ii, C-iii, D-iv as correct answer - ZERO TOLERANCE - Not even 1 question',
+  '❌ SEQUENTIAL ORDERING ABSOLUTELY BANNED: NEVER EVER make Arrange-in-Order with A-B-C-D as correct answer - ZERO TOLERANCE - Not even 1 question',
+  '❌ A-R OPTION 1 DOMINANCE FORBIDDEN: NEVER make more than 60% of Assertion-Reason questions have option (1) - Distribute across all 4 options',
+  '❌ SIMPLISTIC PSYCHOLOGY BANNED: NEVER make trivial questions that any layperson could answer without psychology knowledge',
+  'EVERY MSQ MUST have mix of true/false statements requiring discrimination - create realistic false statements using misattributions, reversed theories, incorrect age ranges',
+  'EVERY Match MUST have scrambled pattern (e.g., A-iii, B-i, C-iv, D-ii) - minimum 2 items crossed',
+  'EVERY Arrange MUST scramble item order (e.g., B-D-A-C, D-A-C-B, A-D-C-B) - present items in random/shuffled order, NOT natural sequence',
+  'A-R questions MUST be distributed: roughly 30% opt1, 30% opt2, 20% opt3, 20% opt4 - create variation with independent truths, false assertions, false reasons',
+  'PROFESSIONAL-GRADE QUESTIONS REQUIRED: Specific theorists, stages, ages, processes, nuanced distinctions - NOT obvious/generic psychology'
 ]
 
 /**
@@ -207,6 +228,36 @@ ${!hasStudyMaterials ? `
 - Include major educational psychologists and their contributions
 - Balance theory-based recall with application-oriented scenario questions
 ` : ''}
+
+---
+
+## ⚠️ CRITICAL QUALITY STANDARDS - READ CAREFULLY
+
+This is a COMPETITIVE GOVERNMENT EXAM for SENIOR TEACHER positions. Questions MUST be:
+- **Academically rigorous** - test deep psychological knowledge, not superficial definitions
+- **Professionally appropriate** - suitable for evaluating experienced educators
+- **Discriminating** - separate strong candidates from weak ones
+- **Complex enough** to challenge senior-level candidates
+- **NOT simplistic** - avoid obvious/trivial psychology that insult candidate intelligence
+- **NOT generic** - use specific theories, psychologists, stages, processes with precise details
+- **Theory-grounded** - every question must be rooted in established educational psychology
+
+**FORBIDDEN QUALITY FAILURES:**
+❌ Overly simple definitions that any layperson could answer
+❌ Generic questions without specific theorist attribution or precise details
+❌ Questions with obvious answers that don't test real psychological knowledge
+❌ Lazy statement combinations that are all obviously true/false
+❌ Predictable matching patterns (theorist names in same order as theories)
+❌ Surface-level recall when deeper application/analysis is possible
+❌ Misattributed theories or incorrect age ranges for developmental stages
+
+**REQUIRED QUALITY MARKERS:**
+✅ Specific details (theorist names, stage ages, process names, exact terminology)
+✅ Nuanced distinctions requiring careful study of educational psychology
+✅ Integration of multiple theories or concepts (e.g., Piaget + Vygotsky comparison)
+✅ Critical thinking and analytical reasoning about psychological concepts
+✅ Professional-grade difficulty appropriate for senior educators
+✅ Scenario-based application questions that test understanding, not just memorization
 
 ---
 
@@ -518,6 +569,15 @@ Piaget के संज्ञानात्मक विकास सिद्�
 - ALL options must be grammatically parallel: "केवल (a) और (b)" format
 - Ensure only ONE option contains the correct combination
 
+**⚠️ CRITICAL MSQ QUALITY RULE - ZERO TOLERANCE:**
+**"ALL CORRECT" ANSWERS BANNED**: NEVER make MSQ questions where all statements are correct
+- ❌ ZERO TOLERANCE: Do NOT make even 1 MSQ question with all options (a), (b), (c), (d) correct
+- ✅ EVERY MSQ MUST have MIX of true/false statements requiring discrimination
+- Create realistic false statements using: common misconceptions, reversed theories, misattributions, incorrect age ranges
+- MAKE IT CHALLENGING - test actual psychological knowledge, not just "select all correct" laziness
+- Example distribution for 10 MSQ: 3 correct (a,b), 2 correct (a,c), 3 correct (b,d), 2 correct (a,b,c) - ZERO "all correct"
+- **FORBIDDEN LAZINESS**: Do NOT make all statements obviously true - this is NOT a quality question
+
 **FORMAT 3: MATCH-THE-FOLLOWING (25% of questions):**
 \`\`\`
 सूची-I को सूची-II से सुमेलित कीजिए:
@@ -538,6 +598,15 @@ D. Gagne                  iv. Hierarchy of Learning
 - Ensure all pairings are factually accurate
 - Create plausible distractor options by mixing correct pairings
 
+**⚠️ CRITICAL MATCH QUALITY RULE - RANDOMIZATION ENFORCEMENT:**
+**LAZY SEQUENTIAL MATCHING FORBIDDEN**: NEVER make A-i, B-ii, C-iii, D-iv the correct answer
+- This is LAZY question making and provides ZERO challenge
+- Correct answer MUST have randomized matching (e.g., A-iii, B-i, C-iv, D-ii)
+- Minimum 2 items must be "crossed" (not sequential) - prefer 3-4 crossed items
+- Examples of ACCEPTABLE patterns: A-ii, B-iv, C-i, D-iii OR A-iii, B-i, C-iv, D-ii
+- Example of FORBIDDEN pattern: A-i, B-ii, C-iii, D-iv (this will be REJECTED)
+- **QUALITY TEST**: If a student can guess without reading List-II, the question is TOO EASY
+
 **FORMAT 4: ARRANGE-IN-ORDER (10% of questions):**
 \`\`\`
 Bandura के अवलोकनात्मक अधिगम की प्रक्रियाओं को सही क्रम में व्यवस्थित कीजिए:
@@ -557,6 +626,16 @@ D. अवधारणात्मक (Retentional)
 - Ensure items have clear ordering criteria
 - Create distractor sequences with partial correctness
 
+**⚠️ CRITICAL ARRANGE QUALITY RULE - RANDOMIZATION ENFORCEMENT:**
+**LAZY SEQUENTIAL ORDERING FORBIDDEN**: NEVER make A-B-C-D the correct answer
+- This is LAZY question making - items are already in correct order, providing ZERO challenge
+- Correct answer MUST scramble the order (e.g., B-D-A-C, D-A-C-B, C-A-D-B)
+- Present items in RANDOM/SHUFFLED order initially, NOT in their natural sequence
+- Examples of ACCEPTABLE patterns: B-D-A-C, D-C-B-A, C-A-D-B, B-A-D-C, A-D-C-B
+- Example of FORBIDDEN pattern: A-B-C-D (this will be REJECTED)
+- **QUALITY TEST**: If the items are already presented in correct chronological/sequential order, you are being LAZY
+- Shuffle items deliberately so students must think about the correct sequence
+
 **FORMAT 5: ASSERTION-REASON (5% of questions):**
 \`\`\`
 निम्नलिखित कथनों पर विचार कीजिए:
@@ -573,6 +652,18 @@ D. अवधारणात्मक (Retentional)
 - Both must be independently factual claims about psychological theories
 - Test causal/logical relationship between them
 - Standard 4 options (as shown above) - MUST use these exact options in Hindi
+
+**⚠️ CRITICAL A-R QUALITY RULE - ANSWER DISTRIBUTION ENFORCEMENT:**
+**OPTION 1 DOMINANCE FORBIDDEN**: Maximum 30-40% of A-R questions can have option (1) as correct answer
+- **REQUIRED DISTRIBUTION** for Assertion-Reason questions:
+  - Option (1) "Both true, R explains A": 30-40% of questions
+  - Option (2) "Both true, R does NOT explain A": 30-35% of questions
+  - Option (3) "A true, R false": 15-20% of questions
+  - Option (4) "A false, R true": 10-15% of questions
+- **AVOID LAZY PATTERN**: Do NOT make all A-R questions have both statements true with correct explanation
+- Create proper variation: independent truths, false assertions, false reasons, non-causal relationships
+- **QUALITY TEST**: If 80%+ of A-R questions are option (1), you are being LAZY - add more variety
+- Example distribution for 10 A-R: 4 option(1), 3 option(2), 2 option(3), 1 option(4)
 
 ---
 
@@ -593,6 +684,37 @@ D. अवधारणात्मक (Retentional)
 - ✅ MUST use exactly 4 options (1), (2), (3), (4)
 - ✅ ALL content in Hindi (but psychologist names can be in English)
 - ✅ Must have ONE clearly correct answer
+
+### ❌ ABSOLUTELY FORBIDDEN LAZY PATTERNS (Zero Violations Allowed):
+
+1. **MSQ "All Correct" BANNED**: NEVER EVER make MSQ questions where all statements are correct
+   - ❌ FORBIDDEN: Answer where ALL options (a), (b), (c), (d) are correct
+   - ❌ ZERO TOLERANCE: Not even 1 question out of 10 can have "all correct" answer
+   - ✅ REQUIRED: EVERY MSQ must have mix of true/false statements requiring discrimination
+   - ✅ REQUIRED: Create realistic false statements using misattributions, reversed theories, incorrect age ranges
+
+2. **Sequential Matching BANNED**: NEVER EVER make A-i, B-ii, C-iii, D-iv the correct answer
+   - ❌ FORBIDDEN: A-i, B-ii, C-iii, D-iv (sequential pattern)
+   - ❌ ZERO TOLERANCE: Not even 1 Match question can have sequential pattern
+   - ✅ REQUIRED: EVERY Match must have scrambled pattern (e.g., A-iii, B-i, C-iv, D-ii)
+   - ✅ REQUIRED: Minimum 2 items crossed, prefer 3-4 crossed items
+
+3. **Sequential Ordering BANNED**: NEVER EVER make A-B-C-D the correct answer
+   - ❌ FORBIDDEN: A-B-C-D (items already in correct order)
+   - ❌ ZERO TOLERANCE: Not even 1 Arrange question can have A-B-C-D answer
+   - ✅ REQUIRED: EVERY Arrange must scramble item order (e.g., B-D-A-C, D-A-C-B, A-D-C-B)
+   - ✅ REQUIRED: Present items in random/shuffled order, NOT natural sequence
+
+4. **A-R Option 1 Dominance**: DO NOT make majority of A-R questions have option (1)
+   - ❌ FORBIDDEN: Making 60%+ of A-R questions have answer "both true, R explains A"
+   - ✅ REQUIRED: Distribute answers across all 4 options (roughly 30% opt1, 30% opt2, 20% opt3, 20% opt4)
+   - Create variation: independent truths, false assertions, false reasons, non-causal relationships
+
+5. **Simplistic Psychology BANNED**: NEVER make trivial questions that insult intelligence
+   - ❌ FORBIDDEN: Questions any layperson could answer without psychology knowledge
+   - ✅ REQUIRED: Professional-grade with specific theorists, stages, ages, processes, nuanced distinctions
+
+**⚠️ CRITICAL: If you violate patterns #1, #2, or #3 even ONCE, the entire question set will be REJECTED**
 
 ### EXPLANATION REQUIREMENTS:
 - ✅ Explain the theory/concept clearly

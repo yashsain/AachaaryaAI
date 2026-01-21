@@ -183,7 +183,7 @@ export default function GenerateQuestionsPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate questions')
+        throw new Error('We encountered an issue generating questions. Please try again.')
       }
 
       console.log('[GENERATE_QUESTIONS_UI_SUCCESS]', data)
@@ -201,7 +201,7 @@ export default function GenerateQuestionsPage() {
 
     } catch (err) {
       console.error('[GENERATE_QUESTIONS_UI_ERROR]', err)
-      setGenerateError(err instanceof Error ? err.message : 'Failed to generate questions')
+      setGenerateError(err instanceof Error ? err.message : 'We encountered an issue generating questions. Please try again.')
     } finally {
       if (dryRun) {
         setDryRunning(false)

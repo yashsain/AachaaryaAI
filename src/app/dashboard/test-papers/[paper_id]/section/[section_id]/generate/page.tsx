@@ -66,7 +66,7 @@ export default function SectionGeneratePage({ params }: SectionGeneratePageProps
       })
 
       if (!response.ok) {
-        throw new Error('Failed to fetch section details')
+        throw new Error('Unable to load section details. Please try again.')
       }
 
       const data = await response.json()
@@ -82,7 +82,7 @@ export default function SectionGeneratePage({ params }: SectionGeneratePageProps
 
     } catch (err) {
       console.error('Error fetching section details:', err)
-      setError(err instanceof Error ? err.message : 'Failed to load section details')
+      setError(err instanceof Error ? err.message : 'Unable to load section details. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -125,7 +125,7 @@ export default function SectionGeneratePage({ params }: SectionGeneratePageProps
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate questions')
+        throw new Error('We encountered an issue generating questions. Please try again.')
       }
 
       console.log('[GENERATE_SUCCESS]', data)
@@ -139,7 +139,7 @@ export default function SectionGeneratePage({ params }: SectionGeneratePageProps
 
     } catch (err) {
       console.error('[GENERATE_ERROR]', err)
-      setError(err instanceof Error ? err.message : 'Failed to generate questions')
+      setError(err instanceof Error ? err.message : 'We encountered an issue generating questions. Please try again.')
       setGenerationStatus('error')
     }
   }

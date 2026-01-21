@@ -36,12 +36,11 @@ const indiaWorldGKArchetypes = {
     arrangeInOrder: 0.10              // Basic ordering
   },
   balanced: {
-    singleFactRecall: 0.15,       // REDUCED from 0.50 - REET 2026 pattern
-    multiStatementEvaluation: 0.40, // NEW DOMINANT - MSQ format
-    arrangeInOrder: 0.20,         // INCREASED from 0.15
-    matchTheFollowing: 0.20,      // INCREASED from 0.10
-    exceptionNegative: 0.05       // REDUCED from 0.10
-    // statementValidation removed (was 0.15)
+    singleFactRecall: 0.15,       // ADJUSTED - 15% (matches MCQ structural form)
+    multiStatementEvaluation: 0.35, // ADJUSTED - 35% MSQ (reduced from 40%)
+    arrangeInOrder: 0.15,         // ADJUSTED - 15% (reduced from 20%)
+    matchTheFollowing: 0.20,      // MAINTAINED - 20%
+    assertionReason: 0.15         // ADDED - 15% A-R (new format for conceptual reasoning about historical/geographical causes)
   },
   hard: {
     multiStatementEvaluation: 0.50, // NEW DOMINANT - Complex MSQ
@@ -55,7 +54,7 @@ const indiaWorldGKArchetypes = {
  * Structural Forms - SEPARATED BY DIFFICULTY
  * REET 2026-inspired format distribution - Grade 2 MORE difficult than REET
  * Each difficulty level has its own structural form distribution
- * NOTE: India/World GK has NO Assertion-Reason format
+ * NOTE: India/World GK NOW includes Assertion-Reason format for balanced/hard difficulty
  */
 const structuralForms = {
   easy: {
@@ -65,10 +64,11 @@ const structuralForms = {
     arrangeInOrder: 0.05            // Minimal arrange
   },
   balanced: {
-    standard4OptionMCQ: 0.17,       // PLAN TARGET - Only 17%
-    multipleSelectQuestions: 0.40,  // PLAN TARGET - 40% MSQ (most difficult)
-    matchTheFollowing: 0.20,        // PLAN TARGET - 20% Match
-    arrangeInOrder: 0.23            // PLAN TARGET - 23% Arrange
+    standard4OptionMCQ: 0.15,       // ADJUSTED - 15% (reduced from 17%)
+    multipleSelectQuestions: 0.35,  // ADJUSTED - 35% MSQ (reduced from 40%)
+    matchTheFollowing: 0.20,        // MAINTAINED - 20% Match
+    arrangeInOrder: 0.15,           // ADJUSTED - 15% Arrange (reduced from 23%)
+    assertionReason: 0.15           // ADDED - 15% A-R (new format for conceptual reasoning)
   },
   hard: {
     standard4OptionMCQ: 0.10,       // Minimal MCQ for hard
@@ -146,10 +146,30 @@ const prohibitions: string[] = [
   'NEVER generate explanation as null or empty string - MUST be detailed explanation with minimum 20 characters',
 
   // ARCHETYPE PROHIBITIONS (CRITICAL - Prevents JSON parse errors):
-  'NEVER use these archetypes: assertionReason, comparative, statementValidation, matching, sequencing',
-  'ONLY use these 5 allowed archetypes: multiStatementEvaluation, matchTheFollowing, arrangeInOrder, singleFactRecall, exceptionNegative',
-  'NEVER generate Assertion-Reason format questions - NOT applicable to India/World GK',
-  'NEVER use old archetype names from previous versions - use only the 5 allowed names above'
+  'NEVER use these old/invalid archetypes: comparative, statementValidation, matching, sequencing',
+  'ONLY use these 6 allowed archetypes: multiStatementEvaluation, matchTheFollowing, arrangeInOrder, singleFactRecall, exceptionNegative, assertionReason',
+  'NEVER use old archetype names from previous versions - use only the 6 allowed names above',
+
+  // ARCHETYPE DISTRIBUTION ENFORCEMENT (CRITICAL - MANDATORY COMPLIANCE):
+  '🔴 ARCHETYPE COUNTS ARE MANDATORY - NOT SUGGESTIONS: You MUST generate EXACTLY the specified counts for each archetype',
+  '🔴 ASSERTION-REASON MINIMUM ENFORCED: If protocol specifies N Assertion-Reason questions, generate AT LEAST N questions - DO NOT under-generate this format',
+  '🔴 MSQ (Multi-Statement) MINIMUM ENFORCED: If protocol specifies N MSQ questions, generate AT LEAST N questions - This is the DOMINANT format',
+  '🔴 MATCH-THE-FOLLOWING MINIMUM ENFORCED: If protocol specifies N Match questions, generate AT LEAST N questions',
+  '🔴 ARRANGE-IN-ORDER MINIMUM ENFORCED: If protocol specifies N Arrange questions, generate AT LEAST N questions',
+  '🔴 DO NOT over-generate Single-Fact Recall at expense of complex formats - respect the percentages strictly',
+  '🔴 BEFORE RETURNING: Count each archetype - if ANY archetype falls short of target by 2+, REGENERATE those missing questions',
+
+  // QUALITY PATTERN PROHIBITIONS (CRITICAL - Zero Tolerance):
+  '❌ MSQ "ALL CORRECT" ABSOLUTELY BANNED: NEVER EVER make MSQ questions where all statements (a,b,c,d) are correct - ZERO TOLERANCE - Not even 1 question',
+  '❌ SEQUENTIAL MATCHING ABSOLUTELY BANNED: NEVER EVER make Match-the-Following with A-i, B-ii, C-iii, D-iv as correct answer - ZERO TOLERANCE - Not even 1 question',
+  '❌ SEQUENTIAL ORDERING ABSOLUTELY BANNED: NEVER EVER make Arrange-in-Order with A-B-C-D as correct answer - ZERO TOLERANCE - Not even 1 question',
+  '❌ A-R OPTION 1 DOMINANCE FORBIDDEN: NEVER make more than 60% of Assertion-Reason questions have option (1) - Distribute across all 4 options',
+  '❌ SIMPLISTIC GK BANNED: NEVER make trivial questions that any layperson could answer without India/World GK knowledge',
+  'EVERY MSQ MUST have mix of true/false statements requiring discrimination - create realistic false statements using misconceptions, partial truths',
+  'EVERY Match MUST have scrambled pattern (e.g., A-iii, B-i, C-iv, D-ii) - minimum 2 items crossed',
+  'EVERY Arrange MUST scramble item order (e.g., B-D-A-C, D-A-C-B) - present items in random/shuffled order, NOT natural sequence',
+  'A-R questions MUST test causal relationships: Why events happened, geographical causes, constitutional reasoning',
+  'PROFESSIONAL-GRADE QUESTIONS REQUIRED: Specific Article numbers, dates, facts, nuanced distinctions - NOT obvious/generic GK'
 ]
 
 /**
@@ -201,6 +221,36 @@ ${!hasStudyMaterials ? `
 - Ensure questions reflect NCERT-level knowledge with advanced topics
 - Maintain factual accuracy for all India & World GK content
 ` : ''}
+
+---
+
+## ⚠️ CRITICAL QUALITY STANDARDS - READ CAREFULLY
+
+This is a COMPETITIVE GOVERNMENT EXAM for SENIOR TEACHER positions. Questions MUST be:
+- **Academically rigorous** - test deep India & World GK knowledge, not trivial facts
+- **Professionally appropriate** - suitable for evaluating experienced educators
+- **Discriminating** - separate strong candidates from weak ones
+- **Complex enough** to challenge senior-level candidates
+- **NOT simplistic** - avoid obvious/trivial GK that insult candidate intelligence
+- **NOT generic** - use specific details from Indian Polity, Geography, History, Economy
+- **NCERT-plus level** - go beyond basic NCERT to include advanced topics
+
+**FORBIDDEN QUALITY FAILURES:**
+❌ Overly simple GK that any layperson could answer
+❌ Generic questions without specific depth (dates, names, facts, numbers)
+❌ Questions with obvious answers that don't test real knowledge
+❌ Lazy statement combinations that are all obviously true/false
+❌ Predictable matching patterns that require no thinking
+❌ Surface-level recall when deeper analysis is possible
+❌ Outdated information contradicting current constitutional/geographical facts
+
+**REQUIRED QUALITY MARKERS:**
+✅ Specific details (dates, Article numbers, names, places, numbers) from India GK
+✅ Nuanced distinctions requiring careful study of Polity, Geography, History
+✅ Integration of multiple knowledge domains (e.g., Geography + Economy + History)
+✅ Critical thinking and analytical reasoning about India & World affairs
+✅ Professional-grade difficulty appropriate for senior educators
+✅ NCERT-based but with advanced/contemporary extensions
 
 ---
 
@@ -517,6 +567,15 @@ Example: भारत में व्यवसाय प्रत्याश�
 - ALL options must be grammatically parallel: "केवल (a) और (b)" format
 - Ensure only ONE option contains the correct combination
 
+**⚠️ CRITICAL MSQ QUALITY RULE - ZERO TOLERANCE:**
+**"ALL CORRECT" ANSWERS BANNED**: NEVER make MSQ questions where all statements are correct
+- ❌ ZERO TOLERANCE: Do NOT make even 1 MSQ question with all options (a), (b), (c), (d) correct
+- ✅ EVERY MSQ MUST have MIX of true/false statements requiring discrimination
+- Create realistic false statements using: common misconceptions, partial truths, reversed facts, outdated data
+- MAKE IT CHALLENGING - test actual knowledge, not just "select all correct" laziness
+- Example distribution for 10 MSQ: 3 correct (a,b), 2 correct (a,c), 3 correct (b,d), 2 correct (a,b,c) - ZERO "all correct"
+- **FORBIDDEN LAZINESS**: Do NOT make all statements obviously true - this is NOT a quality question
+
 **FORMAT 3: MATCH-THE-FOLLOWING (20% of questions):**
 \`\`\`
 सूची-I को सूची-II से सुमेलित कीजिए:
@@ -537,6 +596,15 @@ D. तस्करी का निषेध       iv. अनुच्छेद 
 - Create plausible distractor options by mixing correct pairings
 - All-or-nothing: entire pattern must match correctly
 
+**⚠️ CRITICAL MATCH QUALITY RULE - RANDOMIZATION ENFORCEMENT:**
+**LAZY SEQUENTIAL MATCHING FORBIDDEN**: NEVER make A-i, B-ii, C-iii, D-iv the correct answer
+- This is LAZY question making and provides ZERO challenge
+- Correct answer MUST have randomized matching (e.g., A-iii, B-i, C-iv, D-ii)
+- Minimum 2 items must be "crossed" (not sequential) - prefer 3-4 crossed items
+- Examples of ACCEPTABLE patterns: A-ii, B-iv, C-i, D-iii OR A-iii, B-i, C-iv, D-ii
+- Example of FORBIDDEN pattern: A-i, B-ii, C-iii, D-iv (this will be REJECTED)
+- **QUALITY TEST**: If a student can guess without reading List-II, the question is TOO EASY
+
 **FORMAT 4: ARRANGE-IN-ORDER (23% of questions):**
 \`\`\`
 निम्नलिखित महाद्वीपों को जनसंख्या के अवरोही क्रम (सर्वाधिक से न्यूनतम) में व्यवस्थित कीजिए:
@@ -555,6 +623,16 @@ D. दक्षिण अमेरिका
 - Types: Chronological, Numerical (ascending/descending), Spatial (west→east, north→south)
 - Ensure items have clear ordering criteria
 - Create distractor sequences with partial correctness
+
+**⚠️ CRITICAL ARRANGE QUALITY RULE - RANDOMIZATION ENFORCEMENT:**
+**LAZY SEQUENTIAL ORDERING FORBIDDEN**: NEVER make A-B-C-D the correct answer
+- This is LAZY question making - items are already in correct order, providing ZERO challenge
+- Correct answer MUST scramble the order (e.g., B-D-A-C, D-A-C-B, C-A-D-B)
+- Present items in RANDOM/SHUFFLED order initially, NOT in their natural sequence
+- Examples of ACCEPTABLE patterns: B-D-A-C, D-C-B-A, C-A-D-B, B-A-D-C
+- Example of FORBIDDEN pattern: A-B-C-D (this will be REJECTED)
+- **QUALITY TEST**: If the items are already presented in correct chronological/numerical/spatial order, you are being LAZY
+- Shuffle items deliberately so students must think about the correct sequence
 
 ---
 
@@ -575,6 +653,32 @@ D. दक्षिण अमेरिका
 - ✅ MUST use exactly 4 options (1), (2), (3), (4)
 - ✅ ALL content in Hindi
 - ✅ Must be factually accurate
+
+### ❌ ABSOLUTELY FORBIDDEN LAZY PATTERNS (Zero Violations Allowed):
+
+1. **MSQ "All Correct" BANNED**: NEVER EVER make MSQ questions where all statements are correct
+   - ❌ FORBIDDEN: Answer where ALL options (a), (b), (c), (d) are correct
+   - ❌ ZERO TOLERANCE: Not even 1 question out of 10 can have "all correct" answer
+   - ✅ REQUIRED: EVERY MSQ must have mix of true/false statements requiring discrimination
+   - ✅ REQUIRED: Create realistic false statements using misconceptions, partial truths, reversed facts
+
+2. **Sequential Matching BANNED**: NEVER EVER make A-i, B-ii, C-iii, D-iv the correct answer
+   - ❌ FORBIDDEN: A-i, B-ii, C-iii, D-iv (sequential pattern)
+   - ❌ ZERO TOLERANCE: Not even 1 Match question can have sequential pattern
+   - ✅ REQUIRED: EVERY Match must have scrambled pattern (e.g., A-iii, B-i, C-iv, D-ii)
+   - ✅ REQUIRED: Minimum 2 items crossed, prefer 3-4 crossed items
+
+3. **Sequential Ordering BANNED**: NEVER EVER make A-B-C-D the correct answer
+   - ❌ FORBIDDEN: A-B-C-D (items already in correct order)
+   - ❌ ZERO TOLERANCE: Not even 1 Arrange question can have A-B-C-D answer
+   - ✅ REQUIRED: EVERY Arrange must scramble item order (e.g., B-D-A-C, D-A-C-B, C-A-D-B)
+   - ✅ REQUIRED: Present items in random/shuffled order, NOT natural sequence
+
+4. **Simplistic GK BANNED**: NEVER make trivial questions that insult intelligence
+   - ❌ FORBIDDEN: Questions any layperson could answer without India/World GK knowledge
+   - ✅ REQUIRED: Professional-grade with specific Article numbers, dates, facts, nuanced distinctions
+
+**⚠️ CRITICAL: If you violate patterns #1, #2, or #3 even ONCE, the entire question set will be REJECTED**
 
 ### EXPLANATION REQUIREMENTS:
 - ✅ Explain correct answer with factual basis

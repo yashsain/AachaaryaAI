@@ -99,7 +99,7 @@ export async function POST(
 
     if (!streamName || !subjectName) {
       console.error('[DRY_RUN_ERROR] Paper missing stream or subject')
-      return NextResponse.json({ error: 'Paper configuration incomplete' }, { status: 400 })
+      return NextResponse.json({ error: 'This paper is not ready for question generation. Please check the paper configuration.' }, { status: 400 })
     }
 
     let protocol
@@ -108,10 +108,7 @@ export async function POST(
       console.log(`[DRY_RUN] Using protocol: ${protocol.id} (${protocol.name}) for ${streamName} - ${subjectName}`)
     } catch (protocolError) {
       console.error('[DRY_RUN_ERROR] Protocol not found:', protocolError)
-      return NextResponse.json({
-        error: `No question generation protocol available for ${streamName} ${subjectName}. Please contact support.`,
-        details: protocolError instanceof Error ? protocolError.message : 'Unknown error'
-      }, { status: 400 })
+      return NextResponse.json({ error: 'We encountered an issue generating questions. Please try again.' }, { status: 400 })
     }
 
     // Fetch chapters for this paper from section_chapters
@@ -131,7 +128,7 @@ export async function POST(
 
     if (chaptersError || !sectionChapterRels || sectionChapterRels.length === 0) {
       console.error('[DRY_RUN_ERROR] No chapters found:', chaptersError)
-      return NextResponse.json({ error: 'No chapters found for this paper' }, { status: 400 })
+      return NextResponse.json({ error: 'This paper is not ready for question generation. Please check the paper configuration.' }, { status: 400 })
     }
 
     // Get unique chapters (deduplicate since sections may share chapters)
@@ -461,9 +458,6 @@ export async function POST(
 
   } catch (error) {
     console.error('[DRY_RUN_EXCEPTION]', error)
-    return NextResponse.json({
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    return NextResponse.json({ error: 'We encountered an issue generating questions. Please try again.' }, { status: 500 })
   }
 }

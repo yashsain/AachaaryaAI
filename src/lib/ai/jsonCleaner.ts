@@ -14,21 +14,35 @@ export function cleanGeminiJSON(rawResponse: string): string {
   cleaned = cleaned.replace(/^`+\s*/, '')
   cleaned = cleaned.replace(/\s*`+$/g, '')
 
-  // Strategy 2: Extract JSON by finding matching braces
-  // Find first { and last } to handle text before/after
+  // Strategy 2: Extract JSON by finding matching delimiters
+  // Handle both arrays [...] and objects {...}
+  const firstBracket = cleaned.indexOf('[')
+  const lastBracket = cleaned.lastIndexOf(']')
   const firstBrace = cleaned.indexOf('{')
   const lastBrace = cleaned.lastIndexOf('}')
 
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+  // Determine if response is array or object based on which comes first
+  const isArray = firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace)
+
+  if (isArray && firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+    // Extract array [...] including all content
+    cleaned = cleaned.substring(firstBracket, lastBracket + 1)
+  } else if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    // Extract object {...}
     cleaned = cleaned.substring(firstBrace, lastBrace + 1)
   }
 
   // Strategy 3: Remove explanatory text that might be inside
-  // Pattern: {...} some text {...} -> take the largest {...}
-  const matches = cleaned.match(/\{[\s\S]*\}/g)
-  if (matches && matches.length > 0) {
-    // Take the longest match (most likely to be complete)
-    cleaned = matches.reduce((a, b) => a.length > b.length ? a : b)
+  // Pattern: {...} some text {...} or [...] some text [...] -> take the largest one
+  const arrayMatches = cleaned.match(/\[[\s\S]*\]/g)
+  const objectMatches = cleaned.match(/\{[\s\S]*\}/g)
+
+  if (arrayMatches && arrayMatches.length > 0) {
+    // Take the longest array match (most likely to be complete)
+    cleaned = arrayMatches.reduce((a, b) => a.length > b.length ? a : b)
+  } else if (objectMatches && objectMatches.length > 0) {
+    // Take the longest object match (most likely to be complete)
+    cleaned = objectMatches.reduce((a, b) => a.length > b.length ? a : b)
   }
 
   // Strategy 4: Fix common JSON syntax issues
@@ -71,8 +85,21 @@ export function parseGeminiJSON<T = any>(rawResponse: string): T {
   try {
     return JSON.parse(cleaned)
   } catch (error) {
-    // If parse fails, try one more aggressive fix: remove everything after last }
+    // If parse fails, try one more aggressive fix: remove everything after last delimiter
+    const lastBracket = cleaned.lastIndexOf(']')
     const lastBrace = cleaned.lastIndexOf('}')
+
+    // Try array truncation first if array delimiter is later
+    if (lastBracket > lastBrace && lastBracket !== -1) {
+      const truncated = cleaned.substring(0, lastBracket + 1)
+      try {
+        return JSON.parse(truncated)
+      } catch {
+        // Try object truncation as fallback
+      }
+    }
+
+    // Try object truncation
     if (lastBrace !== -1) {
       const truncated = cleaned.substring(0, lastBrace + 1)
       try {

@@ -35,7 +35,7 @@ async function generateQuestionsForSections(
 
     if (!streamName) {
       console.error('[GENERATE_QUESTIONS_ERROR] Paper missing stream')
-      return NextResponse.json({ error: 'Paper configuration incomplete' }, { status: 400 })
+      return NextResponse.json({ error: 'This paper is not ready for question generation. Please check the paper configuration.' }, { status: 400 })
     }
 
     // Fetch all sections for this paper
@@ -63,7 +63,7 @@ async function generateQuestionsForSections(
 
     if (sectionsError || !sections || sections.length === 0) {
       console.error('[GENERATE_QUESTIONS_ERROR] No sections found:', sectionsError)
-      return NextResponse.json({ error: 'No sections found for this paper' }, { status: 400 })
+      return NextResponse.json({ error: 'This paper is not ready for question generation. Please check the paper configuration.' }, { status: 400 })
     }
 
     console.log(`[GENERATE_QUESTIONS] Processing ${sections.length} sections`)
@@ -568,7 +568,7 @@ ${aiKnowledgePrompt}`
                 .update({ status: 'failed' })
                 .eq('id', section.id)
 
-              return NextResponse.json({ error: 'Failed to save questions to database' }, { status: 500 })
+              return NextResponse.json({ error: 'We encountered an issue generating questions. Please try again.' }, { status: 500 })
             }
 
             sectionQuestionsGenerated += questions.length
@@ -733,7 +733,7 @@ export async function POST(
 
     if (!streamName || !subjectName) {
       console.error('[GENERATE_QUESTIONS_ERROR] Paper missing stream or subject')
-      return NextResponse.json({ error: 'Paper configuration incomplete' }, { status: 400 })
+      return NextResponse.json({ error: 'This paper is not ready for question generation. Please check the paper configuration.' }, { status: 400 })
     }
 
     let protocol
@@ -766,7 +766,7 @@ export async function POST(
 
     if (chaptersError || !sectionChapterRels || sectionChapterRels.length === 0) {
       console.error('[GENERATE_QUESTIONS_ERROR] No chapters found:', chaptersError)
-      return NextResponse.json({ error: 'No chapters found for this paper' }, { status: 400 })
+      return NextResponse.json({ error: 'This paper is not ready for question generation. Please check the paper configuration.' }, { status: 400 })
     }
 
     // Get unique chapters (deduplicate since all sections have same chapters for NEET-style)

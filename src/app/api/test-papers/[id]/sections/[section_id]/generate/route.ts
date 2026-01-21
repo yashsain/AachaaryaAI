@@ -114,8 +114,7 @@ export async function POST(
     // Allow 'in_review' to support regeneration when fixing protocol issues
     if (section.status !== 'ready' && section.status !== 'in_review') {
       return NextResponse.json({
-        error: `Section must have status 'ready' or 'in_review' to generate questions. Current status: ${section.status}`,
-        hint: section.status === 'pending' ? 'Assign chapters to this section first' : undefined
+        error: 'This section is not ready for question generation. Please check the section configuration.'
       }, { status: 400 })
     }
 
@@ -124,7 +123,7 @@ export async function POST(
 
     if (!streamName || !subjectName) {
       console.error('[GENERATE_SECTION_ERROR] Section missing stream or subject')
-      return NextResponse.json({ error: 'Section configuration incomplete' }, { status: 400 })
+      return NextResponse.json({ error: 'This section is not ready for question generation. Please check the section configuration.' }, { status: 400 })
     }
 
     console.log(`[GENERATE_SECTION] section="${section.section_name}" stream="${streamName}" subject="${subjectName}"`)
@@ -137,8 +136,7 @@ export async function POST(
     } catch (protocolError) {
       console.error('[GENERATE_SECTION_ERROR] Protocol not found:', protocolError)
       return NextResponse.json({
-        error: `No question generation protocol available for ${streamName} ${subjectName}`,
-        details: protocolError instanceof Error ? protocolError.message : 'Unknown error'
+        error: 'This section is not ready for question generation. Please check the section configuration.'
       }, { status: 400 })
     }
 
@@ -155,7 +153,7 @@ export async function POST(
       if (deleteError) {
         console.error('[GENERATE_SECTION_ERROR] Failed to delete existing questions:', deleteError)
         return NextResponse.json(
-          { error: 'Failed to delete existing questions for regeneration' },
+          { error: 'We encountered an issue generating questions. Please try again.' },
           { status: 500 }
         )
       }
@@ -192,7 +190,7 @@ export async function POST(
         .update({ status: 'failed' })
         .eq('id', sectionId)
 
-      return NextResponse.json({ error: 'No chapters assigned to this section' }, { status: 400 })
+      return NextResponse.json({ error: 'This section is not ready for question generation. Please check the section configuration.' }, { status: 400 })
     }
 
     // Special reserved UUID for AI Knowledge mode
@@ -259,10 +257,18 @@ ${aiKnowledgePrompt}`
         // Parse JSON response
         let parsedResponse: { questions: Question[] }
         try {
-          parsedResponse = parseGeminiJSON<{ questions: Question[] }>(responseText)
+          const rawParsed = parseGeminiJSON<any>(responseText)
 
-          if (!parsedResponse.questions || !Array.isArray(parsedResponse.questions)) {
-            throw new Error('Response missing "questions" array')
+          // Handle both formats: { questions: [...] } or just [...]
+          if (Array.isArray(rawParsed)) {
+            // Gemini returned bare array - wrap it
+            console.log(`[GENERATE_SECTION_AI_KNOWLEDGE] Gemini returned bare array, wrapping in questions object`)
+            parsedResponse = { questions: rawParsed }
+          } else if (rawParsed.questions && Array.isArray(rawParsed.questions)) {
+            // Expected format
+            parsedResponse = rawParsed
+          } else {
+            throw new Error('Response missing "questions" array or is not a valid array')
           }
 
           if (parsedResponse.questions.length === 0) {
@@ -286,8 +292,7 @@ ${aiKnowledgePrompt}`
             .eq('id', sectionId)
 
           return NextResponse.json({
-            error: `Failed to parse AI response: ${diagnostics.errorMessage}`,
-            details: 'Check server logs for full diagnostic info'
+            error: 'We encountered an issue generating questions. Please try again.'
           }, { status: 500 })
         }
 
@@ -302,7 +307,7 @@ ${aiKnowledgePrompt}`
             .update({ status: 'ready' })
             .eq('id', sectionId)
 
-          return NextResponse.json({ error: 'AI generated 0 questions' }, { status: 500 })
+          return NextResponse.json({ error: 'We encountered an issue generating questions. Please try again.' }, { status: 500 })
         }
 
         // Validate questions using protocol
@@ -361,7 +366,7 @@ ${aiKnowledgePrompt}`
             .update({ status: 'ready' })
             .eq('id', sectionId)
 
-          return NextResponse.json({ error: 'Failed to save questions to database' }, { status: 500 })
+          return NextResponse.json({ error: 'We encountered an issue generating questions. Please try again.' }, { status: 500 })
         }
 
         // Log API usage and costs
@@ -423,8 +428,7 @@ ${aiKnowledgePrompt}`
           .eq('id', sectionId)
 
         return NextResponse.json({
-          error: 'AI Knowledge Mode generation failed',
-          details: aiKnowledgeError instanceof Error ? aiKnowledgeError.message : 'Unknown error'
+          error: 'We encountered an issue generating questions. Please try again.'
         }, { status: 500 })
       }
     }
@@ -533,10 +537,18 @@ ${aiKnowledgePrompt}`
         // Step 6: Parse JSON response with production-grade cleaning
         let parsedResponse: { questions: Question[] }
         try {
-          parsedResponse = parseGeminiJSON<{ questions: Question[] }>(responseText)
+          const rawParsed = parseGeminiJSON<any>(responseText)
 
-          if (!parsedResponse.questions || !Array.isArray(parsedResponse.questions)) {
-            throw new Error('Response missing "questions" array')
+          // Handle both formats: { questions: [...] } or just [...]
+          if (Array.isArray(rawParsed)) {
+            // Gemini returned bare array - wrap it
+            console.log(`[GENERATE_SECTION] Gemini returned bare array, wrapping in questions object`)
+            parsedResponse = { questions: rawParsed }
+          } else if (rawParsed.questions && Array.isArray(rawParsed.questions)) {
+            // Expected format
+            parsedResponse = rawParsed
+          } else {
+            throw new Error('Response missing "questions" array or is not a valid array')
           }
 
           if (parsedResponse.questions.length === 0) {
@@ -561,8 +573,7 @@ ${aiKnowledgePrompt}`
             .eq('id', sectionId)
 
           return NextResponse.json({
-            error: `Failed to parse AI response: ${diagnostics.errorMessage}`,
-            details: 'Check server logs for full diagnostic info'
+            error: 'We encountered an issue generating questions. Please try again.'
           }, { status: 500 })
         }
 
@@ -618,7 +629,7 @@ ${aiKnowledgePrompt}`
 
           if (passageInsertError) {
             console.error('[GENERATE_SECTION_ERROR] Failed to insert passages:', passageInsertError)
-            return NextResponse.json({ error: 'Failed to save passages to database' }, { status: 500 })
+            return NextResponse.json({ error: 'We encountered an issue generating questions. Please try again.' }, { status: 500 })
           }
 
           // Map passage text to passage ID
@@ -680,7 +691,7 @@ ${aiKnowledgePrompt}`
             .update({ status: 'ready' })
             .eq('id', sectionId)
 
-          return NextResponse.json({ error: 'Failed to save questions to database' }, { status: 500 })
+          return NextResponse.json({ error: 'We encountered an issue generating questions. Please try again.' }, { status: 500 })
         }
 
         questionsGenerated += questions.length

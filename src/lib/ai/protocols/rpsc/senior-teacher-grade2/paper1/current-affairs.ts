@@ -36,11 +36,11 @@ const currentAffairsArchetypes = {
     policyScheme: 0.20               // Well-known schemes (MCQ-based)
   },
   balanced: {
-    recentEventRecall: 0.20,         // REDUCED from 0.50 - REET 2026 pattern
-    multiStatementEvaluation: 0.50,  // NEW DOMINANT - MSQ format (schemes, events)
-    policyScheme: 0.10,              // REDUCED from 0.30
-    appointmentAchievement: 0.10,    // REDUCED from 0.20
-    assertionReason: 0.10            // NEW - Event-cause relationships
+    recentEventRecall: 0.10,         // ADJUSTED - 10% (major events, appointments)
+    appointmentAchievement: 0.10,
+    policyScheme: 0.10,              // RESTORED - 10% (schemes, policies, initiatives)
+    multiStatementEvaluation: 0.40,  // ADJUSTED - 45% MSQ format (reduced from 50%)
+    assertionReason: 0.30            // INCREASED - 35% A-R (up from 10% - critical for event-cause reasoning in current affairs)
   },
   hard: {
     multiStatementEvaluation: 0.60,  // NEW DOMINANT - Complex policy/scheme MSQ
@@ -63,9 +63,9 @@ const structuralForms = {
     assertionReason: 0              // No A-R (too complex for easy)
   },
   balanced: {
-    standard4OptionMCQ: 0.30,       // PLAN TARGET - 30%
-    multipleSelectQuestions: 0.50,  // PLAN TARGET - 50% MSQ (most difficult)
-    assertionReason: 0.20           // PLAN TARGET - 20% A-R
+    standard4OptionMCQ: 0.20,       // ADJUSTED - 20% (reduced from 30% for more A-R)
+    multipleSelectQuestions: 0.45,  // ADJUSTED - 45% MSQ (reduced from 50%)
+    assertionReason: 0.35           // INCREASED - 35% A-R (up from 20% - event-cause reasoning critical for current affairs)
   },
   hard: {
     standard4OptionMCQ: 0.20,       // Less MCQ for hard
@@ -139,7 +139,22 @@ const prohibitions: string[] = [
   'NEVER generate more than 4 options - MUST be exactly 4 options',
   'NEVER generate invalid correctAnswer - MUST be one of "1", "2", "3", "4" (string format)',
   'NEVER generate questionText as null or empty string - MUST be full question with minimum 10 characters',
-  'NEVER generate explanation as null or empty string - MUST be detailed explanation with minimum 20 characters'
+  'NEVER generate explanation as null or empty string - MUST be detailed explanation with minimum 20 characters',
+
+  // ARCHETYPE DISTRIBUTION ENFORCEMENT (CRITICAL - MANDATORY COMPLIANCE):
+  '🔴 ARCHETYPE COUNTS ARE MANDATORY - NOT SUGGESTIONS: You MUST generate EXACTLY the specified counts for each archetype',
+  '🔴 ASSERTION-REASON MINIMUM ENFORCED: If protocol specifies N Assertion-Reason questions, generate AT LEAST N questions - DO NOT under-generate this format',
+  '🔴 MSQ (Multi-Statement) MINIMUM ENFORCED: If protocol specifies N MSQ questions, generate AT LEAST N questions - This is the DOMINANT format',
+  '🔴 DO NOT over-generate Recent Event Recall at expense of A-R format - respect the percentages strictly',
+  '🔴 BEFORE RETURNING: Count each archetype - if ANY archetype falls short of target by 2+, REGENERATE those missing questions',
+
+  // QUALITY PATTERN PROHIBITIONS (CRITICAL - Zero Tolerance):
+  '❌ MSQ "ALL CORRECT" ABSOLUTELY BANNED: NEVER EVER make MSQ questions where all statements (A,B,C,D) are correct - ZERO TOLERANCE - Not even 1 question',
+  '❌ A-R OPTION 1 DOMINANCE FORBIDDEN: NEVER make more than 60% of Assertion-Reason questions have option (1) - Distribute across all 4 options',
+  '❌ SIMPLISTIC CURRENT AFFAIRS BANNED: NEVER make trivial questions that any layperson could answer without current affairs knowledge',
+  'EVERY MSQ MUST have mix of true/false statements requiring discrimination - create realistic false statements using misconceptions, outdated data',
+  'A-R questions MUST be distributed: roughly 30% opt1, 30% opt2, 20% opt3, 20% opt4 - create variation with independent truths, false assertions',
+  'PROFESSIONAL-GRADE QUESTIONS REQUIRED: Specific dates, names, amounts, nuanced distinctions - NOT obvious/generic current affairs'
 ]
 
 /**
@@ -191,6 +206,35 @@ ${!hasStudyMaterials ? `
 - Cover major events, schemes, appointments, and developments in Rajasthan
 - Maintain factual accuracy for all current affairs content
 ` : ''}
+
+---
+
+## ⚠️ CRITICAL QUALITY STANDARDS - READ CAREFULLY
+
+This is a COMPETITIVE GOVERNMENT EXAM for SENIOR TEACHER positions. Questions MUST be:
+- **Academically rigorous** - test current affairs knowledge, not obvious facts
+- **Professionally appropriate** - suitable for evaluating experienced educators
+- **Discriminating** - separate strong candidates from weak ones
+- **Complex enough** to challenge senior-level candidates
+- **NOT simplistic** - avoid obvious/trivial current affairs that insult candidate intelligence
+- **NOT generic** - use specific Rajasthan current affairs, not general news anyone could guess
+- **Time-sensitive** - focus on 12-24 months recent events, NOT outdated news
+
+**FORBIDDEN QUALITY FAILURES:**
+❌ Overly simple current affairs that any layperson could answer
+❌ Generic questions without Rajasthan-specific depth
+❌ Questions with obvious answers that don't test real knowledge
+❌ Lazy statement combinations that are all obviously true/false
+❌ Surface-level event recall when deeper analysis is possible
+❌ Outdated events from more than 24 months ago
+
+**REQUIRED QUALITY MARKERS:**
+✅ Specific details (dates, names, places, numbers, amounts) from Rajasthan current affairs
+✅ Nuanced distinctions requiring careful attention to recent news
+✅ Integration of multiple knowledge domains (schemes + governance + development)
+✅ Critical thinking and analytical reasoning about current affairs
+✅ Professional-grade difficulty appropriate for senior educators
+✅ Recent events, schemes, appointments from last 12-24 months
 
 ---
 
@@ -455,6 +499,15 @@ D. जयपुर में G-20 शिखर सम्मेलन आयो�
 (4) सभी कथन सही हैं
 \`\`\`
 
+**⚠️ CRITICAL MSQ QUALITY RULE - ZERO TOLERANCE:**
+**"ALL CORRECT" ANSWERS BANNED**: NEVER make MSQ questions where all statements are correct
+- ❌ ZERO TOLERANCE: Do NOT make even 1 MSQ question with all options A, B, C, D correct
+- ✅ EVERY MSQ MUST have MIX of true/false statements requiring discrimination
+- Create realistic false statements using: common misconceptions, partial truths, outdated data, reversed facts
+- MAKE IT CHALLENGING - test actual current affairs knowledge, not just "select all correct" laziness
+- Example distribution for 10 MSQ: 3 correct (A,B), 2 correct (A,C), 3 correct (B,D), 2 correct (A,B,C) - ZERO "all correct"
+- **FORBIDDEN LAZINESS**: Do NOT make all statements obviously true - this is NOT a quality question
+
 ### FORMAT 3: ASSERTION-REASON (20% - NEW)
 
 **Template:**
@@ -496,6 +549,18 @@ D. जयपुर में G-20 शिखर सम्मेलन आयो�
 (4) A असत्य है लेकिन R सत्य है
 \`\`\`
 
+**⚠️ CRITICAL A-R QUALITY RULE - ANSWER DISTRIBUTION ENFORCEMENT:**
+**OPTION 1 DOMINANCE FORBIDDEN**: Maximum 30-40% of A-R questions can have option (1) as correct answer
+- **REQUIRED DISTRIBUTION** for Assertion-Reason questions:
+  - Option (1) "Both true, R explains A": 30-40% of questions
+  - Option (2) "Both true, R does NOT explain A": 30-35% of questions
+  - Option (3) "A true, R false": 15-20% of questions
+  - Option (4) "A false, R true": 10-15% of questions
+- **AVOID LAZY PATTERN**: Do NOT make all A-R questions have both statements true with correct explanation
+- Create proper variation: independent truths, false assertions, false reasons, non-causal relationships
+- **QUALITY TEST**: If 80%+ of A-R questions are option (1), you are being LAZY - add more variety
+- Example distribution for 10 A-R: 4 option(1), 3 option(2), 2 option(3), 1 option(4)
+
 ---
 
 ## FROZEN PROHIBITIONS
@@ -515,6 +580,25 @@ D. जयपुर में G-20 शिखर सम्मेलन आयो�
 - ✅ MUST use exactly 4 options (1), (2), (3), (4)
 - ✅ ALL content in Hindi
 - ✅ Must be factually accurate and verifiable
+
+### ❌ ABSOLUTELY FORBIDDEN LAZY PATTERNS (Zero Violations Allowed):
+
+1. **MSQ "All Correct" BANNED**: NEVER EVER make MSQ questions where all statements are correct
+   - ❌ FORBIDDEN: Answer where ALL options A, B, C, D are correct
+   - ❌ ZERO TOLERANCE: Not even 1 question out of 10 can have "all correct" answer
+   - ✅ REQUIRED: EVERY MSQ must have mix of true/false statements requiring discrimination
+   - ✅ REQUIRED: Create realistic false statements using misconceptions, outdated data, reversed facts
+
+2. **A-R Option 1 Dominance**: DO NOT make majority of A-R questions have option (1)
+   - ❌ FORBIDDEN: Making 60%+ of A-R questions have answer "both true, R explains A"
+   - ✅ REQUIRED: Distribute answers across all 4 options (roughly 30% opt1, 30% opt2, 20% opt3, 20% opt4)
+   - Create variation: independent truths, false assertions, false reasons, non-causal relationships
+
+3. **Simplistic Current Affairs BANNED**: NEVER make trivial questions that insult intelligence
+   - ❌ FORBIDDEN: Questions any layperson could answer without current affairs knowledge
+   - ✅ REQUIRED: Professional-grade with specific dates, names, amounts, nuanced distinctions
+
+**⚠️ CRITICAL: If you violate pattern #1 even ONCE, the entire question set will be REJECTED**
 
 ### EXPLANATION REQUIREMENTS:
 - ✅ Mention the date/year of the event

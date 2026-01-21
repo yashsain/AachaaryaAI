@@ -338,7 +338,7 @@ function ResetPasswordContent() {
 
           {/* Footer */}
           <p className="text-center text-sm text-neutral-500 mt-6">
-            Trusted by coaching institutes for NEET, JEE, Banking & more
+            Trusted by educational institutions for RPSC, RAS, Rajasthan Police & more
           </p>
         </div>
       </div>
