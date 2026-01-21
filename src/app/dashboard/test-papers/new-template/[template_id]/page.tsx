@@ -72,11 +72,6 @@ interface Class {
   }
 }
 
-interface MaterialType {
-  id: string
-  name: string
-}
-
 // Subject-specific colors
 const getSubjectColor = (subjectName: string) => {
   const name = subjectName.toLowerCase()
@@ -145,13 +140,11 @@ export default function CreatePaperFromTemplatePage({ params }: CreatePaperPageP
   // Form state
   const [title, setTitle] = useState('')
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
-  const [materialTypeId, setMaterialTypeId] = useState<string>('')
   const [difficultyLevel, setDifficultyLevel] = useState<'easy' | 'balanced' | 'hard'>('balanced')
 
   // Data state
   const [template, setTemplate] = useState<Template | null>(null)
   const [classes, setClasses] = useState<Class[]>([])
-  const [materialTypes, setMaterialTypes] = useState<MaterialType[]>([])
 
   // UI state
   const [isLoading, setIsLoading] = useState(true)
@@ -191,14 +184,6 @@ export default function CreatePaperFromTemplatePage({ params }: CreatePaperPageP
       const classesData = await classesResponse.json()
       setClasses(classesData.classes || [])
 
-      // Fetch material types
-      const typesResponse = await fetch('/api/material-types', {
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
-      })
-      if (!typesResponse.ok) throw new Error('Failed to fetch material types')
-      const typesData = await typesResponse.json()
-      setMaterialTypes(typesData.materialTypes || [])
-
     } catch (err) {
       console.error('Error fetching data:', err)
       setError(err instanceof Error ? err.message : 'Failed to load form data')
@@ -218,10 +203,6 @@ export default function CreatePaperFromTemplatePage({ params }: CreatePaperPageP
 
     if (selectedClassIds.length === 0) {
       errors.classes = 'At least one class must be selected'
-    }
-
-    if (!materialTypeId) {
-      errors.materialType = 'Material type is required'
     }
 
     if (!difficultyLevel || !['easy', 'balanced', 'hard'].includes(difficultyLevel)) {
@@ -254,7 +235,6 @@ export default function CreatePaperFromTemplatePage({ params }: CreatePaperPageP
           template_id: templateId,
           title: title.trim(),
           class_ids: selectedClassIds,
-          material_type_id: materialTypeId,
           difficulty_level: difficultyLevel
         })
       })
@@ -413,42 +393,6 @@ export default function CreatePaperFromTemplatePage({ params }: CreatePaperPageP
               required
               error={fieldErrors.classes}
             />
-
-            {/* Material Type Dropdown */}
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">
-                Paper Type <span className="text-error-600">*</span>
-              </label>
-              <div className="relative">
-                <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-400 pointer-events-none" />
-                <select
-                  value={materialTypeId}
-                  onChange={(e) => setMaterialTypeId(e.target.value)}
-                  className={cn(
-                    'w-full pl-11 pr-4 py-3 border rounded-xl transition-all',
-                    'focus:ring-2 focus:ring-primary-500 focus:border-primary-500',
-                    'appearance-none bg-white cursor-pointer',
-                    fieldErrors.materialType ? 'border-error-500' : 'border-neutral-300'
-                  )}
-                  required
-                >
-                  <option value="">Select paper type...</option>
-                  {materialTypes.map(type => (
-                    <option key={type.id} value={type.id}>{type.name}</option>
-                  ))}
-                </select>
-                <svg className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-              {fieldErrors.materialType ? (
-                <p className="mt-1.5 text-sm text-error-600">{fieldErrors.materialType}</p>
-              ) : (
-                <p className="mt-1.5 text-sm text-neutral-600">
-                  Select the format/type of test paper to generate
-                </p>
-              )}
-            </div>
 
             {/* Difficulty Level - Segmented Control */}
             <div>

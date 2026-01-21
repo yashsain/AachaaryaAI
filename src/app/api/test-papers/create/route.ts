@@ -36,7 +36,6 @@ export async function POST(request: NextRequest) {
     const {
       title,
       paper_template_id,
-      material_type_id,
       class_ids,
       chapter_ids,
       section_configs, // Optional: Array of { subject_id, question_count } to override defaults
@@ -50,7 +49,6 @@ export async function POST(request: NextRequest) {
       errors.title = 'Title must be at least 3 characters'
     }
     if (!paper_template_id) errors.paper_template_id = 'Paper template is required'
-    if (!material_type_id) errors.material_type_id = 'Material type is required'
     if (!class_ids || !Array.isArray(class_ids) || class_ids.length === 0) {
       errors.class_ids = 'At least one class must be selected'
     }
@@ -68,6 +66,27 @@ export async function POST(request: NextRequest) {
         errors
       }, { status: 400 })
     }
+
+    // Auto-assign default material type (DB column is NOT NULL)
+    // Try to find "Test Paper" or use first available
+    const { data: materialTypes, error: materialTypesError } = await supabaseAdmin
+      .from('material_types')
+      .select('id, name')
+      .order('name')
+
+    if (materialTypesError || !materialTypes || materialTypes.length === 0) {
+      return NextResponse.json({ error: 'No material types available in system' }, { status: 500 })
+    }
+
+    // Prefer "Test Paper" or "notes", otherwise use first available
+    const defaultMaterialType = materialTypes.find(mt =>
+      mt.name.toLowerCase().includes('test') ||
+      mt.name.toLowerCase().includes('paper') ||
+      mt.name.toLowerCase() === 'notes'
+    ) || materialTypes[0]
+
+    const material_type_id = defaultMaterialType.id
+    console.log(`[CREATE_PAPER_AUTO_ASSIGN] Using material_type: ${defaultMaterialType.name} (${material_type_id})`)
 
     // Fetch paper template with stream and sections
     const { data: template, error: templateError } = await supabaseAdmin

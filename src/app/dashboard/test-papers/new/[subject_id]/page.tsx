@@ -18,7 +18,6 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/MultiSelect'
 import { Input } from '@/components/ui/Input'
-import { getValidPaperTypes } from '@/lib/streamPaperTypes'
 
 interface Chapter {
   id: string
@@ -46,11 +45,6 @@ interface Subject {
   stream_id: string
 }
 
-interface MaterialType {
-  id: string
-  name: string
-}
-
 type Step = 'classes' | 'format' | 'chapters' | 'review'
 
 export default function CreateTestPaperPage() {
@@ -66,7 +60,6 @@ export default function CreateTestPaperPage() {
   // Form data
   const [title, setTitle] = useState('')
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
-  const [materialTypeId, setMaterialTypeId] = useState<string>('')
   const [selectedChapterIds, setSelectedChapterIds] = useState<string[]>([])
   const [questionCount, setQuestionCount] = useState<number>(30)
   const [difficultyLevel, setDifficultyLevel] = useState<'easy' | 'balanced' | 'hard'>('balanced')
@@ -75,7 +68,6 @@ export default function CreateTestPaperPage() {
   const [subject, setSubject] = useState<Subject | null>(null)
   const [classes, setClasses] = useState<Class[]>([])
   const [chapters, setChapters] = useState<Chapter[]>([])
-  const [materialTypes, setMaterialTypes] = useState<MaterialType[]>([])
 
   // UI state
   const [loadingData, setLoadingData] = useState(true)
@@ -192,30 +184,6 @@ export default function CreateTestPaperPage() {
 
       const chaptersData = await chaptersResponse.json()
       setChapters(chaptersData.chapters || [])
-
-      // Fetch material types
-      const materialTypesResponse = await fetch('/api/material-types', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      })
-
-      if (!materialTypesResponse.ok) {
-        throw new Error('Failed to fetch material types')
-      }
-
-      const materialTypesData = await materialTypesResponse.json()
-
-      // Filter paper types based on stream
-      const validPaperTypeNames = getValidPaperTypes(streamName)
-      const streamPaperTypes = (materialTypesData.materialTypes || []).filter((mt: MaterialType) =>
-        validPaperTypeNames.includes(mt.name)
-      )
-
-      console.log('[TEST_PAPER_FORM] stream=%s valid_paper_types=%s filtered_count=%s',
-        streamName, validPaperTypeNames.join(','), streamPaperTypes.length)
-
-      setMaterialTypes(streamPaperTypes)
     } catch (err) {
       console.error('[CREATE_PAPER_FETCH_ERROR]', err)
       setFormError(err instanceof Error ? err.message : 'Failed to load form data')
@@ -236,9 +204,6 @@ export default function CreateTestPaperPage() {
         errors.title = 'Title is required'
       } else if (title.trim().length < 3) {
         errors.title = 'Title must be at least 3 characters'
-      }
-      if (!materialTypeId) {
-        errors.materialType = 'Material type is required'
       }
       if (!questionCount || questionCount < 10 || questionCount > 100) {
         errors.questionCount = 'Question count must be between 10 and 100'
@@ -301,7 +266,6 @@ export default function CreateTestPaperPage() {
         body: JSON.stringify({
           title,
           subject_id,
-          material_type_id: materialTypeId,
           class_ids: selectedClassIds,
           chapter_ids: selectedChapterIds,
           question_count: questionCount,
@@ -369,10 +333,6 @@ export default function CreateTestPaperPage() {
 
   const getSelectedChapters = () => {
     return chapters.filter(ch => selectedChapterIds.includes(ch.id))
-  }
-
-  const getSelectedMaterialType = () => {
-    return materialTypes.find(mt => mt.id === materialTypeId)
   }
 
   const getStepNumber = () => {
@@ -496,32 +456,6 @@ export default function CreateTestPaperPage() {
                 error={fieldErrors.title}
                 helperText="Give a descriptive title for this test paper"
               />
-
-              {/* Material Type (Paper Type) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Paper Type <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={materialTypeId}
-                  onChange={(e) => setMaterialTypeId(e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors ${
-                    fieldErrors.materialType ? 'border-error' : 'border-gray-300'
-                  }`}
-                  required
-                >
-                  <option value="">Select paper type...</option>
-                  {materialTypes.map(type => (
-                    <option key={type.id} value={type.id}>{type.name}</option>
-                  ))}
-                </select>
-                {fieldErrors.materialType && (
-                  <p className="mt-1 text-sm text-error">{fieldErrors.materialType}</p>
-                )}
-                <p className="mt-1 text-sm text-neutral-600">
-                  Select the format/type of test paper to generate
-                </p>
-              </div>
 
               {/* Question Count */}
               <div>
@@ -677,14 +611,6 @@ export default function CreateTestPaperPage() {
                 <div className="bg-neutral-50 rounded-lg p-4">
                   <p className="text-sm font-medium text-neutral-600 mb-1">Subject</p>
                   <p className="text-lg font-semibold text-neutral-800">{subject?.name}</p>
-                </div>
-
-                {/* Paper Type */}
-                <div className="bg-neutral-50 rounded-lg p-4">
-                  <p className="text-sm font-medium text-neutral-600 mb-1">Paper Type</p>
-                  <p className="text-lg font-semibold text-neutral-800">
-                    {getSelectedMaterialType()?.name}
-                  </p>
                 </div>
 
                 {/* Test Configuration */}

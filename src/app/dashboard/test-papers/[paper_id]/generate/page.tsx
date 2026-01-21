@@ -26,10 +26,6 @@ interface TestPaper {
     id: string
     name: string
   }
-  material_types: {
-    id: string
-    name: string
-  }
 }
 
 interface Chapter {
@@ -80,8 +76,7 @@ export default function GenerateQuestionsPage() {
           question_count,
           difficulty_level,
           status,
-          subjects (id, name),
-          material_types (id, name)
+          subjects (id, name)
         `)
         .eq('id', paper_id)
         .eq('institute_id', teacher!.institute_id)
@@ -268,12 +263,6 @@ export default function GenerateQuestionsPage() {
             <div>
               <p className="text-sm font-medium text-neutral-600 mb-1">Subject</p>
               <p className="text-base text-neutral-900">{paper.subjects.name}</p>
-            </div>
-
-            {/* Paper Type */}
-            <div>
-              <p className="text-sm font-medium text-neutral-600 mb-1">Paper Type</p>
-              <p className="text-base text-neutral-900">{paper.material_types.name}</p>
             </div>
 
             {/* Test Configuration */}

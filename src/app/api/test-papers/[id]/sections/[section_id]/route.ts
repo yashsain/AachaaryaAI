@@ -112,6 +112,7 @@ export async function GET(
     }
 
     // Fetch available chapters (filtered by section's subject_id)
+    // Note: [AI Knowledge] Full Syllabus is stored in DB with reserved UUID 00000000-0000-0000-0000-000000000001
     const { data: availableChapters, error: chaptersError } = await supabase
       .from('chapters')
       .select(`
@@ -137,18 +138,6 @@ export async function GET(
       )
     }
 
-    // ALWAYS inject AI Knowledge option at the top
-    const aiKnowledgeChapter = {
-      id: 'ai-knowledge-full-syllabus',
-      name: '[AI Knowledge] Full Syllabus',
-      subject_id: section.subject_id,
-      class_level_id: null,
-      created_at: new Date().toISOString(),
-      class_levels: null
-    }
-
-    const chaptersWithAIOption = [aiKnowledgeChapter, ...(availableChapters || [])]
-
     // Fetch currently assigned chapters
     const { data: assignedChapterRels, error: assignedError } = await supabase
       .from('section_chapters')
@@ -171,25 +160,10 @@ export async function GET(
       console.error('[GET_SECTION_DETAIL_ERROR] Assigned chapters fetch failed:', assignedError)
     }
 
-    // Special reserved UUID for AI Knowledge mode
-    const AI_KNOWLEDGE_UUID = '00000000-0000-0000-0000-000000000001'
-
-    const assignedChapters = assignedChapterRels?.map(rel => {
-      // Handle AI Knowledge mode (special reserved UUID)
-      if (rel.chapter_id === AI_KNOWLEDGE_UUID) {
-        return {
-          id: 'ai-knowledge-full-syllabus',
-          name: '[AI Knowledge] Full Syllabus',
-          subject_id: section.subject_id,
-          class_level_id: null,
-          assigned_at: rel.created_at
-        }
-      }
-      return {
-        ...(rel.chapters as any),
-        assigned_at: rel.created_at
-      }
-    }) || []
+    const assignedChapters = assignedChapterRels?.map(rel => ({
+      ...(rel.chapters as any),
+      assigned_at: rel.created_at
+    })) || []
 
     // Count questions for this section
     const { count: questionCount, error: countError } = await supabase
@@ -217,7 +191,7 @@ export async function GET(
         paper_title: paper.title,
         paper_difficulty: paper.difficulty_level
       },
-      available_chapters: chaptersWithAIOption,
+      available_chapters: availableChapters || [],
       assigned_chapters: assignedChapters
     })
 
