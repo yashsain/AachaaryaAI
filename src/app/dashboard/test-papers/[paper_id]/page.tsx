@@ -22,6 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/toast'
+import { GenerateQuestionsModal } from '@/components/modals/GenerateQuestionsModal'
 
 interface PaperDashboardProps {
   params: Promise<{
@@ -33,9 +34,13 @@ interface Section {
   id: string
   section_name: string
   section_order: number
-  status: 'pending' | 'ready' | 'in_review' | 'finalized'
+  status: 'pending' | 'ready' | 'generating' | 'in_review' | 'finalized'
   chapter_count: number
   question_count: number
+  subject_id: string
+  subject_name?: string
+  assigned_chapters?: Array<{ id: string; name: string }>
+  generation_started_at?: string
 }
 
 interface Paper {
@@ -73,6 +78,14 @@ const getSectionStatusConfig = (status: Section['status']) => {
         color: 'text-blue-600',
         bg: 'bg-blue-50',
         border: 'border-blue-200'
+      }
+    case 'generating':
+      return {
+        label: 'Generating',
+        icon: RefreshCw,
+        color: 'text-purple-600',
+        bg: 'bg-purple-50',
+        border: 'border-purple-200'
       }
     case 'in_review':
       return {
@@ -162,6 +175,8 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [generatingPDF, setGeneratingPDF] = useState(false)
+  const [generateModalOpen, setGenerateModalOpen] = useState(false)
+  const [selectedSection, setSelectedSection] = useState<Section | null>(null)
 
   useEffect(() => {
     // Only fetch when auth is fully loaded
@@ -170,6 +185,52 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
       fetchPaperData()
     }
   }, [session, loading, teacherLoading, paperId])
+
+  // Auto-cleanup stuck sections when dashboard loads
+  useEffect(() => {
+    if (!session || sections.length === 0) return
+
+    const cleanupStuckSections = async () => {
+      // Find sections stuck in 'generating' for > 7 minutes
+      const sevenMinutesAgo = new Date(Date.now() - 7 * 60 * 1000).toISOString()
+
+      const stuckSections = sections.filter(s =>
+        s.status === 'generating' &&
+        s.generation_started_at &&
+        s.generation_started_at < sevenMinutesAgo
+      )
+
+      if (stuckSections.length === 0) return
+
+      console.log(`[AUTO_CLEANUP] Found ${stuckSections.length} stuck section(s)`)
+
+      // Clean up each stuck section
+      for (const section of stuckSections) {
+        try {
+          const response = await fetch(`/api/test-papers/${paperId}/sections/${section.id}/cleanup`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+
+          if (response.ok) {
+            console.log(`[AUTO_CLEANUP] Cleaned section ${section.id}`)
+          }
+        } catch (err) {
+          console.error(`[AUTO_CLEANUP] Error cleaning section ${section.id}:`, err)
+        }
+      }
+
+      // Refresh data if we cleaned anything
+      if (stuckSections.length > 0) {
+        setTimeout(() => fetchPaperData(), 1000)
+      }
+    }
+
+    cleanupStuckSections()
+  }, [sections, session, paperId])
 
   const fetchPaperData = async () => {
     try {
@@ -208,10 +269,21 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
 
       setPaper(paperData as any)
 
-      // Fetch sections
+      // Fetch sections with subject info
       const { data: sectionsData, error: sectionsError } = await supabase
         .from('test_paper_sections')
-        .select('id, section_name, section_order, status, question_count')
+        .select(`
+          id,
+          section_name,
+          section_order,
+          status,
+          question_count,
+          subject_id,
+          generation_started_at,
+          subjects (
+            name
+          )
+        `)
         .eq('paper_id', paperId)
         .order('section_order', { ascending: true })
 
@@ -221,25 +293,37 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
         return
       }
 
-      // Fetch chapter counts for each section
-      const { data: chapterCounts, error: chapterCountsError } = await supabase
+      // Fetch assigned chapters for each section
+      const { data: sectionChapters, error: chaptersError } = await supabase
         .from('section_chapters')
-        .select('section_id')
+        .select(`
+          section_id,
+          chapters (
+            id,
+            name
+          )
+        `)
         .in('section_id', sectionsData.map(s => s.id))
 
-      const chapterCountMap = new Map<string, number>()
-      if (!chapterCountsError && chapterCounts) {
-        chapterCounts.forEach(sc => {
-          chapterCountMap.set(sc.section_id, (chapterCountMap.get(sc.section_id) || 0) + 1)
+      // Build chapters map
+      const chaptersMap = new Map<string, Array<{ id: string; name: string }>>()
+      if (!chaptersError && sectionChapters) {
+        sectionChapters.forEach(sc => {
+          if (!chaptersMap.has(sc.section_id)) {
+            chaptersMap.set(sc.section_id, [])
+          }
+          chaptersMap.get(sc.section_id)?.push(sc.chapters as any)
         })
       }
 
-      const sectionsWithCounts: Section[] = sectionsData.map(section => ({
+      const sectionsWithData: Section[] = sectionsData.map(section => ({
         ...section,
-        chapter_count: chapterCountMap.get(section.id) || 0
+        subject_name: (section.subjects as any)?.name,
+        chapter_count: chaptersMap.get(section.id)?.length || 0,
+        assigned_chapters: chaptersMap.get(section.id) || []
       }))
 
-      setSections(sectionsWithCounts)
+      setSections(sectionsWithData)
 
     } catch (err) {
       console.error('Error loading paper:', err)
@@ -256,7 +340,12 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
         break
       case 'generate':
       case 'regenerate':
-        router.push(`/dashboard/test-papers/${paperId}/section/${sectionId}/generate`)
+        // Open modal instead of navigating
+        const section = sections.find(s => s.id === sectionId)
+        if (section) {
+          setSelectedSection(section)
+          setGenerateModalOpen(true)
+        }
         break
       case 'view':
         // Navigate to review page with section_id for isolated section review
@@ -603,6 +692,27 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
           </motion.div>
         )}
       </div>
+
+      {/* Generate Questions Modal */}
+      {selectedSection && (
+        <GenerateQuestionsModal
+          isOpen={generateModalOpen}
+          onClose={() => {
+            setGenerateModalOpen(false)
+            setSelectedSection(null)
+            // Refresh data when modal closes
+            fetchPaperData()
+          }}
+          paperId={paperId}
+          sectionId={selectedSection.id}
+          sectionName={selectedSection.section_name}
+          subjectName={selectedSection.subject_name || ''}
+          questionCount={selectedSection.question_count}
+          assignedChapters={selectedSection.assigned_chapters || []}
+          isRegenerate={selectedSection.status === 'in_review' || selectedSection.status === 'finalized'}
+          session={session}
+        />
+      )}
     </div>
   )
 }
@@ -620,12 +730,14 @@ function SectionCard({ section, paperId, onActionClick, index }: SectionCardProp
   const StatusIcon = statusConfig.icon
 
   // Determine primary action button
-  const getPrimaryAction = (): { label: string; action: 'assign' | 'generate' | 'view'; icon: any } => {
+  const getPrimaryAction = (): { label: string; action: 'assign' | 'generate' | 'view'; icon: any; disabled?: boolean } => {
     switch (section.status) {
       case 'pending':
         return { label: 'Assign Chapters', action: 'assign', icon: Plus }
       case 'ready':
         return { label: 'Generate Questions', action: 'generate', icon: Zap }
+      case 'generating':
+        return { label: 'Generating...', action: 'view', icon: RefreshCw, disabled: true }
       case 'in_review':
         return { label: 'Review & Finalize', action: 'view', icon: Eye }
       case 'finalized':
@@ -703,8 +815,9 @@ function SectionCard({ section, paperId, onActionClick, index }: SectionCardProp
             size="sm"
             className="flex-1"
             onClick={() => onActionClick(section.id, primaryAction.action)}
+            disabled={primaryAction.disabled || section.status === 'generating'}
           >
-            <PrimaryIcon className="h-4 w-4 mr-2" />
+            <PrimaryIcon className={cn("h-4 w-4 mr-2", section.status === 'generating' && "animate-spin")} />
             {primaryAction.label}
           </Button>
 

@@ -42,10 +42,15 @@ export async function POST(
   request: NextRequest,
   { params }: GenerateSectionParams
 ) {
-  try {
-    const { id: paperId, section_id: sectionId } = await params
+  // Generate unique attempt ID for this generation (for cleanup/rollback)
+  const attemptId = crypto.randomUUID()
+  let sectionId: string | null = null
 
-    console.log(`[GENERATE_SECTION_START] paper_id=${paperId} section_id=${sectionId}`)
+  try {
+    const { id: paperId, section_id: sectionIdParam } = await params
+    sectionId = sectionIdParam
+
+    console.log(`[GENERATE_SECTION_START] paper_id=${paperId} section_id=${sectionId} attempt_id=${attemptId}`)
 
     const supabase = createServerClient(await cookies())
     const { data: { user }, error: userError } = await supabase.auth.getUser()
@@ -196,10 +201,15 @@ export async function POST(
       console.log(`[GENERATE_SECTION] Deleted ${questionsDeleted} existing questions for regeneration`)
     }
 
-    // Update section status to 'generating'
+    // Update section status to 'generating' with tracking fields
     await supabaseAdmin
       .from('test_paper_sections')
-      .update({ status: 'generating' })
+      .update({
+        status: 'generating',
+        generation_started_at: new Date().toISOString(),
+        generation_attempt_id: attemptId,
+        generation_error: null
+      })
       .eq('id', sectionId)
 
     // Fetch chapters assigned to this section from section_chapters table
@@ -386,7 +396,8 @@ ${aiKnowledgePrompt}`
           marks: section.marks_per_question || 4,
           negative_marks: section.negative_marks || 0,
           is_selected: false,
-          question_order: index + 1
+          question_order: index + 1,
+          generation_attempt_id: attemptId
         }))
 
         const { error: insertError } = await supabaseAdmin
@@ -433,6 +444,7 @@ ${aiKnowledgePrompt}`
           .from('test_paper_sections')
           .update({
             status: 'in_review',
+            generation_completed_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           })
           .eq('id', sectionId)
@@ -709,7 +721,8 @@ ${aiKnowledgePrompt}`
             marks: section.marks_per_question || 4,
             negative_marks: section.negative_marks || 0,
             is_selected: false,
-            question_order: questionsGenerated + index + 1
+            question_order: questionsGenerated + index + 1,
+            generation_attempt_id: attemptId
           }
         })
 
@@ -768,6 +781,7 @@ ${aiKnowledgePrompt}`
       .from('test_paper_sections')
       .update({
         status: 'in_review',
+        generation_completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('id', sectionId)
@@ -801,19 +815,43 @@ ${aiKnowledgePrompt}`
   } catch (error) {
     console.error('[GENERATE_SECTION_EXCEPTION]', error)
 
-    // Try to mark section as failed
-    try {
-      const { section_id: sectionId } = await (params as any)
-      await supabaseAdmin
-        .from('test_paper_sections')
-        .update({ status: 'failed' })
-        .eq('id', sectionId)
-    } catch (updateError) {
-      console.error('[GENERATE_SECTION_ERROR] Failed to update section status:', updateError)
+    // Comprehensive rollback: Delete any questions from this attempt and reset section
+    if (sectionId && attemptId) {
+      try {
+        console.log(`[GENERATE_SECTION_ROLLBACK] Cleaning up attempt ${attemptId}`)
+
+        // Delete all questions from this generation attempt
+        const { error: deleteError } = await supabaseAdmin
+          .from('questions')
+          .delete()
+          .eq('generation_attempt_id', attemptId)
+
+        if (deleteError) {
+          console.error('[GENERATE_SECTION_ROLLBACK_ERROR] Failed to delete questions:', deleteError)
+        } else {
+          console.log('[GENERATE_SECTION_ROLLBACK] Questions deleted successfully')
+        }
+
+        // Reset section to 'ready' state
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+        await supabaseAdmin
+          .from('test_paper_sections')
+          .update({
+            status: 'ready',
+            generation_attempt_id: null,
+            generation_error: errorMessage,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', sectionId)
+
+        console.log('[GENERATE_SECTION_ROLLBACK] Section reset to ready state')
+      } catch (rollbackError) {
+        console.error('[GENERATE_SECTION_ROLLBACK_ERROR] Rollback failed:', rollbackError)
+      }
     }
 
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'We encountered an issue generating questions. Please try again.' },
       { status: 500 }
     )
   }
