@@ -65,6 +65,7 @@ export interface TemplateConfig {
   primaryColor: string            // Hex color code
   tagline?: string
   contactInfo: ContactInfo
+  watermarkText?: string          // Text to display as diagonal watermark (e.g., first word of institute name)
 
   // Paper metadata
   testTitle: string               // e.g., "NEET Biology Mock Test"

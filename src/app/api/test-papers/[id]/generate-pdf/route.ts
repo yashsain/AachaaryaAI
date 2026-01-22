@@ -338,12 +338,16 @@ export async function POST(
       console.log('[GENERATE_PDF] Using stream-based default duration for', streamName, ':', durationMinutes, 'minutes')
     }
 
+    // Extract first word from institute name for watermark
+    const watermarkText = institute.name.split(' ')[0].toUpperCase()
+
     // Build template configuration
     const config: TemplateConfig = {
       instituteLogo: instituteLogo || undefined,
       instituteName: institute.name,
       primaryColor: institute.primary_color || '#0D9488',
       tagline: institute.tagline || undefined,
+      watermarkText: watermarkText,
       contactInfo: {
         city: institute.city || undefined,
         phone: institute.phone || undefined,

@@ -79,6 +79,13 @@ export function generateAnswerKeyHTML(config: AnswerKeyConfig): string {
       box-sizing: border-box;
     }
 
+    /* Font size variables - easily adjustable */
+    :root {
+      --font-question: 11pt;      /* Was 10pt */
+      --font-option: 10.5pt;      /* Was 9.5pt */
+      --font-explanation: 10pt;   /* Was 9pt */
+    }
+
     body {
       font-family: 'Noto Sans Devanagari', sans-serif;
       font-size: 10pt;
@@ -217,7 +224,7 @@ export function generateAnswerKeyHTML(config: AnswerKeyConfig): string {
     }
 
     .question-text {
-      font-size: 10pt;
+      font-size: var(--font-question);
       line-height: 1.4;
     }
 
@@ -241,7 +248,7 @@ export function generateAnswerKeyHTML(config: AnswerKeyConfig): string {
     }
 
     .option {
-      font-size: 9.5pt;
+      font-size: var(--font-option);
       margin-bottom: 5px;
       padding: 5px 8px;
       border-radius: 3px;
@@ -314,7 +321,7 @@ export function generateAnswerKeyHTML(config: AnswerKeyConfig): string {
     }
 
     .explanation-text {
-      font-size: 9pt;
+      font-size: var(--font-explanation);
       line-height: 1.4;
       color: #78350F;
     }

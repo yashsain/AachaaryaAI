@@ -18,6 +18,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     primaryColor = '#8B1A1A',
     tagline,
     contactInfo,
+    watermarkText,
     testTitle,
     testCode,
     date,
@@ -57,6 +58,58 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
       color: #000;
       background: #fff;
     }
+
+    /* Font size variables - easily adjustable */
+    :root {
+      /* Questions & Options */
+      --font-question-number: 12pt;
+      --font-question-text: 12pt;
+      --font-option-text: 12pt;
+      --font-passage-title: 10pt;
+      --font-passage-text: 12pt;
+
+      /* Headers & Titles */
+      --font-institute-name: 18pt;
+      --font-title-large: 14pt;
+      --font-title-medium: 11pt;
+      --font-subtitle: 10pt;
+
+      /* Body & Instructions */
+      --font-body-text: 9pt;
+      --font-small-text: 8pt;
+      --font-tiny-text: 7.5pt;
+
+      /* Footer */
+      --font-footer: 6.5pt;
+    }
+
+    /* Watermark - diagonal across all pages except title page */
+    ${watermarkText ? `
+    body::before {
+      content: "${watermarkText}";
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-45deg);
+      font-size: 120pt;
+      font-weight: bold;
+      color: #000;
+      opacity: 0.18;
+      z-index: -1;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    /* Hide watermark on title page */
+    .page:first-child {
+      position: relative;
+    }
+
+    .page:first-child::before {
+      content: "";
+      display: none;
+    }
+    ` : ''}
 
     /* Page setup - Ultra-compact margins for maximum content */
     @page {
@@ -114,21 +167,21 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     }
 
     .institute-subtitle {
-      font-size: 11pt;
+      font-size: var(--font-title-medium);
       color: ${primaryColor};
       letter-spacing: 0.3px;
       margin-bottom: 4px;
     }
 
     .institute-name {
-      font-size: 18pt;
+      font-size: var(--font-institute-name);
       font-weight: bold;
       color: ${primaryColor};
       line-height: 1.2;
     }
 
     .tagline {
-      font-size: 9pt;
+      font-size: var(--font-body-text);
       color: #666;
       margin-top: 2px;
     }
@@ -142,7 +195,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
       padding: 4px;
       margin-top: 5px;
       background: #E8E8E8;
-      font-size: 9pt;
+      font-size: var(--font-body-text);
     }
 
     .metadata-label {
@@ -159,7 +212,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     }
 
     .test-title {
-      font-size: 11pt;
+      font-size: var(--font-title-medium);
       font-weight: bold;
     }
 
@@ -172,13 +225,13 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     }
 
     .instructions-title {
-      font-size: 11pt;
+      font-size: var(--font-title-medium);
       font-weight: bold;
       margin-bottom: 5px;
     }
 
     .instruction {
-      font-size: 9pt;
+      font-size: var(--font-body-text);
       margin-bottom: 3px;
       line-height: 1.4;
       padding-left: 15px;
@@ -193,13 +246,13 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     }
 
     .structure-title {
-      font-size: 11pt;
+      font-size: var(--font-title-medium);
       font-weight: bold;
       margin-bottom: 8px;
     }
 
     .section-info {
-      font-size: 9pt;
+      font-size: var(--font-body-text);
       margin-bottom: 5px;
       line-height: 1.4;
     }
@@ -210,7 +263,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     }
 
     .topics-title {
-      font-size: 10pt;
+      font-size: var(--font-subtitle);
       font-weight: bold;
       margin-bottom: 5px;
     }
@@ -222,7 +275,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     }
 
     .topic-chip {
-      font-size: 8pt;
+      font-size: var(--font-small-text);
       padding: 3px 8px;
       background: #E8E8E8;
       border-radius: 3px;
@@ -236,7 +289,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     }
 
     .student-info-title {
-      font-size: 11pt;
+      font-size: var(--font-title-medium);
       font-weight: bold;
       margin-bottom: 10px;
     }
@@ -247,7 +300,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     }
 
     .student-info-label {
-      font-size: 10pt;
+      font-size: var(--font-subtitle);
       font-weight: bold;
       width: 30%;
     }
@@ -260,7 +313,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
 
     /* Section header - Compact styling */
     .section-header {
-      font-size: 10pt; /* Reduced from 11pt */
+      font-size: var(--font-subtitle);
       font-weight: bold;
       margin-top: 10px; /* Reduced from 15px */
       margin-bottom: 6px; /* Reduced from 8px */
@@ -271,13 +324,13 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     }
 
     .section-subject {
-      font-size: 8pt; /* Reduced from 9pt */
+      font-size: var(--font-small-text);
       font-weight: normal;
       margin-top: 2px;
     }
 
     .section-marks-info {
-      font-size: 8pt; /* Reduced from 9pt */
+      font-size: var(--font-small-text);
       color: #666;
       margin-bottom: 6px; /* Reduced from 8px */
       padding-left: 6px; /* Reduced from 8px */
@@ -300,7 +353,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
       /* No width needed - column-count handles column sizing */
       margin-bottom: 6px; /* Reduced from 12px - 50% tighter */
       padding-bottom: 4px; /* Reduced from 8px - 50% tighter */
-      border-bottom: 0.5pt solid #E0E0E0;
+      border-bottom: 0.5pt solid transparent; /* Line exists but invisible */
 
       /* Allow questions to split across columns (user preference) */
       /* REMOVED: break-inside: avoid - allows questions to flow naturally */
@@ -320,13 +373,13 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
 
     .question-number {
       font-weight: bold;
-      font-size: 8.5pt; /* Reduced from 10pt - uniform with options */
+      font-size: var(--font-question-number);
       display: inline;
       margin-right: 5px;
     }
 
     .question-text {
-      font-size: 8.5pt; /* Reduced from 10pt - SAME AS OPTIONS */
+      font-size: var(--font-question-text);
       line-height: 1.3; /* Reduced from 1.5 for tighter spacing */
       display: inline;
     }
@@ -340,7 +393,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     }
 
     .option {
-      font-size: 8.5pt; /* Reduced from 9pt - SAME AS QUESTION TEXT */
+      font-size: var(--font-option-text);
       margin-bottom: 2px; /* Reduced from 3px for tighter spacing */
       display: flex;
     }
@@ -353,6 +406,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
 
     .option-text {
       flex: 1;
+      font-size: var(--font-option-text);
     }
 
     /* Bilingual support - Two-column page layout (Hindi left column, English right column) */
@@ -380,14 +434,14 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     }
 
     .question-text-en {
-      font-size: 8.5pt;
+      font-size: var(--font-question-text);
       line-height: 1.3;
       color: #000;
       margin-bottom: 3px;
     }
 
     .question-text-hi {
-      font-size: 8.5pt;
+      font-size: var(--font-question-text);
       line-height: 1.3;
       color: #000;
       margin-bottom: 3px;
@@ -410,7 +464,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
 
     .option-2col,
     .option-1col {
-      font-size: 8.5pt;
+      font-size: var(--font-option-text);
       margin-bottom: 2px;
       display: flex;
       align-items: flex-start;
@@ -436,14 +490,14 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     }
 
     .passage-title {
-      font-size: 7pt; /* Reduced from 8pt */
+      font-size: var(--font-passage-title);
       font-weight: bold;
       margin-bottom: 3px; /* Reduced from 4px */
       color: #495057;
     }
 
     .passage-text {
-      font-size: 7.5pt; /* Reduced from 8.5pt */
+      font-size: var(--font-passage-text);
       line-height: 1.3; /* Reduced from 1.4 for tighter spacing */
       color: #212529;
     }
@@ -454,7 +508,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
       border-top: 0.5pt solid #CCC;
       padding-top: 2mm;
       padding-bottom: 1mm;
-      font-size: 6.5pt;
+      font-size: var(--font-footer);
       color: #555;
       text-align: center;
       line-height: 1.0;
@@ -472,13 +526,13 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     }
 
     .question-page-title {
-      font-size: 11pt;
+      font-size: var(--font-title-medium);
       font-weight: bold;
       margin-bottom: 2px;
     }
 
     .question-page-code {
-      font-size: 8pt;
+      font-size: var(--font-small-text);
       color: #666;
     }
 
@@ -486,7 +540,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     .match-table {
       width: 100%;
       margin: 5px 0;
-      font-size: 8.5pt;
+      font-size: var(--font-option-text);
       border-collapse: collapse;
     }
 
@@ -513,7 +567,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
 
     .match-instruction {
       margin: 3px 0;
-      font-size: 8.5pt;
+      font-size: var(--font-option-text);
       line-height: 1.3;
     }
 
@@ -523,12 +577,12 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
       justify-content: space-between;
       align-items: center;
       margin: 6px 0;
-      font-size: 10pt;
+      font-size: var(--font-subtitle);
       font-weight: bold;
     }
 
     .bilingual-header-center {
-      font-size: 14pt;
+      font-size: var(--font-title-large);
       font-weight: bold;
       text-align: center;
       flex: 1;
@@ -548,7 +602,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
       padding: 6px;
       margin: 6px 0;
       background: #FFF5F5;
-      font-size: 8pt;
+      font-size: var(--font-small-text);
       line-height: 1.3;
     }
 
@@ -566,7 +620,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     }
 
     .instruction-box-title {
-      font-size: 9pt;
+      font-size: var(--font-body-text);
       font-weight: bold;
       text-align: center;
       margin-bottom: 5px;
@@ -575,7 +629,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
     }
 
     .instruction-item {
-      font-size: 7.5pt;
+      font-size: var(--font-tiny-text);
       margin-bottom: 3px;
       line-height: 1.2;
     }
@@ -586,7 +640,7 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
       color: #FFF;
       padding: 6px;
       margin: 10px 0;
-      font-size: 7.5pt;
+      font-size: var(--font-tiny-text);
       text-align: center;
       line-height: 1.3;
       font-weight: bold;
