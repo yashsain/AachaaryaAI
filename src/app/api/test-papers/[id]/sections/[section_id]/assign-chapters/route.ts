@@ -249,9 +249,9 @@ export async function POST(
       )
     }
 
-    // Step 2: Delete existing questions if section was previously completed
+    // Step 2: Delete existing questions if section has questions (in_review or finalized)
     let questionsDeleted = 0
-    if (section.status === 'completed') {
+    if (section.status === 'in_review' || section.status === 'finalized') {
       const { data: deletedQuestions, error: deleteQuestionsError } = await supabase
         .from('questions')
         .delete()

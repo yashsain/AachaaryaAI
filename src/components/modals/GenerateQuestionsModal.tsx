@@ -26,6 +26,7 @@ interface GenerateQuestionsModalProps {
   questionCount: number
   assignedChapters: Array<{ id: string; name: string }>
   isRegenerate?: boolean
+  sectionStatus: 'pending' | 'ready' | 'generating' | 'in_review' | 'finalized'
   session: any
 }
 
@@ -41,6 +42,7 @@ export function GenerateQuestionsModal({
   questionCount,
   assignedChapters,
   isRegenerate = false,
+  sectionStatus,
   session
 }: GenerateQuestionsModalProps) {
   const router = useRouter()
@@ -247,6 +249,20 @@ export function GenerateQuestionsModal({
                     : `Generate ${questionCount} questions for this section`}
                 </p>
               </div>
+
+              {/* Finalized Section Info */}
+              {sectionStatus === 'finalized' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm text-blue-900">
+                        This section is finalized. Regenerating will create a fresh set of questions. You'll need to review and finalize again.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Details */}
               <div className="space-y-3">

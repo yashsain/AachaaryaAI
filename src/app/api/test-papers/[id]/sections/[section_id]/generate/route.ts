@@ -5,7 +5,7 @@
  * - Fetches chapters assigned to this section from section_chapters table
  * - Loops through chapters, generates questions per chapter
  * - Uses exam+subject-specific protocol for question generation
- * - Updates section status: ready → generating → completed/failed
+ * - Updates section status: ready → generating → in_review/failed
  *
  * Response:
  * - success: boolean

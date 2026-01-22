@@ -333,10 +333,10 @@ ${aiKnowledgePrompt}`
               console.error('[TOKEN_TRACKER] Failed to log usage:', err)
             }
 
-            // Mark section as completed
+            // Mark section as in_review
             await supabaseAdmin
               .from('test_paper_sections')
-              .update({ status: 'completed' })
+              .update({ status: 'in_review' })
               .eq('id', section.id)
 
             sectionsProcessed++
@@ -606,10 +606,10 @@ ${aiKnowledgePrompt}`
           }
         }
 
-        // Mark section as completed
+        // Mark section as in_review
         await supabaseAdmin
           .from('test_paper_sections')
-          .update({ status: 'completed' })
+          .update({ status: 'in_review' })
           .eq('id', section.id)
 
         sectionsProcessed++

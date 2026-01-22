@@ -47,7 +47,10 @@ export async function POST(
   try {
     const { id: paperId, section_id: sectionId } = await params
 
-    console.log(`[REGENERATE_SECTION_START] paper_id=${paperId} section_id=${sectionId}`)
+    // Generate unique attempt ID for this regeneration
+    const attemptId = crypto.randomUUID()
+
+    console.log(`[REGENERATE_SECTION_START] paper_id=${paperId} section_id=${sectionId} attempt_id=${attemptId}`)
 
     const supabase = createServerClient(await cookies())
     const { data: { user }, error: userError } = await supabase.auth.getUser()
@@ -147,11 +150,16 @@ export async function POST(
       console.log('[REGENERATE_SECTION] PDFs cleared successfully')
     }
 
-    // Verify section status is 'completed' or 'ready' (has chapters assigned)
-    if (section.status !== 'completed' && section.status !== 'ready') {
+    // Verify section status allows regeneration
+    // Only 'in_review' and 'finalized' sections have questions to regenerate
+    if (section.status !== 'in_review' && section.status !== 'finalized') {
       return NextResponse.json({
-        error: `Section must have status 'ready' or 'completed' to regenerate questions. Current status: ${section.status}`,
-        hint: section.status === 'pending' ? 'Assign chapters to this section first' : undefined
+        error: `Section must have status 'in_review' or 'finalized' to regenerate questions. Current status: ${section.status}`,
+        hint: section.status === 'pending'
+          ? 'Assign chapters to this section first'
+          : section.status === 'ready'
+          ? 'This section has no questions yet. Use Generate instead of Regenerate.'
+          : undefined
       }, { status: 400 })
     }
 
@@ -196,10 +204,15 @@ export async function POST(
       }, { status: 400 })
     }
 
-    // Update section status to 'generating'
+    // Update section status to 'generating' with tracking fields
     await supabaseAdmin
       .from('test_paper_sections')
-      .update({ status: 'generating' })
+      .update({
+        status: 'generating',
+        generation_started_at: new Date().toISOString(),
+        generation_attempt_id: attemptId,
+        generation_error: null
+      })
       .eq('id', sectionId)
 
     // Fetch chapters assigned to this section from section_chapters table
@@ -221,7 +234,12 @@ export async function POST(
       // Mark section as ready (failed generation, but chapters still assigned)
       await supabaseAdmin
         .from('test_paper_sections')
-        .update({ status: 'ready' })
+        .update({
+          status: 'ready',
+          generation_error: 'No chapters assigned to this section',
+          generation_started_at: null,
+          generation_attempt_id: null
+        })
         .eq('id', sectionId)
 
       return NextResponse.json({ error: 'No chapters assigned to this section' }, { status: 400 })
@@ -369,6 +387,7 @@ ${aiKnowledgePrompt}`
           marks: section.marks_per_question || 4,
           negative_marks: section.negative_marks || 0,
           is_selected: false,
+          generation_attempt_id: attemptId,
           question_order: index + 1
         }))
 
@@ -381,7 +400,12 @@ ${aiKnowledgePrompt}`
 
           await supabaseAdmin
             .from('test_paper_sections')
-            .update({ status: 'ready' })
+            .update({
+              status: 'ready',
+              generation_error: 'Failed to insert AI Knowledge questions',
+              generation_started_at: null,
+              generation_attempt_id: null
+            })
             .eq('id', sectionId)
 
           throw new Error('Failed to save AI-generated questions')
@@ -414,10 +438,14 @@ ${aiKnowledgePrompt}`
           console.error('[TOKEN_TRACKER] Failed to log usage:', err)
         }
 
-        // Mark section as in_review
+        // Mark section as in_review with completion tracking
         await supabaseAdmin
           .from('test_paper_sections')
-          .update({ status: 'in_review' })
+          .update({
+            status: 'in_review',
+            generation_completed_at: new Date().toISOString(),
+            generation_error: null
+          })
           .eq('id', sectionId)
 
         console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE_COMPLETE] section="${section.section_name}" questions=${questionsGenerated} tokens=${tokenUsage.totalTokens}`)
@@ -435,7 +463,12 @@ ${aiKnowledgePrompt}`
         // Mark section as failed
         await supabaseAdmin
           .from('test_paper_sections')
-          .update({ status: 'failed' })
+          .update({
+            status: 'failed',
+            generation_error: aiKnowledgeError instanceof Error ? aiKnowledgeError.message : 'Unknown error',
+            generation_started_at: null,
+            generation_attempt_id: null
+          })
           .eq('id', sectionId)
 
         return NextResponse.json(
@@ -561,7 +594,12 @@ ${aiKnowledgePrompt}`
           // Mark section as ready (failed generation, but chapters still assigned)
           await supabaseAdmin
             .from('test_paper_sections')
-            .update({ status: 'ready' })
+            .update({
+              status: 'ready',
+              generation_error: `JSON parse failed: ${diagnostics.errorMessage}`,
+              generation_started_at: null,
+              generation_attempt_id: null
+            })
             .eq('id', sectionId)
 
           return NextResponse.json({
@@ -611,6 +649,7 @@ ${aiKnowledgePrompt}`
           marks: section.marks_per_question || 4,
           negative_marks: section.negative_marks || 0,
           is_selected: false,
+          generation_attempt_id: attemptId,
           question_order: questionsGenerated + index + 1
         }))
 
@@ -624,7 +663,12 @@ ${aiKnowledgePrompt}`
           // Mark section as ready (failed generation, but chapters still assigned)
           await supabaseAdmin
             .from('test_paper_sections')
-            .update({ status: 'ready' })
+            .update({
+              status: 'ready',
+              generation_error: 'Failed to insert questions for chapter',
+              generation_started_at: null,
+              generation_attempt_id: null
+            })
             .eq('id', sectionId)
 
           return NextResponse.json({ error: 'Failed to save questions to database' }, { status: 500 })
@@ -669,6 +713,8 @@ ${aiKnowledgePrompt}`
       .from('test_paper_sections')
       .update({
         status: 'in_review',
+        generation_completed_at: new Date().toISOString(),
+        generation_error: null,
         updated_at: new Date().toISOString()
       })
       .eq('id', sectionId)
@@ -708,7 +754,12 @@ ${aiKnowledgePrompt}`
       const { section_id: sectionId } = await (params as any)
       await supabaseAdmin
         .from('test_paper_sections')
-        .update({ status: 'ready' })
+        .update({
+          status: 'ready',
+          generation_error: error instanceof Error ? error.message : 'Unknown error during regeneration',
+          generation_started_at: null,
+          generation_attempt_id: null
+        })
         .eq('id', sectionId)
     } catch (updateError) {
       console.error('[REGENERATE_SECTION_ERROR] Failed to update section status:', updateError)

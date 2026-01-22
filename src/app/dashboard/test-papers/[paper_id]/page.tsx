@@ -710,6 +710,7 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
           questionCount={selectedSection.question_count}
           assignedChapters={selectedSection.assigned_chapters || []}
           isRegenerate={selectedSection.status === 'in_review' || selectedSection.status === 'finalized'}
+          sectionStatus={selectedSection.status}
           session={session}
         />
       )}

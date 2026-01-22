@@ -377,8 +377,8 @@ export default function SectionChaptersPage({ params }: SectionChaptersPageProps
               </motion.div>
             )}
 
-            {/* Completed Section Warning */}
-            {section?.status === 'completed' && (
+            {/* Section Has Questions Warning */}
+            {(section?.status === 'in_review' || section?.status === 'finalized') && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -391,7 +391,9 @@ export default function SectionChaptersPage({ params }: SectionChaptersPageProps
                     </div>
                   </div>
                   <div className="flex-1">
-                    <h4 className="text-sm font-semibold text-amber-900 mb-1">Section Already Completed</h4>
+                    <h4 className="text-sm font-semibold text-amber-900 mb-1">
+                      Section Has Questions
+                    </h4>
                     <p className="text-sm text-amber-700">
                       Changing chapters will delete all existing questions for this section. You'll need to regenerate questions after assignment.
                     </p>
