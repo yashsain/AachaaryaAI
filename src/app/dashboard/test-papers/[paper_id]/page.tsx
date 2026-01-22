@@ -15,7 +15,7 @@
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, FileText, Download, CheckCircle2, Clock, AlertCircle, Layers, BookOpen, Hash, Zap, BarChart3, Trophy, Eye, RefreshCw, Plus } from 'lucide-react'
+import { ArrowLeft, FileText, Download, CheckCircle2, Clock, AlertCircle, Layers, BookOpen, Hash, Zap, BarChart3, Trophy, Eye, RefreshCw, Plus, FileCheck } from 'lucide-react'
 import { useRequireSession } from '@/hooks/useSession'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -46,6 +46,7 @@ interface Paper {
   created_at: string
   paper_template_id: string | null
   pdf_url: string | null
+  answer_key_url: string | null
   institutes: {
     name: string
   }
@@ -188,6 +189,7 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
           created_at,
           paper_template_id,
           pdf_url,
+          answer_key_url,
           institutes (
             name
           ),
@@ -457,6 +459,16 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
               >
                 <Eye className="h-4 w-4 mr-2" />
                 View PDF
+              </Button>
+            )}
+            {paper.pdf_url && paper.answer_key_url && (
+              <Button
+                size="lg"
+                onClick={() => router.push(`/dashboard/test-papers/${paperId}/answer-key`)}
+                className="bg-gradient-to-r from-success-500 to-success-600 text-white hover:from-success-600 hover:to-success-700"
+              >
+                <FileCheck className="h-4 w-4 mr-2" />
+                View Answer Key
               </Button>
             )}
           </div>

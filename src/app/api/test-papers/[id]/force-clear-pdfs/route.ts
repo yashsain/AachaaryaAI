@@ -1,19 +1,18 @@
 /**
- * POST /api/test-papers/[id]/reopen
+ * POST /api/test-papers/[id]/force-clear-pdfs
  *
- * Reopens a finalized paper for editing
- * Changes status from 'finalized' back to 'review'
- * Clears finalized_at timestamp
- * Deletes question paper and answer key PDFs from storage
- * Clears pdf_url and answer_key_url
+ * Force clear PDF URLs for papers stuck in inconsistent state
+ * (status is 'review' but pdf_url/answer_key_url are still set)
+ *
+ * This is a one-time fix for the RLS bug where updates didn't clear the URLs
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { deletePaperPDFs, clearPaperPDFUrls } from '@/lib/storage/pdfCleanupService'
+import { deletePaperPDFs } from '@/lib/storage/pdfCleanupService'
 
-interface ReopenPaperParams {
+interface ForceClearParams {
   params: Promise<{
     id: string
   }>
@@ -21,12 +20,12 @@ interface ReopenPaperParams {
 
 export async function POST(
   request: NextRequest,
-  { params }: ReopenPaperParams
+  { params }: ForceClearParams
 ) {
   try {
     const paperId = (await params).id
 
-    console.log('[REOPEN_PAPER] Reopening paper for editing:', paperId)
+    console.log('[FORCE_CLEAR_PDFS] Forcing PDF cleanup for paper:', paperId)
 
     // Validate authorization header
     const authHeader = request.headers.get('Authorization')
@@ -36,7 +35,7 @@ export async function POST(
 
     const token = authHeader.substring(7)
 
-    // Create Supabase client with user token
+    // Create Supabase client with user token for auth verification
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -65,62 +64,65 @@ export async function POST(
       return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
     }
 
-    console.log('[REOPEN_PAPER] Teacher:', teacher.id, 'Institute:', teacher.institute_id)
-
-    // Verify paper belongs to teacher's institute and is finalized
-    const { data: paper, error: paperError } = await supabase
+    // Verify paper belongs to teacher's institute using admin client
+    const { data: paper, error: paperError } = await supabaseAdmin
       .from('test_papers')
       .select('id, title, status, institute_id, pdf_url, answer_key_url')
       .eq('id', paperId)
-      .eq('institute_id', teacher.institute_id)
       .single()
 
     if (paperError || !paper) {
-      console.error('[REOPEN_PAPER] Paper fetch error:', paperError)
-      return NextResponse.json({ error: 'Test paper not found or access denied' }, { status: 404 })
+      console.error('[FORCE_CLEAR_PDFS] Paper fetch error:', paperError)
+      return NextResponse.json({ error: 'Test paper not found' }, { status: 404 })
     }
 
-    if (paper.status !== 'finalized') {
-      return NextResponse.json({ error: 'Paper is not finalized. Only finalized papers can be reopened.' }, { status: 400 })
+    if (paper.institute_id !== teacher.institute_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    console.log('[REOPEN_PAPER] Paper found:', paper.title, 'Current status:', paper.status)
+    console.log('[FORCE_CLEAR_PDFS] Paper found:', paper.title)
+    console.log('[FORCE_CLEAR_PDFS] Current state:', {
+      status: paper.status,
+      pdf_url: paper.pdf_url,
+      answer_key_url: paper.answer_key_url
+    })
 
-    // Delete PDFs from storage before reopening
+    // Delete PDFs from storage
     const cleanupResult = await deletePaperPDFs(paper.pdf_url, paper.answer_key_url)
     if (!cleanupResult.success) {
-      console.warn('[REOPEN_PAPER] PDF cleanup had errors:', cleanupResult.errors)
-      // Continue anyway - DB operations are more important
+      console.warn('[FORCE_CLEAR_PDFS] PDF cleanup had errors:', cleanupResult.errors)
+      // Continue anyway
     }
 
-    // Reopen paper: change status to review, clear finalized_at, and clear PDF URLs
-    // Use admin client to bypass RLS and ensure all fields are updated
+    // Force clear PDF URLs using admin client
     const { error: updateError } = await supabaseAdmin
       .from('test_papers')
       .update({
-        status: 'review',
-        finalized_at: null,
         pdf_url: null,
         answer_key_url: null,
       })
       .eq('id', paperId)
 
     if (updateError) {
-      console.error('[REOPEN_PAPER] Update error:', updateError)
-      return NextResponse.json({ error: 'Failed to reopen paper' }, { status: 500 })
+      console.error('[FORCE_CLEAR_PDFS] Update error:', updateError)
+      return NextResponse.json({ error: 'Failed to clear PDF URLs' }, { status: 500 })
     }
 
-    console.log('[REOPEN_PAPER] Paper successfully reopened for editing, PDFs deleted')
+    console.log('[FORCE_CLEAR_PDFS] PDF URLs successfully cleared')
 
     return NextResponse.json({
       success: true,
-      message: 'Paper reopened for editing',
+      message: 'PDF URLs cleared successfully',
       paper_id: paperId,
-      new_status: 'review',
+      status: paper.status,
+      deleted_from_storage: {
+        question_paper: cleanupResult.deleted_question_paper,
+        answer_key: cleanupResult.deleted_answer_key
+      }
     })
 
   } catch (error) {
-    console.error('[REOPEN_PAPER_ERROR]', error)
+    console.error('[FORCE_CLEAR_PDFS_ERROR]', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }

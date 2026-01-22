@@ -1,8 +1,11 @@
 /**
- * PATCH /api/questions/[id]
+ * POST /api/questions/[id]/toggle-selection
  *
- * Update a question manually (Teacher Review Interface - Phase 5)
- * Allows teachers to edit question_text, options, correct_answer, explanation
+ * Toggles the is_selected field for a question
+ * If paper has PDFs, automatically reopens it and clears PDFs
+ *
+ * This endpoint replaces the dangerous frontend direct DB update
+ * Ensures PDFs are always in sync with question selections
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -10,26 +13,20 @@ import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { deletePaperPDFs } from '@/lib/storage/pdfCleanupService'
 
-interface UpdateQuestionParams {
+interface ToggleSelectionParams {
   params: Promise<{
     id: string
   }>
 }
 
-interface UpdateQuestionBody {
-  question_text?: string
-  options?: Record<string, string>
-  correct_answer?: string
-  explanation?: string
-}
-
-export async function PATCH(
+export async function POST(
   request: NextRequest,
-  { params }: UpdateQuestionParams
+  { params }: ToggleSelectionParams
 ) {
   try {
     const questionId = (await params).id
-    const body: UpdateQuestionBody = await request.json()
+
+    console.log('[TOGGLE_SELECTION] Toggling selection for question:', questionId)
 
     // Validate authorization header
     const authHeader = request.headers.get('Authorization')
@@ -39,7 +36,7 @@ export async function PATCH(
 
     const token = authHeader.substring(7)
 
-    // Create Supabase client with user token
+    // Create Supabase client with user token for auth verification
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -52,7 +49,7 @@ export async function PATCH(
       }
     )
 
-    // Fetch teacher profile to get institute_id
+    // Fetch teacher profile
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
@@ -68,16 +65,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
     }
 
-    console.log('[UPDATE_QUESTION] question_id:', questionId, 'teacher_id:', teacher.id)
-
-    // Fetch existing question with paper details using admin client
-    const { data: existingQuestion, error: fetchError } = await supabaseAdmin
+    // Fetch question with paper details using admin client
+    const { data: question, error: questionError } = await supabaseAdmin
       .from('questions')
       .select(`
         id,
         paper_id,
+        is_selected,
         institute_id,
-        question_data,
         test_papers!inner (
           id,
           title,
@@ -90,27 +85,32 @@ export async function PATCH(
       .eq('id', questionId)
       .single()
 
-    if (fetchError || !existingQuestion) {
-      return NextResponse.json({ error: 'Question not found or access denied' }, { status: 404 })
+    if (questionError || !question) {
+      console.error('[TOGGLE_SELECTION] Question fetch error:', questionError)
+      return NextResponse.json({ error: 'Question not found' }, { status: 404 })
     }
 
     // Verify question belongs to teacher's institute
-    if (existingQuestion.institute_id !== teacher.institute_id) {
+    if (question.institute_id !== teacher.institute_id) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    const paper = existingQuestion.test_papers as any
-    const paperId = existingQuestion.paper_id
+    const paper = question.test_papers as any
+    const paperId = question.paper_id
+    const currentSelection = question.is_selected
+    const newSelection = !currentSelection
 
-    // If paper has PDFs, clear them (editing question content invalidates PDFs)
+    console.log('[TOGGLE_SELECTION] Current selection:', currentSelection, '→', newSelection)
+
+    // If paper has PDFs, clear them (selection change invalidates PDFs)
     let paperWasReopened = false
     if (paper.status === 'finalized' || paper.pdf_url || paper.answer_key_url) {
-      console.log('[UPDATE_QUESTION] Paper has PDFs (status:', paper.status, '), clearing them...')
+      console.log('[TOGGLE_SELECTION] Paper has PDFs (status:', paper.status, '), clearing them...')
 
       // Delete PDFs from storage
       const cleanupResult = await deletePaperPDFs(paper.pdf_url, paper.answer_key_url)
       if (!cleanupResult.success) {
-        console.warn('[UPDATE_QUESTION] PDF cleanup had errors:', cleanupResult.errors)
+        console.warn('[TOGGLE_SELECTION] PDF cleanup had errors:', cleanupResult.errors)
         // Continue anyway
       }
 
@@ -126,64 +126,41 @@ export async function PATCH(
         .eq('id', paperId)
 
       if (reopenError) {
-        console.error('[UPDATE_QUESTION] Failed to clear PDFs:', reopenError)
+        console.error('[TOGGLE_SELECTION] Failed to clear PDFs:', reopenError)
         return NextResponse.json({ error: 'Failed to clear PDFs' }, { status: 500 })
       }
 
       paperWasReopened = true
-      console.log('[UPDATE_QUESTION] Paper reopened and PDFs cleared')
+      console.log('[TOGGLE_SELECTION] Paper reopened and PDFs cleared')
     }
 
-    // Build updated question_data
-    const currentData = existingQuestion.question_data || {}
-    const updatedQuestionData = {
-      ...currentData,
-      ...(body.options && { options: body.options }),
-      ...(body.correct_answer && { correct_answer: body.correct_answer }),
-    }
-
-    // Build update payload
-    const updatePayload: any = {
-      question_data: updatedQuestionData,
-    }
-
-    if (body.question_text !== undefined) {
-      updatePayload.question_text = body.question_text
-    }
-
-    if (body.explanation !== undefined) {
-      updatePayload.explanation = body.explanation
-    }
-
-    console.log('[UPDATE_QUESTION] Updating fields:', Object.keys(updatePayload))
-
-    // Update question using admin client
-    const { data: updatedQuestion, error: updateError } = await supabaseAdmin
+    // Toggle is_selected using admin client
+    const { error: updateError } = await supabaseAdmin
       .from('questions')
-      .update(updatePayload)
+      .update({ is_selected: newSelection })
       .eq('id', questionId)
-      .select()
-      .single()
 
     if (updateError) {
-      console.error('[UPDATE_QUESTION_ERROR]', updateError)
-      return NextResponse.json({ error: 'Failed to update question' }, { status: 500 })
+      console.error('[TOGGLE_SELECTION] Update error:', updateError)
+      return NextResponse.json({ error: 'Failed to toggle selection' }, { status: 500 })
     }
 
-    console.log('[UPDATE_QUESTION_SUCCESS] question_id:', questionId)
+    console.log('[TOGGLE_SELECTION] Selection toggled successfully')
 
     return NextResponse.json({
       success: true,
-      question: updatedQuestion,
+      question_id: questionId,
+      is_selected: newSelection,
       paper_reopened: paperWasReopened,
       message: paperWasReopened
-        ? 'Question updated. Paper reopened and PDFs cleared because content changed.'
-        : 'Question updated successfully'
+        ? 'Selection updated. Paper reopened and PDFs cleared because content changed.'
+        : 'Selection updated successfully'
     })
+
   } catch (error) {
-    console.error('[UPDATE_QUESTION_ERROR]', error)
+    console.error('[TOGGLE_SELECTION_ERROR]', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     )
   }

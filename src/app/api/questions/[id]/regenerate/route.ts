@@ -15,6 +15,7 @@ import { parseGeminiJSON } from '@/lib/ai/jsonCleaner'
 import { logApiUsage, calculateCost } from '@/lib/ai/tokenTracker'
 import { getProtocol } from '@/lib/ai/protocols'
 import { mapDifficultyToConfig } from '@/lib/ai/difficultyMapper'
+import { deletePaperPDFs } from '@/lib/storage/pdfCleanupService'
 
 interface RegenerateQuestionParams {
   params: Promise<{
@@ -59,8 +60,8 @@ export async function POST(
 
     console.log('[REGENERATE_QUESTION] question_id:', questionId, 'teacher_id:', teacher.id, 'instruction:', body.instruction)
 
-    // Fetch existing question with paper, stream, subject, and chapter details
-    const { data: existingQuestion, error: fetchError } = await supabase
+    // Fetch existing question with paper, stream, subject, and chapter details using admin client
+    const { data: existingQuestion, error: fetchError } = await supabaseAdmin
       .from('questions')
       .select(`
         id,
@@ -74,6 +75,9 @@ export async function POST(
           id,
           title,
           difficulty_level,
+          status,
+          pdf_url,
+          answer_key_url,
           institute_id,
           streams (
             name
@@ -91,17 +95,55 @@ export async function POST(
         )
       `)
       .eq('id', questionId)
-      .eq('institute_id', teacher.institute_id)
       .single()
 
     if (fetchError || !existingQuestion) {
       return NextResponse.json({ error: 'Question not found or access denied' }, { status: 404 })
     }
 
+    // Verify question belongs to teacher's institute
+    if (existingQuestion.institute_id !== teacher.institute_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
+    const paper = (existingQuestion as any).papers
+    const paperId = existingQuestion.paper_id
+
+    // If paper has PDFs, clear them (regenerating question content invalidates PDFs)
+    let paperWasReopened = false
+    if (paper.status === 'finalized' || paper.pdf_url || paper.answer_key_url) {
+      console.log('[REGENERATE_QUESTION] Paper has PDFs (status:', paper.status, '), clearing them...')
+
+      // Delete PDFs from storage
+      const cleanupResult = await deletePaperPDFs(paper.pdf_url, paper.answer_key_url)
+      if (!cleanupResult.success) {
+        console.warn('[REGENERATE_QUESTION] PDF cleanup had errors:', cleanupResult.errors)
+        // Continue anyway
+      }
+
+      // Clear PDFs and ensure paper is in review status
+      const { error: reopenError } = await supabaseAdmin
+        .from('test_papers')
+        .update({
+          status: 'review',
+          finalized_at: null,
+          pdf_url: null,
+          answer_key_url: null
+        })
+        .eq('id', paperId)
+
+      if (reopenError) {
+        console.error('[REGENERATE_QUESTION] Failed to clear PDFs:', reopenError)
+        return NextResponse.json({ error: 'Failed to clear PDFs' }, { status: 500 })
+      }
+
+      paperWasReopened = true
+      console.log('[REGENERATE_QUESTION] Paper reopened and PDFs cleared')
+    }
+
     console.log('[REGENERATE_QUESTION] Found question for chapter:', (existingQuestion as any).chapters?.name)
 
     // Get protocol for this exam+subject combination
-    const paper = (existingQuestion as any).papers
     const streamName = paper?.streams?.name
     const subjectName = paper?.subjects?.name
 
@@ -283,7 +325,8 @@ Generate the improved question now:`
       difficulty: parsedResponse.difficulty,
     }
 
-    const { data: updatedQuestion, error: updateError } = await supabase
+    // Update question using admin client
+    const { data: updatedQuestion, error: updateError } = await supabaseAdmin
       .from('questions')
       .update({
         question_text: parsedResponse.questionText,
@@ -326,6 +369,10 @@ Generate the improved question now:`
     return NextResponse.json({
       success: true,
       question: updatedQuestion,
+      paper_reopened: paperWasReopened,
+      message: paperWasReopened
+        ? 'Question regenerated. Paper reopened and PDFs cleared because content changed.'
+        : 'Question regenerated successfully'
     })
   } catch (error) {
     console.error('[REGENERATE_QUESTION_ERROR]', error)

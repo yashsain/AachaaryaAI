@@ -43,17 +43,20 @@ export function generateMaterialPath(
  *
  * @param instituteId - Institute UUID
  * @param paperId - Paper UUID
- * @param fileType - Type of paper file ('question_paper' | 'solution_sheet')
+ * @param fileType - Type of paper file ('question_paper' | 'answer_key' | 'solution_sheet')
  * @returns Storage path string
  *
  * @example
  * generatePaperPath('abc-123', 'paper-456', 'question_paper')
  * // => 'institute_abc-123/papers/paper-456/question_paper.pdf'
+ *
+ * generatePaperPath('abc-123', 'paper-456', 'answer_key')
+ * // => 'institute_abc-123/papers/paper-456/answer_key.pdf'
  */
 export function generatePaperPath(
   instituteId: string,
   paperId: string,
-  fileType: 'question_paper' | 'solution_sheet'
+  fileType: 'question_paper' | 'answer_key' | 'solution_sheet'
 ): string {
   return `institute_${instituteId}/papers/${paperId}/${fileType}.pdf`
 }

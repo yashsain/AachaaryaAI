@@ -27,6 +27,7 @@ import { validateQuestionsWithProtocol, Question } from '@/lib/ai/questionValida
 import { parseGeminiJSON, getDiagnosticInfo } from '@/lib/ai/jsonCleaner'
 import { logApiUsage, calculateCost } from '@/lib/ai/tokenTracker'
 import { getProtocol } from '@/lib/ai/protocols'
+import { deletePaperPDFs } from '@/lib/storage/pdfCleanupService'
 
 export const maxDuration = 300 // 5 minutes timeout
 
@@ -83,6 +84,9 @@ export async function POST(
           title,
           institute_id,
           difficulty_level,
+          status,
+          pdf_url,
+          answer_key_url,
           streams (
             name
           ),
@@ -108,6 +112,36 @@ export async function POST(
     const paper = section.test_papers as any
     if (paper.institute_id !== teacher.institute_id) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
+    // If paper has PDFs, clear them (generating questions invalidates existing PDFs)
+    if (paper.status === 'finalized' || paper.pdf_url || paper.answer_key_url) {
+      console.log('[GENERATE_SECTION] Paper has PDFs (status:', paper.status, '), clearing them...')
+
+      // Delete PDFs from storage
+      const cleanupResult = await deletePaperPDFs(paper.pdf_url, paper.answer_key_url)
+      if (!cleanupResult.success) {
+        console.warn('[GENERATE_SECTION] PDF cleanup had errors:', cleanupResult.errors)
+        // Continue anyway
+      }
+
+      // Clear PDFs and ensure paper is in review status
+      const { error: reopenError } = await supabaseAdmin
+        .from('test_papers')
+        .update({
+          status: 'review',
+          finalized_at: null,
+          pdf_url: null,
+          answer_key_url: null
+        })
+        .eq('id', paperId)
+
+      if (reopenError) {
+        console.error('[GENERATE_SECTION] Failed to clear PDFs:', reopenError)
+        return NextResponse.json({ error: 'Failed to clear PDFs' }, { status: 500 })
+      }
+
+      console.log('[GENERATE_SECTION] Paper reopened and PDFs cleared')
     }
 
     // Verify section status is 'ready' or 'in_review' (has chapters assigned)

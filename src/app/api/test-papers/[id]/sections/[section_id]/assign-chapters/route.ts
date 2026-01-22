@@ -20,6 +20,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { deletePaperPDFs } from '@/lib/storage/pdfCleanupService'
 
 interface AssignChaptersParams {
   params: Promise<{
@@ -100,7 +102,10 @@ export async function POST(
         status,
         test_papers!inner (
           id,
-          institute_id
+          institute_id,
+          status,
+          pdf_url,
+          answer_key_url
         )
       `)
       .eq('id', sectionId)
@@ -116,6 +121,38 @@ export async function POST(
     const paper = section.test_papers as any
     if (paper.institute_id !== teacher.institute_id) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
+    // If paper has PDFs, clear them (reassigning chapters deletes questions, invalidating PDFs)
+    let paperWasReopened = false
+    if (paper.status === 'finalized' || paper.pdf_url || paper.answer_key_url) {
+      console.log('[ASSIGN_CHAPTERS] Paper has PDFs (status:', paper.status, '), clearing them...')
+
+      // Delete PDFs from storage
+      const cleanupResult = await deletePaperPDFs(paper.pdf_url, paper.answer_key_url)
+      if (!cleanupResult.success) {
+        console.warn('[ASSIGN_CHAPTERS] PDF cleanup had errors:', cleanupResult.errors)
+        // Continue anyway
+      }
+
+      // Clear PDFs and ensure paper is in review status
+      const { error: reopenError } = await supabaseAdmin
+        .from('test_papers')
+        .update({
+          status: 'review',
+          finalized_at: null,
+          pdf_url: null,
+          answer_key_url: null
+        })
+        .eq('id', paperId)
+
+      if (reopenError) {
+        console.error('[ASSIGN_CHAPTERS] Failed to clear PDFs:', reopenError)
+        return NextResponse.json({ error: 'Failed to clear PDFs' }, { status: 500 })
+      }
+
+      paperWasReopened = true
+      console.log('[ASSIGN_CHAPTERS] Paper reopened and PDFs cleared')
     }
 
     // Check if synthetic AI Knowledge chapter is selected
@@ -272,8 +309,9 @@ export async function POST(
       section_id: sectionId,
       chapters_assigned: assignedChapters.length,
       questions_deleted: questionsDeleted,
+      paper_reopened: paperWasReopened,
       status: 'ready',
-      message: `Assigned ${assignedChapters.length} chapters to section. ${questionsDeleted > 0 ? `Deleted ${questionsDeleted} existing questions.` : ''}`
+      message: `Assigned ${assignedChapters.length} chapters to section. ${questionsDeleted > 0 ? `Deleted ${questionsDeleted} existing questions.` : ''} ${paperWasReopened ? 'Paper reopened and PDFs cleared because chapters were reassigned.' : ''}`
     })
 
   } catch (error) {

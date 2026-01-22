@@ -288,17 +288,30 @@ export default function ReviewQuestionsPage() {
         return
       }
 
-      // Update in database
-      const { error } = await supabase
-        .from('questions')
-        .update({ is_selected: !currentSelection })
-        .eq('id', questionId)
+      // Update via API endpoint (handles PDF clearing if paper is finalized)
+      const response = await fetch(`/api/questions/${questionId}/toggle-selection`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      })
 
-      if (error) {
-        console.error('[TOGGLE_SELECTION_ERROR]', error)
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('[TOGGLE_SELECTION_ERROR]', result.error)
+        toast.error(result.error || 'Failed to toggle selection')
         // Rollback optimistic update
         fetchQuestions()
         return
+      }
+
+      // Show message if paper was reopened
+      if (result.paper_reopened) {
+        toast.warning('Paper reopened and PDFs cleared because question selection changed', {
+          duration: 5000,
+        })
       }
 
       // NEW: If multi-section paper, revert section status to 'in_review' when questions are edited

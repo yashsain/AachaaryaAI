@@ -13,6 +13,7 @@ import { TemplateConfig, QuestionForPDF, PDFSection } from '@/lib/pdf/types'
 import { generatePaperPath, STORAGE_BUCKETS } from '@/lib/storage/storageService'
 import { generateHTMLTemplate } from '@/lib/pdf/templates/htmlTemplateGenerator'
 import { generatePDFFromHTML } from '@/lib/pdf/utils/puppeteerGenerator'
+import { generateAnswerKeyHTML, AnswerKeyConfig } from '@/lib/pdf/templates/answerKeyTemplate'
 
 // Allow up to 60 seconds for PDF generation (Puppeteer can be slow on cold starts)
 export const maxDuration = 60
@@ -423,6 +424,139 @@ export async function POST(
 
     console.log('[GENERATE_PDF] PDF generation complete:', pdfUrl)
 
+    // =============================================================================
+    // ANSWER KEY GENERATION (runs after question paper is successfully generated)
+    // =============================================================================
+
+    console.log('[GENERATE_ANSWER_KEY] Starting answer key generation...')
+
+    let answerKeyUrl: string | null = null
+    let answerKeySize = 0
+
+    try {
+      // Group questions by section if multi-section
+      let answerKeySections: any[] = []
+      if (hasSections && sections) {
+        let globalQuestionNumber = 1 // Sequential numbering across all sections
+
+        answerKeySections = sections.map(section => ({
+          section_name: section.section_name,
+          subject_name: section.subject_name,
+          questions: section.questions.map((q) => {
+            const questionData = questions.find((dbQ: any) => dbQ.id === q.id)?.question_data || {}
+            const answerKeyQuestion = {
+              question_number: globalQuestionNumber++, // Sequential: 1, 2, 3, 4...
+              question_text: q.question_text,
+              question_text_en: q.question_text_en || undefined,
+              options: q.options || {},
+              options_en: q.options_en || undefined,
+              correct_answer: q.correct_answer || '',
+              explanation: q.explanation || questionData.explanation || undefined,
+              explanation_en: q.explanation_en || questionData.explanation_en || undefined,
+              marks: q.marks || 1,
+              is_bilingual: q.language === 'bilingual'
+            }
+            return answerKeyQuestion
+          })
+        }))
+      }
+
+      // Prepare answer key config
+      const answerKeyConfig: AnswerKeyConfig = {
+        instituteLogo: instituteLogo || undefined,
+        instituteName: institute.name,
+        primaryColor: institute.primary_color || '#8B1A1A',
+        tagline: institute.tagline || undefined,
+        contactInfo: {
+          phone: institute.phone || undefined,
+          email: institute.email || undefined,
+          address: institute.address || undefined
+        },
+        testTitle: paper.title,
+        testCode,
+        date: formatDate(paper.finalized_at || paper.created_at),
+        examType: stream?.name || 'Practice Test',
+        hasSections,
+        sections: hasSections ? answerKeySections : undefined,
+        questions: !hasSections ? questionsForPDF.map((q, idx) => {
+          const questionData = questions.find((dbQ: any) => dbQ.id === q.id)?.question_data || {}
+          return {
+            question_number: idx + 1, // Sequential: 1, 2, 3, 4...
+            question_text: q.question_text,
+            question_text_en: q.question_text_en || undefined,
+            options: q.options || {},
+            options_en: q.options_en || undefined,
+            correct_answer: q.correct_answer || '',
+            explanation: q.explanation || questionData.explanation || undefined,
+            explanation_en: q.explanation_en || questionData.explanation_en || undefined,
+            marks: q.marks || 1,
+            is_bilingual: q.language === 'bilingual'
+          }
+        }) : undefined
+      }
+
+      console.log('[GENERATE_ANSWER_KEY] Generating HTML...')
+
+      // Generate HTML for answer key
+      const answerKeyHtmlContent = generateAnswerKeyHTML(answerKeyConfig)
+
+      console.log('[GENERATE_ANSWER_KEY] HTML generated, creating PDF with Puppeteer...')
+
+      // Generate PDF from HTML using Puppeteer
+      const answerKeyPdfBuffer = await generatePDFFromHTML(answerKeyHtmlContent, {
+        format: 'A4',
+        margin: {
+          top: '15mm',
+          right: '15mm',
+          bottom: '15mm',
+          left: '15mm'
+        }
+      })
+
+      console.log('[GENERATE_ANSWER_KEY] PDF generated. Size:', answerKeyPdfBuffer.length, 'bytes')
+      answerKeySize = answerKeyPdfBuffer.length
+
+      // Generate storage path using helper function (institute isolation)
+      const answerKeyFileName = generatePaperPath(institute.id, paperId, 'answer_key')
+      console.log('[GENERATE_ANSWER_KEY] Storage path:', answerKeyFileName)
+
+      // Upload with upsert=true to replace existing PDF on re-generation
+      const { data: answerKeyUploadData, error: answerKeyUploadError } = await supabaseAdmin
+        .storage
+        .from(STORAGE_BUCKETS.PAPERS)
+        .upload(answerKeyFileName, answerKeyPdfBuffer, {
+          contentType: 'application/pdf',
+          upsert: true,  // Replace if exists
+        })
+
+      if (answerKeyUploadError) {
+        console.error('[GENERATE_ANSWER_KEY] Upload error:', answerKeyUploadError)
+        // Don't fail the entire request if answer key fails - question paper is more important
+      } else {
+        console.log('[GENERATE_ANSWER_KEY] PDF uploaded to storage:', answerKeyUploadData.path)
+
+        // Store storage path (not public URL)
+        answerKeyUrl = answerKeyFileName
+
+        // Update test paper with answer key storage path
+        const { error: answerKeyUpdateError } = await supabase
+          .from('test_papers')
+          .update({ answer_key_url: answerKeyUrl })
+          .eq('id', paperId)
+
+        if (answerKeyUpdateError) {
+          console.error('[GENERATE_ANSWER_KEY] Update paper error:', answerKeyUpdateError)
+          // Don't fail - answer key is optional
+        } else {
+          console.log('[GENERATE_ANSWER_KEY] Answer key generation complete:', answerKeyUrl)
+        }
+      }
+    } catch (answerKeyError) {
+      console.error('[GENERATE_ANSWER_KEY_ERROR]', answerKeyError)
+      // Don't fail the entire request if answer key fails - question paper is more important
+      console.log('[GENERATE_ANSWER_KEY] Continuing without answer key due to error')
+    }
+
     return NextResponse.json({
       success: true,
       pdf_url: pdfUrl,
@@ -430,6 +564,9 @@ export async function POST(
       size: pdfBuffer.length,
       questions_count: questionsForPDF.length,
       test_code: testCode,
+      // Answer key info (optional, may be null if generation failed)
+      answer_key_url: answerKeyUrl,
+      answer_key_size: answerKeySize || undefined,
     })
 
   } catch (error) {
