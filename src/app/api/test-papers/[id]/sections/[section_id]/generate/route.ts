@@ -193,14 +193,15 @@ export async function POST(
       return NextResponse.json({ error: 'This section is not ready for question generation. Please check the section configuration.' }, { status: 400 })
     }
 
-    // Special reserved UUID for AI Knowledge mode
-    const AI_KNOWLEDGE_UUID = '00000000-0000-0000-0000-000000000001'
+    // Check if AI Knowledge mode is enabled (detect by chapter name)
+    const aiKnowledgeChapterRel = sectionChapterRels.find(sc => {
+      const chapter = sc.chapters as any
+      return chapter?.name === '[AI Knowledge] Full Syllabus'
+    })
 
-    // Check if AI Knowledge mode is enabled (chapter_id is the special UUID)
-    const hasAIKnowledgeChapter = sectionChapterRels.some(sc => sc.chapter_id === AI_KNOWLEDGE_UUID)
-
-    if (hasAIKnowledgeChapter) {
-      console.log(`[GENERATE_SECTION_AI_KNOWLEDGE] Section "${section.section_name}" (${subjectName}) using AI Knowledge Mode - generating without uploaded materials`)
+    if (aiKnowledgeChapterRel) {
+      const aiKnowledgeChapterId = aiKnowledgeChapterRel.chapter_id
+      console.log(`[GENERATE_SECTION_AI_KNOWLEDGE] Section "${section.section_name}" (${subjectName}) using AI Knowledge Mode (chapter_id: ${aiKnowledgeChapterId}) - generating without uploaded materials`)
 
       // AI KNOWLEDGE MODE: Generate questions using Gemini's training knowledge
       // No material upload required - Gemini uses its built-in knowledge
@@ -324,11 +325,11 @@ ${aiKnowledgePrompt}`
           allValidationWarnings.push(...validation.warnings)
         }
 
-        // Insert questions into database WITH section_id and AI Knowledge UUID
+        // Insert questions into database WITH section_id and AI Knowledge chapter_id
         const questionsToInsert = questions.map((q, index) => ({
           institute_id: teacher.institute_id,
           paper_id: paperId,
-          chapter_id: AI_KNOWLEDGE_UUID, // AI Knowledge mode uses special reserved UUID
+          chapter_id: aiKnowledgeChapterId, // AI Knowledge chapter UUID from section_chapters
           section_id: sectionId,
           passage_id: null,
           question_text: q.questionText,
@@ -381,7 +382,7 @@ ${aiKnowledgePrompt}`
             teacherId: teacher.id,
             paperId: paperId,
             paperTitle: paper.title,
-            chapterId: AI_KNOWLEDGE_UUID,
+            chapterId: aiKnowledgeChapterId,
             chapterName: `${subjectName} (AI Knowledge - Full Syllabus)`,
             usage: tokenUsage,
             modelUsed: GEMINI_MODEL,

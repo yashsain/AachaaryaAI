@@ -78,6 +78,7 @@ export async function POST(
         marks_per_question,
         negative_marks,
         status,
+        is_bilingual,
         test_papers!inner (
           id,
           title,
@@ -193,15 +194,227 @@ export async function POST(
     const sectionChapters = sectionChapterRels.map(rel => rel.chapters as any)
     console.log(`[REGENERATE_SECTION] Processing ${sectionChapters.length} chapters for section ${section.section_name}`)
 
+    // Check if AI Knowledge mode is enabled (detect by chapter name)
+    const aiKnowledgeChapterRel = sectionChapterRels.find(sc => {
+      const chapter = sc.chapters as any
+      return chapter?.name === '[AI Knowledge] Full Syllabus'
+    })
+
     // Calculate questions per chapter (generate 150% for selection)
     const totalQuestionsToGenerate = Math.ceil(section.question_count * 1.5)
-    const questionsPerChapter = Math.ceil(totalQuestionsToGenerate / sectionChapters.length)
-
-    console.log(`[REGENERATE_SECTION] Generating ${questionsPerChapter} questions per chapter (total: ${totalQuestionsToGenerate})`)
 
     let questionsGenerated = 0
     let totalTokensUsed = 0
     const allValidationWarnings: string[] = []
+
+    // AI KNOWLEDGE MODE: Generate questions using Gemini's training knowledge
+    if (aiKnowledgeChapterRel) {
+      const aiKnowledgeChapterId = aiKnowledgeChapterRel.chapter_id
+      console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE] Section "${section.section_name}" (${subjectName}) using AI Knowledge Mode (chapter_id: ${aiKnowledgeChapterId}) - regenerating without uploaded materials`)
+
+      try {
+        // Map difficulty to protocol config
+        const protocolConfig = mapDifficultyToConfig(
+          protocol,
+          paper.difficulty_level as 'easy' | 'balanced' | 'hard',
+          totalQuestionsToGenerate
+        )
+
+        // Build AI Knowledge Mode prompt
+        const aiKnowledgePrompt = buildPrompt(
+          protocol,
+          protocolConfig,
+          `${subjectName} (Full Syllabus)`,
+          totalQuestionsToGenerate,
+          totalQuestionsToGenerate,
+          section.is_bilingual || false
+        )
+
+        // Prepend instruction to use AI's built-in knowledge
+        const finalPrompt = `IMPORTANT: You are generating questions using your built-in training knowledge about ${subjectName}. NO study materials have been provided. Use your comprehensive knowledge of this subject to generate high-quality questions following the protocol specifications.
+
+${aiKnowledgePrompt}`
+
+        console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE] Calling Gemini for ${totalQuestionsToGenerate} questions using AI knowledge...`)
+
+        // Call Gemini WITHOUT file uploads (only text prompt)
+        const response = await ai.models.generateContent({
+          model: GEMINI_MODEL,
+          contents: [{ text: finalPrompt }],
+          config: GENERATION_CONFIG
+        })
+
+        const responseText = response.text
+        if (!responseText) {
+          throw new Error('No response text received from Gemini')
+        }
+        console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE] Received response from Gemini (${responseText.length} chars)`)
+
+        // Capture token usage
+        const tokenUsage = {
+          promptTokens: response.usageMetadata?.promptTokenCount || 0,
+          completionTokens: response.usageMetadata?.candidatesTokenCount || 0,
+          totalTokens: response.usageMetadata?.totalTokenCount || 0,
+        }
+        totalTokensUsed = tokenUsage.totalTokens
+        console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE] Token usage: ${tokenUsage.totalTokens} total (${tokenUsage.promptTokens} input, ${tokenUsage.completionTokens} output)`)
+
+        // Parse JSON response
+        let parsedResponse: { questions: Question[] }
+        try {
+          const rawParsed = parseGeminiJSON<any>(responseText)
+
+          // Handle both formats: { questions: [...] } or just [...]
+          if (Array.isArray(rawParsed)) {
+            console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE] Gemini returned bare array, wrapping in questions object`)
+            parsedResponse = { questions: rawParsed }
+          } else if (rawParsed.questions && Array.isArray(rawParsed.questions)) {
+            parsedResponse = rawParsed
+          } else {
+            throw new Error('Response missing "questions" array or is not a valid array')
+          }
+
+          if (parsedResponse.questions.length === 0) {
+            throw new Error('Response has empty "questions" array')
+          }
+
+          console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE] Successfully parsed ${parsedResponse.questions.length} questions`)
+        } catch (parseError) {
+          const diagnostics = getDiagnosticInfo(responseText, parseError as Error)
+          console.error('[REGENERATE_SECTION_AI_KNOWLEDGE_ERROR] JSON parse failed')
+          console.error('[REGENERATE_SECTION_AI_KNOWLEDGE_ERROR] Error:', diagnostics.errorMessage)
+          throw new Error('Failed to parse AI-generated questions')
+        }
+
+        const questions = parsedResponse.questions || []
+        console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE] Parsed ${questions.length} questions`)
+
+        if (questions.length === 0) {
+          throw new Error('No questions in response')
+        }
+
+        // Validate questions using protocol
+        const validation = validateQuestionsWithProtocol(questions, protocol)
+
+        if (validation.errors.length > 0) {
+          console.error('[REGENERATE_SECTION_AI_KNOWLEDGE_VALIDATION_ERRORS]', validation.errors)
+          allValidationWarnings.push(`Section ${section.section_name}: ${validation.errors.join('; ')}`)
+        }
+
+        if (validation.warnings.length > 0) {
+          console.warn('[REGENERATE_SECTION_AI_KNOWLEDGE_VALIDATION_WARNINGS]', validation.warnings)
+          allValidationWarnings.push(...validation.warnings)
+        }
+
+        // Insert questions into database WITH section_id and AI Knowledge chapter_id
+        const questionsToInsert = questions.map((q, index) => ({
+          institute_id: teacher.institute_id,
+          paper_id: paperId,
+          chapter_id: aiKnowledgeChapterId,
+          section_id: sectionId,
+          passage_id: null,
+          question_text: q.questionText,
+          question_data: {
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            archetype: q.archetype,
+            structuralForm: q.structuralForm,
+            cognitiveLoad: q.cognitiveLoad,
+            difficulty: q.difficulty,
+            ncertFidelity: q.ncertFidelity,
+            language: q.language || (section.is_bilingual ? 'bilingual' : 'hindi'),
+            // Bilingual fields (only when present)
+            ...(q.questionText_en && { questionText_en: q.questionText_en }),
+            ...(q.options_en && { options_en: q.options_en }),
+            ...(q.explanation_en && { explanation_en: q.explanation_en }),
+            ...(q.passage_en && { passage_en: q.passage_en })
+          },
+          explanation: q.explanation,
+          marks: section.marks_per_question || 4,
+          negative_marks: section.negative_marks || 0,
+          is_selected: false,
+          question_order: index + 1
+        }))
+
+        const { error: insertError } = await supabaseAdmin
+          .from('questions')
+          .insert(questionsToInsert)
+
+        if (insertError) {
+          console.error('[REGENERATE_SECTION_AI_KNOWLEDGE_ERROR] Failed to insert questions:', insertError)
+
+          await supabaseAdmin
+            .from('test_paper_sections')
+            .update({ status: 'ready' })
+            .eq('id', sectionId)
+
+          throw new Error('Failed to save AI-generated questions')
+        }
+
+        questionsGenerated = questions.length
+        console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE_SUCCESS] Inserted ${questionsGenerated} questions for section "${section.section_name}"`)
+
+        // Log API usage and costs
+        const costs = calculateCost(tokenUsage, GEMINI_MODEL, 'standard')
+        console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE_COST] Section ${section.section_name}: ${questions.length} questions, ₹${costs.costInINR.toFixed(4)}`)
+
+        // Log usage to file (non-blocking)
+        try {
+          logApiUsage({
+            instituteId: paper.institute_id,
+            instituteName: (paper.institutes as any)?.name,
+            teacherId: teacher.id,
+            paperId: paperId,
+            paperTitle: paper.title,
+            chapterId: aiKnowledgeChapterId,
+            chapterName: `${subjectName} (AI Knowledge - Full Syllabus)`,
+            usage: tokenUsage,
+            modelUsed: GEMINI_MODEL,
+            operationType: 'regenerate',
+            questionsGenerated: questions.length,
+            mode: 'standard'
+          })
+        } catch (err) {
+          console.error('[TOKEN_TRACKER] Failed to log usage:', err)
+        }
+
+        // Mark section as in_review
+        await supabaseAdmin
+          .from('test_paper_sections')
+          .update({ status: 'in_review' })
+          .eq('id', sectionId)
+
+        console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE_COMPLETE] section="${section.section_name}" questions=${questionsGenerated} tokens=${tokenUsage.totalTokens}`)
+
+        return NextResponse.json({
+          success: true,
+          section_id: sectionId,
+          questions_generated: questionsGenerated,
+          validation_warnings: allValidationWarnings
+        })
+
+      } catch (aiKnowledgeError) {
+        console.error('[REGENERATE_SECTION_AI_KNOWLEDGE_ERROR]', aiKnowledgeError)
+
+        // Mark section as failed
+        await supabaseAdmin
+          .from('test_paper_sections')
+          .update({ status: 'failed' })
+          .eq('id', sectionId)
+
+        return NextResponse.json(
+          {
+            error: 'Failed to regenerate questions in AI Knowledge mode',
+            details: aiKnowledgeError instanceof Error ? aiKnowledgeError.message : 'Unknown error'
+          },
+          { status: 500 }
+        )
+      }
+    }
+
+    // MATERIAL-BASED MODE: Standard question generation from uploaded materials
+    const questionsPerChapter = Math.ceil(totalQuestionsToGenerate / sectionChapters.length)
+    console.log(`[REGENERATE_SECTION] Generating ${questionsPerChapter} questions per chapter (total: ${totalQuestionsToGenerate})`)
 
     // Loop through each chapter
     for (const chapter of sectionChapters) {

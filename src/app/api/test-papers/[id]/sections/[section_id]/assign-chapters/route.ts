@@ -118,37 +118,84 @@ export async function POST(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    // Special reserved UUID for AI Knowledge mode
-    const AI_KNOWLEDGE_UUID = '00000000-0000-0000-0000-000000000001'
+    // Check if synthetic AI Knowledge chapter is selected
+    const SYNTHETIC_AI_KNOWLEDGE_ID = 'ai-knowledge-full-syllabus'
+    const hasSyntheticAIKnowledge = chapter_ids.includes(SYNTHETIC_AI_KNOWLEDGE_ID)
 
-    // Check if AI Knowledge chapter is selected (using real DB UUID)
-    const hasAIKnowledgeChapter = chapter_ids.includes(AI_KNOWLEDGE_UUID)
+    let finalChapterIds = [...chapter_ids]
+    let aiKnowledgeUUID: string | null = null
 
-    // Log if AI Knowledge mode is being used
-    if (hasAIKnowledgeChapter) {
+    // If synthetic AI Knowledge is selected, upsert real DB record
+    if (hasSyntheticAIKnowledge) {
       console.log(`[ASSIGN_CHAPTERS_INFO] AI Knowledge mode selected for section "${section.section_name}"`)
-    }
 
-    // Verify all chapters exist and belong to the section's subject
-    const { data: chapters, error: chaptersError } = await supabase
-      .from('chapters')
-      .select('id, subject_id')
-      .in('id', chapter_ids)
+      // Check if AI Knowledge chapter already exists for this subject
+      const { data: existingAIChapter } = await supabase
+        .from('chapters')
+        .select('id')
+        .eq('name', '[AI Knowledge] Full Syllabus')
+        .eq('subject_id', section.subject_id)
+        .single()
 
-    if (chaptersError || !chapters || chapters.length !== chapter_ids.length) {
-      return NextResponse.json(
-        { error: 'One or more chapters not found' },
-        { status: 400 }
+      if (existingAIChapter) {
+        // Use existing AI Knowledge chapter UUID
+        aiKnowledgeUUID = existingAIChapter.id
+        console.log(`[ASSIGN_CHAPTERS_INFO] Using existing AI Knowledge chapter ${aiKnowledgeUUID}`)
+      } else {
+        // Create new AI Knowledge chapter for this subject
+        const { data: newAIChapter, error: insertError } = await supabase
+          .from('chapters')
+          .insert({
+            name: '[AI Knowledge] Full Syllabus',
+            subject_id: section.subject_id,
+            class_level_id: null
+          })
+          .select('id')
+          .single()
+
+        if (insertError || !newAIChapter) {
+          console.error('[ASSIGN_CHAPTERS_ERROR] Failed to create AI Knowledge chapter:', insertError)
+          return NextResponse.json(
+            { error: 'Failed to create AI Knowledge chapter' },
+            { status: 500 }
+          )
+        }
+
+        aiKnowledgeUUID = newAIChapter.id
+        console.log(`[ASSIGN_CHAPTERS_INFO] Created new AI Knowledge chapter ${aiKnowledgeUUID} for subject ${section.subject_id}`)
+      }
+
+      // Replace synthetic ID with real UUID
+      finalChapterIds = chapter_ids.map(id =>
+        id === SYNTHETIC_AI_KNOWLEDGE_ID ? aiKnowledgeUUID! : id
       )
     }
 
-    // Verify all chapters belong to the section's subject
-    const invalidChapters = chapters.filter(ch => ch.subject_id !== section.subject_id)
-    if (invalidChapters.length > 0) {
-      return NextResponse.json(
-        { error: `Chapters must belong to section's subject` },
-        { status: 400 }
-      )
+    // Separate AI Knowledge and regular chapters for validation
+    const regularChapterIds = finalChapterIds.filter(id => id !== aiKnowledgeUUID)
+
+    // Verify regular chapters exist and belong to the section's subject
+    if (regularChapterIds.length > 0) {
+      const { data: chapters, error: chaptersError } = await supabase
+        .from('chapters')
+        .select('id, subject_id')
+        .in('id', regularChapterIds)
+
+      if (chaptersError || !chapters || chapters.length !== regularChapterIds.length) {
+        return NextResponse.json(
+          { error: 'One or more chapters not found' },
+          { status: 400 }
+        )
+      }
+
+      // Verify all regular chapters belong to the section's subject
+      const invalidChapters = chapters.filter(ch => ch.subject_id !== section.subject_id)
+      if (invalidChapters.length > 0) {
+        return NextResponse.json(
+          { error: `Chapters must belong to section's subject` },
+          { status: 400 }
+        )
+      }
     }
 
     // Step 1: Delete existing chapter assignments for this section
@@ -184,7 +231,7 @@ export async function POST(
     }
 
     // Step 3: Insert new section-chapter relationships
-    const sectionChapters = chapter_ids.map(chapter_id => ({
+    const sectionChapters = finalChapterIds.map(chapter_id => ({
       section_id: sectionId,
       chapter_id: chapter_id
     }))

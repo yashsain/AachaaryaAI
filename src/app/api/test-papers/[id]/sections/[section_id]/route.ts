@@ -112,7 +112,6 @@ export async function GET(
     }
 
     // Fetch available chapters (filtered by section's subject_id)
-    // Note: [AI Knowledge] Full Syllabus is stored in DB with reserved UUID 00000000-0000-0000-0000-000000000001
     const { data: availableChapters, error: chaptersError } = await supabase
       .from('chapters')
       .select(`
@@ -136,6 +135,25 @@ export async function GET(
         { error: 'Failed to fetch available chapters' },
         { status: 500 }
       )
+    }
+
+    // Smart injection: Check if AI Knowledge chapter exists for this subject
+    // If NOT found in DB, inject synthetic chapter to avoid duplicate
+    const hasAIKnowledge = availableChapters?.some(ch => ch.name === '[AI Knowledge] Full Syllabus')
+    let chaptersWithAIOption = availableChapters || []
+
+    if (!hasAIKnowledge) {
+      // Inject synthetic AI Knowledge chapter at the top
+      const aiKnowledgeChapter = {
+        id: 'ai-knowledge-full-syllabus', // Synthetic ID for UI
+        name: '[AI Knowledge] Full Syllabus',
+        subject_id: section.subject_id,
+        class_level_id: null,
+        created_at: new Date().toISOString(),
+        class_levels: []
+      }
+      chaptersWithAIOption = [aiKnowledgeChapter as any, ...(availableChapters || [])]
+      console.log(`[GET_SECTION_DETAIL] Injected AI Knowledge chapter for subject ${section.subject_id}`)
     }
 
     // Fetch currently assigned chapters
@@ -166,7 +184,7 @@ export async function GET(
     })) || []
 
     // Count questions for this section
-    const { count: questionCount, error: countError } = await supabase
+    const { count: questionCount } = await supabase
       .from('questions')
       .select('id', { count: 'exact', head: true })
       .eq('section_id', sectionId)
@@ -191,7 +209,7 @@ export async function GET(
         paper_title: paper.title,
         paper_difficulty: paper.difficulty_level
       },
-      available_chapters: availableChapters || [],
+      available_chapters: chaptersWithAIOption,
       assigned_chapters: assignedChapters
     })
 
