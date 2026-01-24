@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import 'katex/dist/katex.min.css' // KaTeX styles for math rendering
 import { Providers } from '@/components/providers/Providers'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'

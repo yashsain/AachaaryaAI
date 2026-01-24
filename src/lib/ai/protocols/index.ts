@@ -30,6 +30,13 @@ import {
   rpscSeniorTeacherPaper1EducationalPsychologyProtocol
 } from './rpsc/senior-teacher-grade2/paper1'
 
+// RPSC Senior Teacher (Grade II) - Paper 2 Protocols (Mathematics)
+import {
+  mathematicsSecondaryAndSeniorSecondary,
+  mathematicsGraduationLevel,
+  mathematicsTeachingMethods
+} from './rpsc/senior-teacher-grade2/paper2/maths'
+
 /**
  * Protocol Registry
  * Maps protocol keys (e.g., "neet-biology") to Protocol objects
@@ -60,6 +67,11 @@ const protocolRegistry: Map<ProtocolKey, Protocol> = new Map([
   ['rpsc senior teacher (grade ii)-current affairs of rajasthan', rpscSeniorTeacherPaper1CurrentAffairsProtocol],
   ['rpsc senior teacher (grade ii)-general knowledge of india & the world', rpscSeniorTeacherPaper1IndiaWorldGKProtocol],
   ['rpsc senior teacher (grade ii)-educational psychology', rpscSeniorTeacherPaper1EducationalPsychologyProtocol],
+
+  // RPSC Senior Teacher (Grade II) - Paper 2 Protocols (Mathematics)
+  ['rpsc senior teacher (grade ii)-mathematics (secondary & sr. secondary)', mathematicsSecondaryAndSeniorSecondary],
+  ['rpsc senior teacher (grade ii)-mathematics (graduation)', mathematicsGraduationLevel],
+  ['rpsc senior teacher (grade ii)-mathematics-teaching-methods', mathematicsTeachingMethods],
 
   // JEE Protocols (stubs - to be implemented)
   // ['jee-physics', jeePhysicsProtocol],

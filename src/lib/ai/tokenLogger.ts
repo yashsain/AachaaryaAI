@@ -124,6 +124,10 @@ interface MonthlySummary {
  */
 export function logTokenUsage(log: TokenUsageLog): void {
   try {
+    console.log('[TOKEN_LOGGER] logTokenUsage called')
+    console.log('[TOKEN_LOGGER] VERCEL_ENV:', process.env.VERCEL_ENV)
+    console.log('[TOKEN_LOGGER] isFileLoggingDisabled:', isFileLoggingDisabled())
+
     // Skip file logging on Vercel production/preview
     if (isFileLoggingDisabled()) {
       console.log(`[TOKEN_LOGGER] File logging disabled (VERCEL_ENV=${process.env.VERCEL_ENV})`)
@@ -131,7 +135,9 @@ export function logTokenUsage(log: TokenUsageLog): void {
       return
     }
 
+    console.log('[TOKEN_LOGGER] Ensuring directories exist...')
     ensureDirectoriesExist()
+    console.log('[TOKEN_LOGGER] Directories ready')
 
     // Create daily log file path
     const dailyLogPath = path.join(TOKEN_LOGS_DIR, `${log.date}_USAGE.jsonl`)

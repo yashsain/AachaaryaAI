@@ -574,9 +574,15 @@ ${aiKnowledgePrompt}`
         // Step 6: Parse JSON response with production-grade cleaning
         let parsedResponse: { questions: Question[] }
         try {
-          parsedResponse = parseGeminiJSON<{ questions: Question[] }>(responseText)
+          const rawParsed = parseGeminiJSON<any>(responseText)
 
-          if (!parsedResponse.questions || !Array.isArray(parsedResponse.questions)) {
+          // Handle both formats: { questions: [...] } or just [...]
+          if (Array.isArray(rawParsed)) {
+            console.log(`[REGENERATE_SECTION] Gemini returned bare array, wrapping in questions object`)
+            parsedResponse = { questions: rawParsed }
+          } else if (rawParsed.questions && Array.isArray(rawParsed.questions)) {
+            parsedResponse = rawParsed
+          } else {
             throw new Error('Response missing "questions" array')
           }
 

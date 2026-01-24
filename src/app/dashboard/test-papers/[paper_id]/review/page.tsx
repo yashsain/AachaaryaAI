@@ -20,6 +20,7 @@ import { AuthErrorBanner } from '@/components/errors/AuthErrorBanner'
 import { Modal } from '@/components/ui/Modal'
 import { SectionStatusBadge } from '@/components/ui/SectionStatusBadge'
 import { Button } from '@/components/ui/Button'
+import { MathText } from '@/components/ui/MathText'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { toast } from '@/components/ui/toast'
 
@@ -872,7 +873,7 @@ export default function ReviewQuestionsPage() {
                     {/* Passage Text */}
                     <div className="px-8 py-6 bg-gradient-to-br from-neutral-50 to-neutral-100/50">
                       <p className="text-sm text-neutral-800 whitespace-pre-wrap leading-relaxed font-medium">
-                        {group.passage_text}
+                        <MathText>{group.passage_text}</MathText>
                       </p>
                     </div>
 
@@ -1088,7 +1089,7 @@ export default function ReviewQuestionsPage() {
                     {/* Passage Text */}
                     <div className="px-8 py-6 bg-gradient-to-br from-neutral-50 to-neutral-100/50">
                       <p className="text-sm text-neutral-800 whitespace-pre-wrap leading-relaxed font-medium">
-                        {group.passage_text}
+                        <MathText>{group.passage_text}</MathText>
                       </p>
                     </div>
 
@@ -1190,7 +1191,9 @@ function QuestionCard({ question, index: _index, onToggleSelection, onEdit, onRe
             </div>
             <div className="flex-1">
               <div className="prose prose-sm max-w-none">
-                <p className="text-lg font-medium text-neutral-900 whitespace-pre-wrap leading-relaxed">{question.question_text}</p>
+                <p className="text-lg font-medium text-neutral-900 whitespace-pre-wrap leading-relaxed">
+                  <MathText>{question.question_text}</MathText>
+                </p>
               </div>
             </div>
           </div>
@@ -1221,7 +1224,9 @@ function QuestionCard({ question, index: _index, onToggleSelection, onEdit, onRe
               }`}
             >
               <span className="font-bold text-neutral-900 text-sm">{key}.</span>
-              <span className="ml-3 text-neutral-900 font-medium">{value}</span>
+              <span className="ml-3 text-neutral-900 font-medium">
+                <MathText>{value}</MathText>
+              </span>
               {key === question.correct_answer && (
                 <span className="ml-3 text-success-600 font-bold text-sm">✓ Correct Answer</span>
               )}
@@ -1252,7 +1257,9 @@ function QuestionCard({ question, index: _index, onToggleSelection, onEdit, onRe
         {expanded && question.explanation && (
           <div className="bg-gradient-to-br from-primary-50 to-primary-100/50 border-2 border-primary-200/60 rounded-2xl p-6 mb-6">
             <p className="text-sm font-bold text-primary-900 mb-3">Explanation:</p>
-            <p className="text-sm text-primary-800 whitespace-pre-wrap leading-relaxed">{question.explanation}</p>
+            <p className="text-sm text-primary-800 whitespace-pre-wrap leading-relaxed">
+              <MathText>{question.explanation}</MathText>
+            </p>
           </div>
         )}
 

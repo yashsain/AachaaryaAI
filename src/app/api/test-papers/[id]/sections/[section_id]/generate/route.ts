@@ -586,15 +586,34 @@ ${aiKnowledgePrompt}`
         try {
           const rawParsed = parseGeminiJSON<any>(responseText)
 
+          // Log what we actually got from Gemini
+          console.log('[GENERATE_SECTION_DEBUG] Raw parsed type:', Array.isArray(rawParsed) ? 'array' : typeof rawParsed)
+          if (!Array.isArray(rawParsed) && typeof rawParsed === 'object') {
+            console.log('[GENERATE_SECTION_DEBUG] Object keys:', Object.keys(rawParsed).join(', '))
+          }
+
           // Handle both formats: { questions: [...] } or just [...]
           if (Array.isArray(rawParsed)) {
             // Gemini returned bare array - wrap it
-            console.log(`[GENERATE_SECTION] Gemini returned bare array, wrapping in questions object`)
+            console.log(`[GENERATE_SECTION] Gemini returned bare array with ${rawParsed.length} items, wrapping in questions object`)
             parsedResponse = { questions: rawParsed }
           } else if (rawParsed.questions && Array.isArray(rawParsed.questions)) {
             // Expected format
+            console.log(`[GENERATE_SECTION] Gemini returned object with questions array (${rawParsed.questions.length} items)`)
             parsedResponse = rawParsed
           } else {
+            // Log what we got instead
+            console.error('[GENERATE_SECTION_ERROR] Unexpected response format')
+            console.error('[GENERATE_SECTION_ERROR] Is array?', Array.isArray(rawParsed))
+            console.error('[GENERATE_SECTION_ERROR] Type:', typeof rawParsed)
+            if (typeof rawParsed === 'object' && rawParsed !== null) {
+              console.error('[GENERATE_SECTION_ERROR] Keys:', Object.keys(rawParsed))
+              console.error('[GENERATE_SECTION_ERROR] Has questions?', 'questions' in rawParsed)
+              if ('questions' in rawParsed) {
+                console.error('[GENERATE_SECTION_ERROR] questions type:', typeof rawParsed.questions)
+                console.error('[GENERATE_SECTION_ERROR] questions is array?', Array.isArray(rawParsed.questions))
+              }
+            }
             throw new Error('Response missing "questions" array or is not a valid array')
           }
 
@@ -749,8 +768,11 @@ ${aiKnowledgePrompt}`
         console.log(`[GENERATE_SECTION_COST] Section ${section.section_name}, Chapter ${chapterName}: ${questions.length} questions, ₹${costs.costInINR.toFixed(4)}`)
 
         // Log usage to file (non-blocking)
+        console.log('[TOKEN_TRACKER] Attempting to log usage to file...')
+        console.log('[TOKEN_TRACKER] VERCEL_ENV:', process.env.VERCEL_ENV)
+        console.log('[TOKEN_TRACKER] NODE_ENV:', process.env.NODE_ENV)
         try {
-          logApiUsage({
+          const logParams = {
             instituteId: paper.institute_id,
             instituteName: (paper.institutes as any)?.name,
             teacherId: teacher.id,
@@ -760,12 +782,16 @@ ${aiKnowledgePrompt}`
             chapterName: chapterName,
             usage: tokenUsage,
             modelUsed: GEMINI_MODEL,
-            operationType: 'generate',
+            operationType: 'generate' as const,
             questionsGenerated: questions.length,
-            mode: 'standard'
-          })
+            mode: 'standard' as const
+          }
+          console.log('[TOKEN_TRACKER] Calling logApiUsage with params:', JSON.stringify(logParams, null, 2))
+          logApiUsage(logParams)
+          console.log('[TOKEN_TRACKER] logApiUsage completed successfully')
         } catch (err) {
           console.error('[TOKEN_TRACKER] Failed to log usage:', err)
+          console.error('[TOKEN_TRACKER] Error stack:', (err as Error).stack)
         }
 
         console.log(`[GENERATE_SECTION_CHAPTER_SUCCESS] section="${section.section_name}" chapter=${chapterName} generated=${questions.length}`)

@@ -123,6 +123,8 @@ export interface Protocol {
     examType?: string // e.g., "SELECTION (Merit-based)", "ELIGIBILITY (Qualifying)"
     sectionWeightage?: string // e.g., "Subject specialization - 140 marks"
     relatedExam?: string // e.g., "REET Pre Level 2 (Eligibility/Qualifying)"
+    difficultyMultiplier?: string // e.g., "6-8x (B.Sc. competitive level)"
+    cognitiveLoadTarget?: string // e.g., "65% high-density for balanced difficulty"
     note?: string // Additional notes about the exam structure
   }
 }

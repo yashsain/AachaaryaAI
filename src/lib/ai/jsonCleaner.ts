@@ -1,8 +1,76 @@
 /**
+ * Fix invalid JSON escape sequences (CRITICAL FOR LATEX)
+ *
+ * JSON only allows these escape sequences: \" \\ \/ \b \f \n \r \t \uXXXX
+ * LaTeX uses backslashes for commands: \in \mathbb \cup \implies etc.
+ * These are INVALID in JSON and must be escaped as: \\in \\mathbb \\cup \\implies
+ *
+ * Strategy: Process character by character and double backslashes EXCEPT:
+ * 1. Already escaped backslashes (\\)
+ * 2. Valid JSON escape sequences (\n, \r, \t, \b, \f, \/, \", \uXXXX)
+ * 3. Everything else (LaTeX commands) gets doubled
+ *
+ * @param jsonString - Raw JSON string with potential invalid escape sequences
+ * @returns Fixed JSON string with all backslashes properly escaped
+ */
+function fixInvalidEscapeSequences(jsonString: string): string {
+  // Valid single-character JSON escapes (after backslash)
+  const validEscapes = new Set(['\\', '"', '/', 'b', 'f', 'n', 'r', 't'])
+
+  let result = ''
+  let i = 0
+
+  while (i < jsonString.length) {
+    const char = jsonString[i]
+
+    if (char === '\\') {
+      // Found a backslash
+      if (i + 1 < jsonString.length) {
+        const nextChar = jsonString[i + 1]
+
+        // Check if this is a valid JSON escape sequence
+        if (validEscapes.has(nextChar)) {
+          // Valid JSON escape (\n, \r, \t, \b, \f, \/, \", \\) - keep as is
+          result += '\\' + nextChar
+          i += 2
+        } else if (nextChar === 'u' && i + 5 < jsonString.length) {
+          // Unicode escape \uXXXX - check if followed by 4 hex digits
+          const hexPart = jsonString.substring(i + 2, i + 6)
+          if (/^[0-9a-fA-F]{4}$/.test(hexPart)) {
+            // Valid unicode escape - keep as is
+            result += '\\u' + hexPart
+            i += 6
+          } else {
+            // Invalid unicode - double the backslash (treat as LaTeX)
+            result += '\\\\' + nextChar
+            i += 2
+          }
+        } else {
+          // Invalid escape (LaTeX command like \in, \mathbb, etc.)
+          // Double the backslash: \X -> \\X
+          result += '\\\\' + nextChar
+          i += 2
+        }
+      } else {
+        // Backslash at end of string (edge case)
+        result += '\\\\'
+        i++
+      }
+    } else {
+      // Not a backslash, just copy
+      result += char
+      i++
+    }
+  }
+
+  return result
+}
+
+/**
  * Aggressive JSON Cleaner for Gemini Responses
  *
  * Handles all edge cases: markdown wrappers, comments, trailing commas,
- * garbage text before/after, partial responses, encoding issues
+ * garbage text before/after, partial responses, encoding issues, LaTeX escape sequences
  */
 
 export function cleanGeminiJSON(rawResponse: string): string {
@@ -61,6 +129,12 @@ export function cleanGeminiJSON(rawResponse: string): string {
   cleaned = cleaned.replace(/("(?:[^"\\]|\\.)*")/g, (match) => {
     return match.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t')
   })
+
+  // Strategy 4.5: Fix invalid JSON escape sequences (CRITICAL FOR LATEX)
+  // In JSON, only these escapes are valid: \" \\ \/ \b \f \n \r \t \uXXXX
+  // LaTeX often has invalid sequences like: \in \implies \cup \mathbb etc.
+  // We need to double-escape any backslash not followed by valid escape char
+  cleaned = fixInvalidEscapeSequences(cleaned)
 
   // Strategy 5: Handle Unicode and encoding issues
   // Remove zero-width characters and other invisibles
