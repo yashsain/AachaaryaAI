@@ -97,3 +97,33 @@ export async function fetchMaterialsForChapter(
   const result = await fetchMaterialsForChapters([chapterId], instituteId)
   return result[chapterId] || []
 }
+
+/**
+ * Fetch chapter knowledge (cached analysis) for a chapter
+ * Used for universal_knowledge subjects (Mathematics, Physics, etc.)
+ *
+ * @param chapterId - UUID of the chapter
+ * @param instituteId - UUID of the institute
+ * @returns Chapter knowledge record or null if not found
+ */
+export async function fetchChapterKnowledge(
+  chapterId: string,
+  instituteId: string
+) {
+  const { data, error } = await supabaseAdmin
+    .from('chapter_knowledge')
+    .select('*')
+    .eq('chapter_id', chapterId)
+    .eq('institute_id', instituteId)
+    .single()
+
+  if (error) {
+    // Handle "not found" gracefully
+    if (error.code === 'PGRST116') {
+      return null
+    }
+    throw new Error(`Failed to fetch chapter knowledge: ${error.message}`)
+  }
+
+  return data
+}

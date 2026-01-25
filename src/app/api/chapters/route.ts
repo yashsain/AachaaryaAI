@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { shouldUseScopeAnalysis } from '@/lib/ai/subjectClassifier'
 
 /**
  * GET /api/chapters?subject_id=<uuid>&with_materials=<boolean>
@@ -75,6 +76,9 @@ export async function GET(request: NextRequest) {
 
     // If with_materials is true, fetch materials for each chapter
     if (with_materials) {
+      // Check if this subject uses scope analysis
+      const useScopeAnalysis = await shouldUseScopeAnalysis(subject_id)
+
       const chaptersWithMaterials = await Promise.all(
         chapters.map(async (chapter) => {
           // Get materials linked to this chapter
@@ -85,13 +89,27 @@ export async function GET(request: NextRequest) {
 
           if (linksError) {
             console.error(`[CHAPTERS_API_MATERIALS_ERROR] chapter_id=${chapter.id}`, linksError)
-            return { ...chapter, materials: [], material_count: 0 }
+            return {
+              ...chapter,
+              materials: [],
+              material_count: 0,
+              uses_scope_analysis: useScopeAnalysis,
+              analysis_status: null,
+              analysis_version: 0,
+            }
           }
 
           const materialIds = materialLinks?.map(link => link.material_id) || []
 
           if (materialIds.length === 0) {
-            return { ...chapter, materials: [], material_count: 0 }
+            return {
+              ...chapter,
+              materials: [],
+              material_count: 0,
+              uses_scope_analysis: useScopeAnalysis,
+              analysis_status: null,
+              analysis_version: 0,
+            }
           }
 
           // Fetch full material details
@@ -102,8 +120,7 @@ export async function GET(request: NextRequest) {
               title,
               file_url,
               created_at,
-              material_type_id,
-              material_types (name)
+              material_type
             `)
             .in('id', materialIds)
             .eq('institute_id', teacher.institute_id)
@@ -134,10 +151,31 @@ export async function GET(request: NextRequest) {
             })
           )
 
+          // Fetch chapter_knowledge status if subject uses scope analysis
+          let analysisStatus = null
+          let analysisVersion = 0
+
+          if (useScopeAnalysis && materialsWithChapters.length > 0) {
+            const { data: chapterKnowledge } = await supabaseAdmin
+              .from('chapter_knowledge')
+              .select('status, version')
+              .eq('chapter_id', chapter.id)
+              .eq('institute_id', teacher.institute_id)
+              .single()
+
+            if (chapterKnowledge) {
+              analysisStatus = chapterKnowledge.status
+              analysisVersion = chapterKnowledge.version || 0
+            }
+          }
+
           return {
             ...chapter,
             materials: materialsWithChapters,
-            material_count: materialsWithChapters.length
+            material_count: materialsWithChapters.length,
+            uses_scope_analysis: useScopeAnalysis,
+            analysis_status: analysisStatus,
+            analysis_version: analysisVersion,
           }
         })
       )

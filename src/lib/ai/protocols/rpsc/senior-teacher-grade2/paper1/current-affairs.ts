@@ -23,6 +23,7 @@
 
 import { Protocol, ProtocolConfig } from '../../../types'
 import { Question } from '../../../../questionValidator'
+import type { ChapterKnowledge } from '../../../../types/chapterKnowledge'
 
 /**
  * Current Affairs Archetype Distributions
@@ -205,6 +206,17 @@ ${!hasStudyMaterials ? `
 - Focus on authentic Rajasthan current affairs from recent 12-24 months
 - Cover major events, schemes, appointments, and developments in Rajasthan
 - Maintain factual accuracy for all current affairs content
+` : ''}
+
+${hasStudyMaterials ? `
+## CONTENT SOURCE
+
+⚠️ **STRICT MATERIAL ADHERENCE**: Study materials provided ARE the source of truth
+- ONLY generate questions from facts, examples, and terminology explicitly present in the uploaded materials
+- DO NOT use external knowledge or facts not covered in the materials
+- DO NOT invent examples or details beyond what is provided
+- If materials cover limited topics, generate questions ONLY from those covered topics
+- Factual accuracy must match the materials exactly - DO NOT correct or supplement material content
 ` : ''}
 
 ---

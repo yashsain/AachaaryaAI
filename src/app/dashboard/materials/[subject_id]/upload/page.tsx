@@ -20,11 +20,6 @@ import { MultiSelect, MultiSelectOption } from '@/components/ui/MultiSelect'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ArrowLeft, Upload as UploadIcon, FileText, CheckCircle, AlertCircle, Lightbulb } from 'lucide-react'
 
-interface MaterialType {
-  id: string
-  name: string
-}
-
 interface Chapter {
   id: string
   name: string
@@ -55,13 +50,12 @@ export default function UploadMaterialPage() {
 
   // Form state
   const [title, setTitle] = useState('')
-  const [materialTypeId, setMaterialTypeId] = useState('')
+  const [materialType, setMaterialType] = useState<'scope' | 'style' | ''>('')
   const [selectedChapterIds, setSelectedChapterIds] = useState<string[]>([])
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
   const [file, setFile] = useState<File | null>(null)
 
   // Options data
-  const [materialTypes, setMaterialTypes] = useState<MaterialType[]>([])
   const [chapters, setChapters] = useState<Chapter[]>([])
   const [classes, setClasses] = useState<Class[]>([])
 
@@ -112,20 +106,6 @@ export default function UploadMaterialPage() {
       // Set stream_id from subject (not from classes)
       setStreamId(subjectStreamId)
       console.log('[UPLOAD_STREAM_ID]', subjectStreamId)
-
-      // Fetch material types
-      const typesResponse = await fetch('/api/material-types', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      })
-
-      if (!typesResponse.ok) {
-        throw new Error('Failed to fetch material types')
-      }
-
-      const typesData = await typesResponse.json()
-      setMaterialTypes(typesData.materialTypes || [])
 
       // Fetch chapters for this subject
       const chaptersResponse = await fetch(`/api/chapters?subject_id=${subject_id}`, {
@@ -209,8 +189,8 @@ export default function UploadMaterialPage() {
       errors.title = 'Title must be at least 3 characters'
     }
 
-    if (!materialTypeId) {
-      errors.materialTypeId = 'Material type is required'
+    if (!materialType) {
+      errors.materialType = 'Material type is required'
     }
 
     if (selectedChapterIds.length === 0) {
@@ -295,7 +275,7 @@ export default function UploadMaterialPage() {
       console.log('[UPLOAD_FINALIZE_DATA]', {
         stream_id: streamId,
         class_ids: selectedClassIds,
-        material_type_id: materialTypeId,
+        material_type: materialType,
         chapter_ids: selectedChapterIds
       })
 
@@ -310,7 +290,7 @@ export default function UploadMaterialPage() {
           institute_id: signedUrlData.institute_id,
           storage_path: signedUrlData.path,
           title: title.trim(),
-          material_type_id: materialTypeId,
+          material_type: materialType,
           subject_id: subject_id,
           stream_id: streamId,
           class_ids: selectedClassIds,
@@ -460,18 +440,17 @@ export default function UploadMaterialPage() {
               Material Type <span className="text-error-600">*</span>
             </label>
             <select
-              value={materialTypeId}
-              onChange={(e) => setMaterialTypeId(e.target.value)}
+              value={materialType}
+              onChange={(e) => setMaterialType(e.target.value as 'scope' | 'style' | '')}
               className="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-neutral-900"
               required
             >
               <option value="">Select material type...</option>
-              {materialTypes.map(type => (
-                <option key={type.id} value={type.id}>{type.name}</option>
-              ))}
+              <option value="scope">Theory and examples (notes/Books)</option>
+              <option value="style">Papers (practice sets, PYQs, DPPs etc)</option>
             </select>
-            {fieldErrors.materialTypeId && (
-              <p className="text-sm text-error-600">{fieldErrors.materialTypeId}</p>
+            {fieldErrors.materialType && (
+              <p className="text-sm text-error-600">{fieldErrors.materialType}</p>
             )}
           </div>
 

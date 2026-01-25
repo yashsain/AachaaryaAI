@@ -14,8 +14,6 @@
  * Response:
  * - paper_id: Created paper ID
  * - sections: Array of created sections (all status='pending')
- *
- * Note: material_type_id is auto-assigned (defaults to "Test Paper" or first available)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -76,27 +74,6 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Auto-assign default material type (DB column is NOT NULL)
-    // Try to find "Test Paper" or use first available
-    const { data: materialTypes, error: materialTypesError } = await supabaseAdmin
-      .from('material_types')
-      .select('id, name')
-      .order('name')
-
-    if (materialTypesError || !materialTypes || materialTypes.length === 0) {
-      return NextResponse.json({ error: 'No material types available in system' }, { status: 500 })
-    }
-
-    // Prefer "Test Paper" or "notes", otherwise use first available
-    const defaultMaterialType = materialTypes.find(mt =>
-      mt.name.toLowerCase().includes('test') ||
-      mt.name.toLowerCase().includes('paper') ||
-      mt.name.toLowerCase() === 'notes'
-    ) || materialTypes[0]
-
-    const material_type_id = defaultMaterialType.id
-    console.log(`[CREATE_FROM_TEMPLATE_AUTO_ASSIGN] Using material_type: ${defaultMaterialType.name} (${material_type_id})`)
-
     // Fetch paper template with sections
     const { data: template, error: templateError } = await supabaseAdmin
       .from('paper_templates')
@@ -152,7 +129,6 @@ export async function POST(request: NextRequest) {
         stream_id: template.stream_id,
         subject_id: primarySubjectId, // For compatibility
         paper_template_id: template_id,
-        material_type_id: material_type_id,
         title: title.trim(),
         question_count: totalQuestionCount,
         difficulty_level: difficulty_level,

@@ -24,6 +24,7 @@
 
 import { Protocol, ProtocolConfig } from '../../../types'
 import { Question } from '../../../../questionValidator'
+import type { ChapterKnowledge } from '../../../../types/chapterKnowledge'
 
 /**
  * Educational Psychology Archetype Distributions
@@ -227,6 +228,17 @@ ${!hasStudyMaterials ? `
 - Cover learning theories, child development, personality, intelligence, and motivation
 - Include major educational psychologists and their contributions
 - Balance theory-based recall with application-oriented scenario questions
+` : ''}
+
+${hasStudyMaterials ? `
+## CONTENT SOURCE
+
+⚠️ **STRICT MATERIAL ADHERENCE**: Study materials provided ARE the source of truth
+- ONLY generate questions from facts, examples, and terminology explicitly present in the uploaded materials
+- DO NOT use external knowledge or facts not covered in the materials
+- DO NOT invent examples or details beyond what is provided
+- If materials cover limited topics, generate questions ONLY from those covered topics
+- Factual accuracy must match the materials exactly - DO NOT correct or supplement material content
 ` : ''}
 
 ---

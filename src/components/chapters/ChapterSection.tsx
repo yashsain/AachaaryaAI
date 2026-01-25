@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/Button'
 import Link from 'next/link'
-import { BookOpen, Upload, Download, FileText, ChevronDown, ExternalLink, Eye, Trash2 } from 'lucide-react'
+import { BookOpen, Upload, FileText, ChevronDown, Eye, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useSession } from '@/hooks/useSession'

@@ -52,7 +52,7 @@ export const GEMINI_PRICING = {
 } as const
 
 type GeminiModel = keyof typeof GEMINI_PRICING
-type ApiMode = 'standard' | 'batch'
+type ApiMode = 'standard' | 'batch' | 'knowledge_based'
 
 interface TokenUsage {
   promptTokens: number
@@ -95,9 +95,12 @@ function calculateCostInternal(
   pricing: typeof GEMINI_PRICING[GeminiModel],
   mode: ApiMode
 ): CostBreakdown {
+  // Map knowledge_based to standard pricing (not batched)
+  const pricingMode = mode === 'knowledge_based' ? 'standard' : mode
+
   // Cost per 1M tokens, so divide by 1,000,000
-  const inputCost = (usage.promptTokens / 1_000_000) * pricing.input[mode]
-  const outputCost = (usage.completionTokens / 1_000_000) * pricing.output[mode]
+  const inputCost = (usage.promptTokens / 1_000_000) * pricing.input[pricingMode]
+  const outputCost = (usage.completionTokens / 1_000_000) * pricing.output[pricingMode]
   const cacheCost = usage.cachedTokens
     ? (usage.cachedTokens / 1_000_000) * pricing.contextCache
     : 0

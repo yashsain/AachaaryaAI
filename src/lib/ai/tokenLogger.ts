@@ -43,7 +43,7 @@ interface TokenUsageLog {
   questionId?: string
   operationType: 'generate' | 'regenerate' | 'upload'
   modelUsed: string
-  apiMode: 'standard' | 'batch'
+  apiMode: 'standard' | 'batch' | 'knowledge_based'
   tokenUsage: {
     promptTokens: number
     completionTokens: number

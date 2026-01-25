@@ -112,12 +112,14 @@ export async function GET(
     }
 
     // Fetch available chapters (filtered by section's subject_id)
+    // Only show chapters that have materials uploaded (material_count > 0)
     const { data: availableChapters, error: chaptersError } = await supabase
       .from('chapters')
       .select(`
         id,
         name,
         subject_id,
+        material_count,
         class_level_id,
         created_at,
         class_levels (
@@ -127,6 +129,7 @@ export async function GET(
         )
       `)
       .eq('subject_id', section.subject_id)
+      .gt('material_count', 0)  // Only chapters with materials
       .order('name', { ascending: true })
 
     if (chaptersError) {

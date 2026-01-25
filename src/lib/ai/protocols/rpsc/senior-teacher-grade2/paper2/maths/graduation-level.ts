@@ -8,6 +8,7 @@
  */
 
 import type { Protocol, ProtocolConfig } from '@/lib/ai/protocols/types'
+import type { ChapterKnowledge } from '@/lib/ai/types/chapterKnowledge'
 
 // ============================================================================
 // ARCHETYPE DISTRIBUTIONS
@@ -157,7 +158,8 @@ function buildPrompt(
   chapterName: string,
   questionCount: number,
   totalQuestions: number,
-  isBilingual: boolean = false
+  isBilingual: boolean = false,
+  chapterKnowledge?: ChapterKnowledge | null
 ): string {
   const difficulty = 'balanced'
   const languageMode = isBilingual ? 'bilingual (English primary)' : 'english'
@@ -245,6 +247,59 @@ Particular integral.
 **IMPORTANT:** Questions MUST align with these official topics. Focus on the chapter "${chapterName}" while ensuring it matches the syllabus scope.
 
 ---
+${chapterKnowledge ? `
+## 📚 CHAPTER KNOWLEDGE BASE (FROM ANALYZED MATERIALS)
+
+${chapterKnowledge.scope_analysis ? `
+### Scope Analysis - Topics & Depth Covered:
+
+**Main Topics:**
+${chapterKnowledge.scope_analysis.topics.map(topic => `- ${topic}`).join('\n')}
+
+**Subtopic Details:**
+${Object.entries(chapterKnowledge.scope_analysis.subtopics).map(([topic, subtopics]) =>
+  `**${topic}:**\n${subtopics.map(st => `  - ${st.name} (${st.depth} level) - Keywords: ${st.keywords.join(', ')}`).join('\n')}`
+).join('\n\n')}
+
+**Depth Indicators:**
+${Object.entries(chapterKnowledge.scope_analysis.depth_indicators).map(([topic, depth]) =>
+  `- ${topic}: ${depth.toUpperCase()} level`
+).join('\n')}
+
+${Object.keys(chapterKnowledge.scope_analysis.terminology_mappings).length > 0 ? `
+**Terminology Mappings (use institute's preferred terms):**
+${Object.entries(chapterKnowledge.scope_analysis.terminology_mappings).map(([from, to]) =>
+  `- "${from}" → "${to}"`
+).join('\n')}
+` : ''}
+
+⚠️ **SCOPE BOUNDARY:** Generate questions ONLY from the topics and subtopics listed above. This defines the institute's curriculum coverage for "${chapterName}".
+` : ''}
+
+${chapterKnowledge.style_examples?.questions && chapterKnowledge.style_examples.questions.length > 0 ? `
+### Style Examples - Sample Questions from Practice Papers:
+
+**Reference questions showing expected format and difficulty level:**
+
+${chapterKnowledge.style_examples.questions.slice(0, 5).map((q, i) => `
+**Example ${i + 1}:**
+${q.text}
+${q.options ? `Options: ${q.options.join(', ')}` : ''}
+Answer: ${q.answer}
+${q.explanation ? `Explanation: ${q.explanation}` : ''}
+(Source: ${q.source_material_title})
+`).join('\n')}
+
+⚠️ **STYLE GUIDANCE:** Use these examples as reference for question complexity, format, and difficulty level. Generate NEW questions in similar style but with different content.
+` : ''}
+
+**Materials Analyzed:** ${[
+  ...(chapterKnowledge.scope_analysis?.extracted_from_materials || []),
+  ...(chapterKnowledge.style_examples?.extracted_from_materials || [])
+].join(', ')}
+
+---
+` : ''}
 
 ## 🎯 GENERATION REQUIREMENTS
 
@@ -524,7 +579,7 @@ export const mathematicsGraduationLevel: Protocol = {
     maxConsecutiveHigh: 3,
     warmupPercentage: 0.08
   },
-  buildPrompt,
+  buildPrompt: buildPrompt as any, // Type assertion: Maths protocols use chapterKnowledge instead of hasStudyMaterials
   validators: [],
   metadata: {
     description: 'RPSC Senior Teacher Grade II Paper 2: Graduation Level Mathematics - JEE Mains Level',

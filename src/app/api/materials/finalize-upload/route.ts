@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       institute_id,
       storage_path,
       title,
-      material_type_id,
+      material_type,
       subject_id,
       stream_id,
       class_ids,
@@ -45,7 +45,9 @@ export async function POST(request: NextRequest) {
     if (!title || title.trim().length < 3) {
       errors.title = 'Title must be at least 3 characters'
     }
-    if (!material_type_id) errors.material_type_id = 'Material type is required'
+    if (!material_type || !['scope', 'style'].includes(material_type)) {
+      errors.material_type = 'Material type must be "scope" or "style"'
+    }
     if (!subject_id) errors.subject_id = 'Subject is required'
     if (!stream_id) errors.stream_id = 'Stream is required'
     if (!class_ids || !Array.isArray(class_ids) || class_ids.length === 0) {
@@ -86,7 +88,7 @@ export async function POST(request: NextRequest) {
       }, { status: 403 })
     }
 
-    console.log(`[FINALIZE_START] material_id=${material_id} teacher_id=${teacher.id}`)
+    console.log(`[FINALIZE_START] material_id=${material_id} teacher_id=${teacher.id} material_type=${material_type}`)
 
     // Get public URL for the uploaded file
     const { data: urlData } = supabaseAdmin.storage
@@ -102,7 +104,7 @@ export async function POST(request: NextRequest) {
         stream_id,
         subject_id,
         uploaded_by: user.id,
-        material_type_id,
+        material_type: material_type as 'scope' | 'style', // Use enum directly
         title: title.trim(),
         file_url: urlData.publicUrl,
         content_text: null  // Will be populated later by OCR/extraction
@@ -156,6 +158,43 @@ export async function POST(request: NextRequest) {
       console.error('[FINALIZE_CHAPTERS_ERROR]', chaptersError)
       console.warn('[FINALIZE_WARNING] Material created but chapter linking failed')
       // Don't fail the entire request - material is created, chapters can be fixed later
+    }
+
+    // Trigger background analysis for each chapter
+    // This analyzes the uploaded material and updates chapter_knowledge
+    if (!chaptersError && chapter_ids.length > 0) {
+      console.log('[FINALIZE] Triggering analysis for', chapter_ids.length, 'chapters')
+
+      // Import orchestrator dynamically to avoid circular dependencies
+      const { analyzeChapterMaterials } = await import('@/lib/ai/analysisOrchestrator')
+
+      // Run analyses in parallel, don't block upload response
+      const analysisPromises = chapter_ids.map((chapterId: string) =>
+        analyzeChapterMaterials(chapterId, institute_id, material_id)
+          .then(result => {
+            if (result.success) {
+              if ((result as any).skipped) {
+                console.log(`[FINALIZE_ANALYSIS_SKIPPED] chapter=${chapterId} reason=${(result as any).reason}`)
+              } else {
+                console.log(`[FINALIZE_ANALYSIS_SUCCESS] chapter=${chapterId} materials=${result.materials_analyzed}`)
+              }
+            } else {
+              console.error(`[FINALIZE_ANALYSIS_FAILED] chapter=${chapterId} error=${result.error}`)
+            }
+            return result
+          })
+          .catch(error => {
+            console.error(`[FINALIZE_ANALYSIS_ERROR] chapter=${chapterId}`, error)
+            return { success: false, error: error.message }
+          })
+      )
+
+      // Run in background, don't await
+      Promise.allSettled(analysisPromises).then(results => {
+        const analyzed = results.filter(r => r.status === 'fulfilled' && r.value.success && !(r.value as any).skipped).length
+        const skipped = results.filter(r => r.status === 'fulfilled' && (r.value as any).skipped).length
+        console.log(`[FINALIZE_ANALYSIS_COMPLETE] analyzed=${analyzed} skipped=${skipped} total=${chapter_ids.length}`)
+      })
     }
 
     console.log(`[FINALIZE_SUCCESS] material_id=${material_id} title="${title.trim()}" classes=${class_ids.length} chapters=${chapter_ids.length}`)

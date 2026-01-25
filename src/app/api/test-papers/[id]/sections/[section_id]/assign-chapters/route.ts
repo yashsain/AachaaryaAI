@@ -211,6 +211,19 @@ export async function POST(
     // Separate AI Knowledge and regular chapters for validation
     const regularChapterIds = finalChapterIds.filter(id => id !== aiKnowledgeUUID)
 
+    // MUTUAL EXCLUSION VALIDATION
+    // AI Knowledge cannot be assigned alongside other chapters
+    if (hasSyntheticAIKnowledge && regularChapterIds.length > 0) {
+      console.error('[ASSIGN_CHAPTERS_VALIDATION_ERROR] AI Knowledge cannot be combined with other chapters')
+      return NextResponse.json(
+        {
+          error: 'Mutual exclusion constraint violated',
+          details: '[AI Knowledge] Full Syllabus cannot be assigned alongside other chapters. Please select either AI Knowledge OR specific chapters, not both.'
+        },
+        { status: 400 }
+      )
+    }
+
     // Verify regular chapters exist and belong to the section's subject
     if (regularChapterIds.length > 0) {
       const { data: chapters, error: chaptersError } = await supabase

@@ -17,6 +17,7 @@ interface MultiSelectProps {
   required?: boolean
   error?: string
   disabled?: boolean
+  disabledOptions?: string[] // IDs of options that should be disabled
 }
 
 export function MultiSelect({
@@ -28,6 +29,7 @@ export function MultiSelect({
   required = false,
   error,
   disabled = false,
+  disabledOptions = [],
 }: MultiSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -52,6 +54,11 @@ export function MultiSelect({
   )
 
   const toggleOption = (id: string) => {
+    // Don't allow toggling disabled options
+    if (disabledOptions.includes(id)) {
+      return
+    }
+
     if (selectedIds.includes(id)) {
       onChange(selectedIds.filter(selectedId => selectedId !== id))
     } else {
@@ -148,30 +155,42 @@ export function MultiSelect({
                 No options found
               </div>
             ) : (
-              filteredOptions.map(option => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => toggleOption(option.id)}
-                  className={`
-                    w-full px-3 py-2 text-left hover:bg-gray-100
-                    flex items-center justify-between
-                    ${selectedIds.includes(option.id) ? 'bg-gray-50' : ''}
-                  `}
-                >
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-gray-900">{option.name}</span>
-                    {option.meta && (
-                      <span className="text-xs text-gray-500">{option.meta}</span>
+              filteredOptions.map(option => {
+                const isDisabled = disabledOptions.includes(option.id)
+                const isSelected = selectedIds.includes(option.id)
+
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => toggleOption(option.id)}
+                    disabled={isDisabled}
+                    className={`
+                      w-full px-3 py-2 text-left
+                      flex items-center justify-between
+                      ${isDisabled
+                        ? 'cursor-not-allowed opacity-50 bg-gray-50'
+                        : 'hover:bg-gray-100 cursor-pointer'
+                      }
+                      ${isSelected && !isDisabled ? 'bg-gray-50' : ''}
+                    `}
+                  >
+                    <div className="flex flex-col">
+                      <span className={`text-sm font-medium ${isDisabled ? 'text-gray-400' : 'text-gray-900'}`}>
+                        {option.name}
+                      </span>
+                      {option.meta && (
+                        <span className="text-xs text-gray-500">{option.meta}</span>
+                      )}
+                    </div>
+                    {isSelected && (
+                      <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
                     )}
-                  </div>
-                  {selectedIds.includes(option.id) && (
-                    <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </button>
-              ))
+                  </button>
+                )
+              })
             )}
           </div>
         </div>

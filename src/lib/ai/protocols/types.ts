@@ -6,6 +6,7 @@
  */
 
 import { Question, ValidationResult } from '../questionValidator'
+import type { ChapterKnowledge } from '../types/chapterKnowledge'
 
 /**
  * Configuration for protocol-based question generation
@@ -76,7 +77,8 @@ export type PromptBuilderFunction = (
   chapterName: string,
   questionCount: number,
   totalQuestions: number,
-  isBilingual?: boolean  // Optional: generate bilingual questions (Hindi + English)
+  isBilingual?: boolean,  // Optional: generate bilingual questions (Hindi + English)
+  hasStudyMaterials?: boolean  // Optional: whether study materials are provided (used in Paper 1 protocols)
 ) => string
 
 /**
@@ -126,6 +128,7 @@ export interface Protocol {
     difficultyMultiplier?: string // e.g., "6-8x (B.Sc. competitive level)"
     cognitiveLoadTarget?: string // e.g., "65% high-density for balanced difficulty"
     note?: string // Additional notes about the exam structure
+    officialSyllabus?: string // Official syllabus/curriculum for scope boundary
   }
 }
 

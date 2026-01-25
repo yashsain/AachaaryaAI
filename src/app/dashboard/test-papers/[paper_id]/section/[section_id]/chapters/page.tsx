@@ -230,6 +230,20 @@ export default function SectionChaptersPage({ params }: SectionChaptersPageProps
     name: ch.name
   }))
 
+  // Mutual exclusion: AI Knowledge cannot be selected with other chapters
+  // Find AI Knowledge chapter (synthetic or real UUID from DB)
+  const aiKnowledgeChapter = availableChapters.find(ch => ch.name === '[AI Knowledge] Full Syllabus')
+  const aiKnowledgeId = aiKnowledgeChapter?.id
+
+  const isAIKnowledgeSelected = aiKnowledgeId ? selectedChapterIds.includes(aiKnowledgeId) : false
+  const hasOtherChaptersSelected = selectedChapterIds.some(id => id !== aiKnowledgeId)
+
+  const disabledOptions = isAIKnowledgeSelected
+    ? availableChapters.filter(ch => ch.id !== aiKnowledgeId).map(ch => ch.id)
+    : hasOtherChaptersSelected && aiKnowledgeId
+      ? [aiKnowledgeId]
+      : []
+
   const subjectColor = getSubjectColor(section?.subject_name || '')
 
   return (
@@ -337,6 +351,7 @@ export default function SectionChaptersPage({ params }: SectionChaptersPageProps
                 onChange={setSelectedChapterIds}
                 placeholder="Select chapters for this section..."
                 required
+                disabledOptions={disabledOptions}
               />
               <div className="mt-3 flex items-center gap-2 text-sm">
                 <div className={cn(
