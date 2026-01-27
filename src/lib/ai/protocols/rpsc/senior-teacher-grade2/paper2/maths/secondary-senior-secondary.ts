@@ -126,9 +126,14 @@ const prohibitions: string[] = [
   '❌ correctAnswer MUST be one of "1", "2", "3", "4" (string format)',
   '❌ NEVER generate null/undefined/empty values',
 
-  // ===== MSQ RULES =====
-  '✅ MSQ MUST have 2-3 correct answers (NEVER 1, NEVER 4)',
-  '❌ MSQ cannot have all options correct or all wrong',
+  // ===== MSQ FORMAT RULES (RPSC COMBINATION FORMAT) =====
+  '✅ MSQ uses RPSC COMBINATION format - NOT checkbox selection',
+  '✅ MSQ presents 4 statements (a), (b), (c), (d) - student picks which COMBINATION is correct',
+  '✅ MSQ options show combinations: "(1) केवल (a) और (b)", "(2) केवल (a), (b) और (c)"',
+  '✅ correctAnswer MUST be single value "1", "2", "3", or "4" - NOT "1, 3, 4"',
+  '❌ MSQ "ALL CORRECT" BANNED - NEVER make all statements (a,b,c,d) true',
+  '❌ MSQ CHECKBOX FORMAT BANNED - NOT "select all that apply", use COMBINATION options',
+  '✅ Mix true/false statements requiring discrimination',
 
   // ===== QUALITY STANDARDS =====
   '🎯 EVERY question requires 2-4 analytical steps (competitive exam level)',
@@ -141,6 +146,15 @@ const prohibitions: string[] = [
   '✅ Show arithmetic: "16-4k=0, so 4k=16, k=16/4=4"',
   '✅ Show substitutions: "tan 45° = h/d, so 1 = h/d, therefore d = h"',
   '❌ NEVER write "By calculation, answer is X" without derivation',
+
+  // ===== VERBOSE AI THINKING PROHIBITION (CRITICAL - Zero Tolerance) =====
+  '❌ VERBOSE AI THINKING ABSOLUTELY BANNED (ZERO TOLERANCE):',
+  '  - NO internal reasoning: "Wait", "BUT wait", "Let me re-check", "I should double check"',
+  '  - NO exploratory language: "Let\'s try", "Let\'s re-evaluate", "Let\'s assume"',
+  '  - NO trial-and-error or self-correction dialogue in explanations',
+  '  - NO uncertainty phrases: "it seems", "appears to be", "might be"',
+  '✅ Explanations MUST be direct, confident, step-by-step FINAL solutions only',
+  '✅ Show the correct reasoning path, NOT the thinking process to find it',
 
   // ===== CORRECTNESS =====
   '🔬 Verify all calculations, formulas, theorems, notation',
@@ -159,25 +173,25 @@ function buildPrompt(
   isBilingual: boolean = false,
   chapterKnowledge?: ChapterKnowledge | null
 ): string {
-  const difficulty = 'balanced'
   const languageMode = isBilingual ? 'bilingual (English primary)' : 'english'
 
-  const archetypeDist = archetypes[difficulty]
+  // Use config values directly (passed from difficultyMapper based on paper difficulty)
   const archetypeCounts: Record<string, number> = {}
-  Object.entries(archetypeDist).forEach(([archetype, percentage]) => {
+  Object.entries(config.archetypeDistribution).forEach(([archetype, percentage]) => {
     archetypeCounts[archetype] = Math.round(questionCount * percentage)
   })
 
-  const structuralFormDist = structuralForms[difficulty]
   const structuralFormCounts: Record<string, number> = {}
-  Object.entries(structuralFormDist).forEach(([form, percentage]) => {
+  Object.entries(config.structuralForms).forEach(([form, percentage]) => {
     structuralFormCounts[form] = Math.round(questionCount * percentage)
   })
 
-  const cognitiveLoadDist = cognitiveLoad[difficulty]
   const cognitiveLoadCounts: Record<string, number> = {}
-  Object.entries(cognitiveLoadDist).forEach(([load, percentage]) => {
-    cognitiveLoadCounts[load] = Math.round(questionCount * percentage)
+  Object.entries(config.cognitiveLoad).forEach(([load, percentage]) => {
+    // Skip metadata fields (not percentages)
+    if (load !== 'maxConsecutiveHigh' && load !== 'warmupCount') {
+      cognitiveLoadCounts[load] = Math.round(questionCount * percentage)
+    }
   })
 
   const archetypeList = Object.entries(archetypeCounts)
@@ -198,7 +212,7 @@ function buildPrompt(
 **Exam Context:** RPSC Senior Teacher (Grade II) - Competitive Government Exam
 **Subject:** Mathematics (Secondary & Sr. Secondary)
 **Chapter:** ${chapterName}
-**Difficulty:** ${difficulty.toUpperCase()}
+**Difficulty:** ${config.cognitiveLoad.highDensity > 0.70 ? 'HARD' : config.cognitiveLoad.highDensity < 0.40 ? 'EASY' : 'BALANCED'}
 **Questions:** ${questionCount}
 **Language:** ${languageMode}
 **Level:** Classes 9-12 AT COMPETITIVE EXAM DIFFICULTY (5-7x harder than NCERT)
@@ -490,6 +504,77 @@ For equal roots, k = 4
 
 ---
 
+## 📐 STRUCTURAL FORMAT EXAMPLES
+
+### FORMAT 1: STANDARD 4-OPTION MCQ (70% of questions):
+
+**EXAMPLE (ENGLISH):**
+\`\`\`
+Question: If the equation x² + kx + 9 = 0 has real and equal roots, then the value of k is:
+(1) ±3
+(2) ±6
+(3) ±9
+(4) ±12
+
+Correct Answer: (2) ±6
+
+Explanation:
+For real and equal roots, discriminant Δ = 0
+b² - 4ac = 0
+k² - 4(1)(9) = 0
+k² - 36 = 0
+k² = 36
+k = ±6
+\`\`\`
+- One question, 4 options, one correct answer
+- Standard mathematics MCQ format
+
+### FORMAT 2: MULTI-STATEMENT EVALUATION (MSQ) (30% of questions - RPSC COMBINATION FORMAT):
+
+**CRITICAL MSQ FORMAT RULE - READ CAREFULLY:**
+
+MSQ in RPSC uses **COMBINATION format**, NOT checkbox selection.
+
+**EXAMPLE (RPSC Format - ENGLISH):**
+\`\`\`json
+{
+  "questionNumber": 12,
+  "questionText": "Consider the following statements about quadratic equations:\\n1. A quadratic equation has at most 2 real roots\\n2. If discriminant Δ < 0, then roots are imaginary\\n3. If Δ = 0, then both roots are equal\\n4. If Δ > 0, then roots are imaginary\\n\\nWhich of the above statements are correct?",
+  "options": {
+    "1": "1, 2 and 3 only",
+    "2": "1 and 2 only",
+    "3": "2, 3 and 4 only",
+    "4": "1, 3 and 4 only"
+  },
+  "correctAnswer": "1",
+  "explanation": "Statement 1 TRUE: Quadratic equation has maximum 2 roots (Fundamental Theorem of Algebra)\\nStatement 2 TRUE: Δ = b² - 4ac < 0 means no real roots, only imaginary roots\\nStatement 3 TRUE: Δ = 0 means equal roots (discriminant formula)\\nStatement 4 FALSE: If Δ > 0, roots are REAL and distinct, not imaginary\\nTherefore statements 1, 2, and 3 are correct → Answer is option (1)",
+  "archetype": "propertyClassification",
+  "structuralForm": "multipleSelectQuestions",
+  "cognitiveLoad": "mediumDensity",
+  "difficulty": "BALANCED"
+}
+\`\`\`
+
+**MSQ GENERATION RULES:**
+- Present 4 statements labeled 1, 2, 3, 4 in ENGLISH
+- Each statement is independently verifiable (true or false)
+- Options show different COMBINATIONS of correct statements
+- Student selects WHICH COMBINATION option is correct
+- correctAnswer is SINGLE value: "1", "2", "3", or "4"
+
+**❌ FORBIDDEN MSQ PATTERNS:**
+- "All statements correct" answer - BANNED
+- Checkbox format \`correctAnswer: "1, 3, 4"\` - BANNED
+- Making all 4 statements obviously true - BANNED
+
+**✅ REQUIRED MSQ PATTERNS:**
+- Mix of true/false statements (2-3 true, 1-2 false)
+- Realistic false statements (common misconceptions, partial truths)
+- **Options format**: "1 and 2 only", "1, 2 and 3", "2 and 3 only", "1, 3 and 4 only"
+- correctAnswer as single string: "1", "2", "3", or "4"
+
+---
+
 ## ✅ VALIDATION CHECKLIST
 
 Before returning JSON, verify:
@@ -562,7 +647,7 @@ Common LaTeX commands to escape:
 
 ## 🚫 PROHIBITIONS
 
-${prohibitions.map(p => `${p}`).join('\n')}
+${config.prohibitions.map(p => `${p}`).join('\n')}
 
 ---
 

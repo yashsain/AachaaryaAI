@@ -617,6 +617,13 @@ D. जयपुर में G-20 शिखर सम्मेलन आयो�
 - ✅ Provide context about the event/scheme
 - ✅ Explain why other options are incorrect
 - ❌ NO meta-commentary
+- ❌ VERBOSE AI THINKING ABSOLUTELY BANNED (ZERO TOLERANCE):
+  - NO internal reasoning: "Wait", "BUT wait", "Let me re-check", "I should double check"
+  - NO exploratory language: "Let's try", "Let's re-evaluate", "Let's assume"
+  - NO trial-and-error or self-correction dialogue in explanations
+  - NO uncertainty phrases: "it seems", "appears to be", "might be"
+- ✅ Explanations MUST be direct, confident, step-by-step FINAL solutions only
+- ✅ Show the correct reasoning path, NOT the thinking process to find it
 
 ---
 

@@ -12,10 +12,10 @@
  * - Clear action buttons and navigation
  */
 
-import { use, useEffect, useState } from 'react'
+import { use, useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, FileText, Download, CheckCircle2, Clock, AlertCircle, Layers, BookOpen, Hash, Zap, BarChart3, Trophy, Eye, RefreshCw, Plus, FileCheck } from 'lucide-react'
+import { ArrowLeft, FileText, Download, CheckCircle2, Clock, AlertCircle, Layers, BookOpen, Hash, Zap, BarChart3, Trophy, Eye, RefreshCw, Plus, FileCheck, Pencil, Trash2, X, Save } from 'lucide-react'
 import { useRequireSession } from '@/hooks/useSession'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -48,6 +48,7 @@ interface Paper {
   title: string
   status: 'draft' | 'review' | 'finalized'
   difficulty_level: 'easy' | 'balanced' | 'hard'
+  question_count: number
   created_at: string
   paper_template_id: string | null
   pdf_url: string | null
@@ -178,6 +179,19 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
   const [generateModalOpen, setGenerateModalOpen] = useState(false)
   const [selectedSection, setSelectedSection] = useState<Section | null>(null)
 
+  // Section editing state
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null)
+  const [editingQuestionCount, setEditingQuestionCount] = useState<number>(0)
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
+
+  // Section deletion state
+  const [deletingSectionId, setDeletingSectionId] = useState<string | null>(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [isDeletingSection, setIsDeletingSection] = useState(false)
+
+  // Track if cleanup has already run to prevent infinite loop
+  const hasRunCleanup = useRef(false)
+
   useEffect(() => {
     // Only fetch when auth is fully loaded
     // Prevents race condition with useRequireSession redirect logic
@@ -186,21 +200,34 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
     }
   }, [session, loading, teacherLoading, paperId])
 
-  // Auto-cleanup stuck sections when dashboard loads
+  // Auto-cleanup stuck sections when dashboard loads (runs ONCE on mount)
   useEffect(() => {
-    if (!session || sections.length === 0) return
+    // Only run cleanup once to prevent infinite loop
+    if (!session || hasRunCleanup.current) return
 
     const cleanupStuckSections = async () => {
+      // Fetch fresh section data
+      const { data: sectionsData } = await supabase
+        .from('test_paper_sections')
+        .select('id, status, generation_started_at')
+        .eq('paper_id', paperId)
+
+      if (!sectionsData || sectionsData.length === 0) return
+
       // Find sections stuck in 'generating' for > 7 minutes
       const sevenMinutesAgo = new Date(Date.now() - 7 * 60 * 1000).toISOString()
 
-      const stuckSections = sections.filter(s =>
+      const stuckSections = sectionsData.filter(s =>
         s.status === 'generating' &&
         s.generation_started_at &&
         s.generation_started_at < sevenMinutesAgo
       )
 
-      if (stuckSections.length === 0) return
+      if (stuckSections.length === 0) {
+        console.log('[AUTO_CLEANUP] No stuck sections found')
+        hasRunCleanup.current = true
+        return
+      }
 
       console.log(`[AUTO_CLEANUP] Found ${stuckSections.length} stuck section(s)`)
 
@@ -223,6 +250,9 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
         }
       }
 
+      // Mark cleanup as complete
+      hasRunCleanup.current = true
+
       // Refresh data if we cleaned anything
       if (stuckSections.length > 0) {
         setTimeout(() => fetchPaperData(), 1000)
@@ -230,7 +260,7 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
     }
 
     cleanupStuckSections()
-  }, [sections, session, paperId])
+  }, [session, paperId])
 
   const fetchPaperData = async () => {
     try {
@@ -247,6 +277,7 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
           title,
           status,
           difficulty_level,
+          question_count,
           created_at,
           paper_template_id,
           pdf_url,
@@ -330,6 +361,158 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
       setError('Failed to load paper dashboard')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleEditSection = (sectionId: string, currentCount: number) => {
+    const section = sections.find(s => s.id === sectionId)
+    if (!section) return
+
+    // Check if section is editable
+    const isEditable = section.status === 'pending' || section.status === 'ready'
+    if (!isEditable) {
+      toast.error('Cannot edit this section. Only pending or ready sections can be edited.')
+      return
+    }
+
+    setEditingSectionId(sectionId)
+    setEditingQuestionCount(currentCount)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingSectionId(null)
+    setEditingQuestionCount(0)
+  }
+
+  const handleSaveEdit = async (sectionId: string) => {
+    if (!session) return
+
+    // Validate question count
+    if (editingQuestionCount < 1) {
+      toast.error('Section must have at least 1 question')
+      return
+    }
+
+    if (editingQuestionCount > 150) {
+      toast.error('Section cannot exceed 150 questions')
+      return
+    }
+
+    // Calculate new total
+    const newTotal = sections.reduce((sum, section) => {
+      const count = section.id === sectionId ? editingQuestionCount : section.question_count
+      return sum + count
+    }, 0)
+
+    if (newTotal > 300) {
+      toast.error(`Total would be ${newTotal} questions (limit: 300). Reduce by ${newTotal - 300} questions.`)
+      return
+    }
+
+    try {
+      setIsSavingEdit(true)
+
+      const response = await fetch(`/api/test-papers/${paperId}/sections/${sectionId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          question_count: editingQuestionCount
+        })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update section')
+      }
+
+      toast.success('Section updated successfully')
+
+      // Update local state
+      setSections(sections.map(s =>
+        s.id === sectionId
+          ? { ...s, question_count: editingQuestionCount }
+          : s
+      ))
+
+      // Update paper total
+      if (paper) {
+        setPaper({ ...paper, question_count: data.paper_total })
+      }
+
+      // Exit edit mode
+      setEditingSectionId(null)
+      setEditingQuestionCount(0)
+
+    } catch (err) {
+      console.error('[SAVE_EDIT_ERROR]', err)
+      toast.error(err instanceof Error ? err.message : 'Failed to update section')
+    } finally {
+      setIsSavingEdit(false)
+    }
+  }
+
+  const handleDeleteSection = (sectionId: string) => {
+    if (sections.length <= 1) {
+      toast.error('Cannot delete the last section. Papers must have at least one section.')
+      return
+    }
+
+    // Check if THIS SPECIFIC section has been generated
+    const section = sections.find(s => s.id === sectionId)
+    if (section) {
+      const thisSectionGenerated = section.status === 'generating' || section.status === 'in_review' || section.status === 'finalized'
+      if (thisSectionGenerated) {
+        toast.error('Cannot delete this section. This section has already been generated.')
+        return
+      }
+    }
+
+    setDeletingSectionId(sectionId)
+    setDeleteConfirmOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!session || !deletingSectionId) return
+
+    try {
+      setIsDeletingSection(true)
+
+      const response = await fetch(`/api/test-papers/${paperId}/sections/${deletingSectionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete section')
+      }
+
+      toast.success('Section deleted successfully')
+
+      // Remove section from local state
+      setSections(sections.filter(s => s.id !== deletingSectionId))
+
+      // Update paper total
+      if (paper) {
+        setPaper({ ...paper, question_count: data.paper_total })
+      }
+
+      // Close modal
+      setDeleteConfirmOpen(false)
+      setDeletingSectionId(null)
+
+    } catch (err) {
+      console.error('[DELETE_SECTION_ERROR]', err)
+      toast.error(err instanceof Error ? err.message : 'Failed to delete section')
+    } finally {
+      setIsDeletingSection(false)
     }
   }
 
@@ -672,6 +855,16 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
                 section={section}
                 paperId={paperId}
                 onActionClick={handleSectionAction}
+                onEdit={handleEditSection}
+                onDelete={handleDeleteSection}
+                onSaveEdit={handleSaveEdit}
+                onCancelEdit={handleCancelEdit}
+                isEditing={editingSectionId === section.id}
+                editingQuestionCount={editingQuestionCount}
+                setEditingQuestionCount={setEditingQuestionCount}
+                isSavingEdit={isSavingEdit}
+                canDelete={sections.length > 1}
+                allSections={sections}
                 index={index}
               />
             ))}
@@ -714,6 +907,91 @@ export default function PaperDashboardPage({ params }: PaperDashboardProps) {
           session={session}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deleteConfirmOpen && deletingSectionId && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            onClick={() => !isDeletingSection && setDeleteConfirmOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6"
+            >
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-12 h-12 bg-error-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="h-6 w-6 text-error-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-neutral-900 mb-1">Delete Section?</h3>
+                  <p className="text-sm text-neutral-600">
+                    This will permanently delete the section and all its associated data.
+                  </p>
+                </div>
+              </div>
+
+              {(() => {
+                const sectionToDelete = sections.find(s => s.id === deletingSectionId)
+                if (!sectionToDelete) return null
+
+                const newTotal = sections
+                  .filter(s => s.id !== deletingSectionId)
+                  .reduce((sum, s) => sum + s.question_count, 0)
+
+                return (
+                  <div className="bg-neutral-50 rounded-xl p-4 mb-6 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-neutral-600">Section:</span>
+                      <span className="font-semibold text-neutral-900">{sectionToDelete.section_name}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-neutral-600">Assigned Chapters:</span>
+                      <span className="font-semibold text-neutral-900">{sectionToDelete.chapter_count}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-neutral-600">Questions:</span>
+                      <span className="font-semibold text-neutral-900">{sectionToDelete.question_count}</span>
+                    </div>
+                    <div className="border-t border-neutral-200 pt-2 mt-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-neutral-600">New Paper Total:</span>
+                        <span className="font-semibold text-neutral-900">{newTotal} questions</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => setDeleteConfirmOpen(false)}
+                  disabled={isDeletingSection}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={handleConfirmDelete}
+                  isLoading={isDeletingSection}
+                  disabled={isDeletingSection}
+                >
+                  {isDeletingSection ? 'Deleting...' : 'Delete Section'}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -723,10 +1001,35 @@ interface SectionCardProps {
   section: Section
   paperId: string
   onActionClick: (sectionId: string, action: 'assign' | 'generate' | 'regenerate' | 'view') => void
+  onEdit: (sectionId: string, currentCount: number) => void
+  onDelete: (sectionId: string) => void
+  onSaveEdit: (sectionId: string) => void
+  onCancelEdit: () => void
+  isEditing: boolean
+  editingQuestionCount: number
+  setEditingQuestionCount: (count: number) => void
+  isSavingEdit: boolean
+  canDelete: boolean
+  allSections: Section[]
   index: number
 }
 
-function SectionCard({ section, paperId, onActionClick, index }: SectionCardProps) {
+function SectionCard({
+  section,
+  paperId,
+  onActionClick,
+  onEdit,
+  onDelete,
+  onSaveEdit,
+  onCancelEdit,
+  isEditing,
+  editingQuestionCount,
+  setEditingQuestionCount,
+  isSavingEdit,
+  canDelete,
+  allSections,
+  index
+}: SectionCardProps) {
   const statusConfig = getSectionStatusConfig(section.status)
   const StatusIcon = statusConfig.icon
 
@@ -749,6 +1052,41 @@ function SectionCard({ section, paperId, onActionClick, index }: SectionCardProp
 
   const primaryAction = getPrimaryAction()
   const PrimaryIcon = primaryAction.icon
+
+  // Check if section is editable (pending or ready status)
+  const isEditable = section.status === 'pending' || section.status === 'ready'
+
+  // Check if THIS SPECIFIC section has started generation (disables deletion for this section only)
+  const thisSectionGenerated = section.status === 'generating' || section.status === 'in_review' || section.status === 'finalized'
+
+  // Determine if delete button should be enabled (section-specific)
+  const canDeleteSection = canDelete && !thisSectionGenerated
+
+  // Calculate new total if editing
+  const calculateNewTotal = (newCount: number) => {
+    return allSections.reduce((sum, s) => {
+      const count = s.id === section.id ? newCount : s.question_count
+      return sum + count
+    }, 0)
+  }
+
+  // Get tooltip message for disabled buttons
+  const getEditTooltip = () => {
+    if (!isEditable) {
+      return "Cannot edit: Section has already been generated. Only pending or ready sections can be edited."
+    }
+    return "Edit question count"
+  }
+
+  const getDeleteTooltip = () => {
+    if (!canDelete) {
+      return "Cannot delete: Papers must have at least one section"
+    }
+    if (thisSectionGenerated) {
+      return "Cannot delete: This section has already been generated"
+    }
+    return "Delete section"
+  }
 
   return (
     <motion.div
@@ -779,33 +1117,141 @@ function SectionCard({ section, paperId, onActionClick, index }: SectionCardProp
               {section.section_name}
             </h3>
           </div>
+
+          {/* Edit and Delete Buttons */}
+          {!isEditing && (
+            <div className="flex items-center gap-1 ml-2">
+              <button
+                onClick={() => isEditable && onEdit(section.id, section.question_count)}
+                disabled={!isEditable}
+                className={cn(
+                  "p-2 rounded-lg transition-colors",
+                  isEditable
+                    ? "text-neutral-400 hover:text-primary-600 hover:bg-primary-50 cursor-pointer"
+                    : "text-neutral-300 cursor-not-allowed"
+                )}
+                title={getEditTooltip()}
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => canDeleteSection && onDelete(section.id)}
+                disabled={!canDeleteSection}
+                className={cn(
+                  "p-2 rounded-lg transition-colors",
+                  canDeleteSection
+                    ? "text-neutral-400 hover:text-error-600 hover:bg-error-50 cursor-pointer"
+                    : "text-neutral-300 cursor-not-allowed"
+                )}
+                title={getDeleteTooltip()}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex items-center gap-2 text-sm">
-            <div className="w-8 h-8 bg-primary-50 rounded-lg flex items-center justify-center flex-shrink-0">
-              <BookOpen className="h-4 w-4 text-primary-600" />
-            </div>
+        {/* Stats or Edit Mode */}
+        {isEditing ? (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
             <div>
-              <p className="text-xs text-neutral-600">Chapters</p>
-              <p className="font-semibold text-neutral-900">{section.chapter_count}</p>
+              <label className="block text-xs font-medium text-neutral-700 mb-1.5">
+                Question Count (max 150)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="150"
+                value={editingQuestionCount || ''}
+                onChange={(e) => {
+                  const value = e.target.value
+                  if (value === '') {
+                    setEditingQuestionCount(0)
+                  } else {
+                    const num = parseInt(value, 10)
+                    if (!isNaN(num)) {
+                      setEditingQuestionCount(num)
+                    }
+                  }
+                }}
+                placeholder="Enter question count"
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                disabled={isSavingEdit}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-neutral-600">New Paper Total:</span>
+                <span className={cn(
+                  "font-semibold",
+                  calculateNewTotal(editingQuestionCount) <= 300 ? "text-success-700" : "text-error-700"
+                )}>
+                  {calculateNewTotal(editingQuestionCount)}/300
+                </span>
+              </div>
+              {calculateNewTotal(editingQuestionCount) > 300 && (
+                <div className="text-xs text-error-700 bg-error-50 border border-error-200 rounded px-2 py-1.5">
+                  Total exceeds 300 questions limit. Reduce by {calculateNewTotal(editingQuestionCount) - 300} questions.
+                </div>
+              )}
+              {editingQuestionCount > 150 && (
+                <div className="text-xs text-error-700 bg-error-50 border border-error-200 rounded px-2 py-1.5">
+                  Section cannot exceed 150 questions.
+                </div>
+              )}
+              {editingQuestionCount < 1 && (
+                <div className="text-xs text-error-700 bg-error-50 border border-error-200 rounded px-2 py-1.5">
+                  Section must have at least 1 question.
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                onClick={onCancelEdit}
+                disabled={isSavingEdit}
+                className="flex-1 px-3 py-2 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors disabled:opacity-50"
+              >
+                <X className="h-4 w-4 mx-auto" />
+              </button>
+              <button
+                onClick={() => onSaveEdit(section.id)}
+                disabled={isSavingEdit || editingQuestionCount < 1 || editingQuestionCount > 150 || calculateNewTotal(editingQuestionCount) > 300}
+                className="flex-1 px-3 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSavingEdit ? (
+                  <RefreshCw className="h-4 w-4 mx-auto animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mx-auto" />
+                )}
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <div className="w-8 h-8 bg-primary-50 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Hash className="h-4 w-4 text-primary-600" />
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-8 h-8 bg-primary-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                <BookOpen className="h-4 w-4 text-primary-600" />
+              </div>
+              <div>
+                <p className="text-xs text-neutral-600">Chapters</p>
+                <p className="font-semibold text-neutral-900">{section.chapter_count}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-neutral-600">Questions</p>
-              <p className="font-semibold text-neutral-900">
-                {section.status === 'in_review' || section.status === 'finalized'
-                  ? section.question_count
-                  : `~${section.question_count}`}
-              </p>
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-8 h-8 bg-primary-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Hash className="h-4 w-4 text-primary-600" />
+              </div>
+              <div>
+                <p className="text-xs text-neutral-600">Questions</p>
+                <p className="font-semibold text-neutral-900">
+                  {section.status === 'in_review' || section.status === 'finalized'
+                    ? section.question_count
+                    : `~${section.question_count}`}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Actions */}

@@ -1,16 +1,19 @@
 /**
- * GET /api/test-papers/[id]/sections/[section_id]
+ * Section Management API
  *
- * Get details for a specific section including:
- * - Section metadata (name, status, question count, etc.)
- * - Available chapters (filtered by section's subject_id)
- * - Currently assigned chapters
- *
- * Used by Section Chapter Selection page
+ * GET: Get section details with available/assigned chapters
+ * PATCH: Update section properties (question_count)
+ * DELETE: Remove section from paper
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import {
+  isSectionEditable,
+  validateSectionQuestionCount,
+  validateSectionDeletion,
+  calculateTotalAfterDeletion
+} from '@/lib/validators/sectionValidators'
 
 interface GetSectionParams {
   params: Promise<{
@@ -83,6 +86,11 @@ export async function GET(
         chapters_assigned_at,
         created_at,
         updated_at,
+        batch_number,
+        total_batches,
+        questions_generated_so_far,
+        batch_size,
+        batch_metadata,
         test_papers!inner (
           id,
           title,
@@ -210,7 +218,13 @@ export async function GET(
         updated_at: section.updated_at,
         actual_question_count: questionCount || 0,
         paper_title: paper.title,
-        paper_difficulty: paper.difficulty_level
+        paper_difficulty: paper.difficulty_level,
+        // Batch tracking fields
+        batch_number: section.batch_number || 0,
+        total_batches: section.total_batches || 1,
+        questions_generated_so_far: section.questions_generated_so_far || 0,
+        batch_size: section.batch_size || 30,
+        batch_metadata: section.batch_metadata || {}
       },
       available_chapters: chaptersWithAIOption,
       assigned_chapters: assignedChapters
@@ -218,6 +232,346 @@ export async function GET(
 
   } catch (error) {
     console.error('[GET_SECTION_DETAIL_EXCEPTION]', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: GetSectionParams
+) {
+  try {
+    const { id: paperId, section_id: sectionId } = await params
+
+    // Validate authorization header
+    const authHeader = request.headers.get('Authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Missing or invalid authorization header' },
+        { status: 401 }
+      )
+    }
+
+    const token = authHeader.substring(7)
+
+    // Create Supabase client with user token
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      }
+    )
+
+    // Fetch teacher profile
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
+    }
+
+    const { data: teacher, error: teacherError } = await supabase
+      .from('teachers')
+      .select('id, institute_id, role')
+      .eq('email', user.email)
+      .single()
+
+    if (teacherError || !teacher) {
+      return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
+    }
+
+    // Parse request body
+    const body = await request.json()
+    const { question_count: newQuestionCount } = body
+
+    if (typeof newQuestionCount !== 'number') {
+      return NextResponse.json(
+        { error: 'Invalid question_count: must be a number' },
+        { status: 400 }
+      )
+    }
+
+    console.log(`[PATCH_SECTION] paper_id=${paperId} section_id=${sectionId} new_count=${newQuestionCount} teacher_id=${teacher.id}`)
+
+    // Fetch section with paper details
+    const { data: section, error: sectionError } = await supabase
+      .from('test_paper_sections')
+      .select(`
+        id,
+        paper_id,
+        section_name,
+        question_count,
+        status,
+        test_papers!inner (
+          id,
+          institute_id,
+          status
+        )
+      `)
+      .eq('id', sectionId)
+      .eq('paper_id', paperId)
+      .single()
+
+    if (sectionError || !section) {
+      console.error('[PATCH_SECTION_ERROR]', sectionError)
+      return NextResponse.json({ error: 'Section not found' }, { status: 404 })
+    }
+
+    // Verify paper belongs to teacher's institute
+    const paper = section.test_papers as any
+    if (paper.institute_id !== teacher.institute_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
+    // Check if section is editable (pending or ready status only)
+    if (!isSectionEditable(section.status)) {
+      return NextResponse.json(
+        {
+          error: `Cannot edit section with status "${section.status}". Only pending or ready sections can be edited.`
+        },
+        { status: 400 }
+      )
+    }
+
+    // Fetch all sections for the paper to validate total
+    const { data: allSections, error: allSectionsError } = await supabase
+      .from('test_paper_sections')
+      .select('id, question_count, status')
+      .eq('paper_id', paperId)
+
+    if (allSectionsError || !allSections) {
+      console.error('[PATCH_SECTION_ERROR] Failed to fetch sections:', allSectionsError)
+      return NextResponse.json(
+        { error: 'Failed to validate question count' },
+        { status: 500 }
+      )
+    }
+
+    // Validate the new question count
+    const validation = validateSectionQuestionCount(
+      sectionId,
+      newQuestionCount,
+      allSections
+    )
+
+    if (!validation.valid) {
+      console.log(`[PATCH_SECTION_VALIDATION_FAILED] ${validation.error}`)
+      return NextResponse.json(
+        { error: validation.error },
+        { status: 400 }
+      )
+    }
+
+    // Update section question count
+    const { error: updateSectionError } = await supabase
+      .from('test_paper_sections')
+      .update({
+        question_count: newQuestionCount,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', sectionId)
+
+    if (updateSectionError) {
+      console.error('[PATCH_SECTION_ERROR] Failed to update section:', updateSectionError)
+      return NextResponse.json(
+        { error: 'Failed to update section' },
+        { status: 500 }
+      )
+    }
+
+    // Recalculate paper total from all sections
+    const newPaperTotal = validation.newTotal!
+
+    // Update paper question count
+    const { error: updatePaperError } = await supabase
+      .from('test_papers')
+      .update({
+        question_count: newPaperTotal
+      })
+      .eq('id', paperId)
+
+    if (updatePaperError) {
+      console.error('[PATCH_SECTION_ERROR] Failed to update paper total:', updatePaperError)
+      return NextResponse.json(
+        { error: 'Failed to update paper total' },
+        { status: 500 }
+      )
+    }
+
+    console.log(`[PATCH_SECTION_SUCCESS] section="${section.section_name}" old_count=${section.question_count} new_count=${newQuestionCount} paper_total=${newPaperTotal}`)
+
+    return NextResponse.json({
+      success: true,
+      section: {
+        id: sectionId,
+        question_count: newQuestionCount
+      },
+      paper_total: newPaperTotal
+    })
+
+  } catch (error) {
+    console.error('[PATCH_SECTION_EXCEPTION]', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: GetSectionParams
+) {
+  try {
+    const { id: paperId, section_id: sectionId } = await params
+
+    // Validate authorization header
+    const authHeader = request.headers.get('Authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Missing or invalid authorization header' },
+        { status: 401 }
+      )
+    }
+
+    const token = authHeader.substring(7)
+
+    // Create Supabase client with user token
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      }
+    )
+
+    // Fetch teacher profile
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
+    }
+
+    const { data: teacher, error: teacherError } = await supabase
+      .from('teachers')
+      .select('id, institute_id, role')
+      .eq('email', user.email)
+      .single()
+
+    if (teacherError || !teacher) {
+      return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
+    }
+
+    console.log(`[DELETE_SECTION] paper_id=${paperId} section_id=${sectionId} teacher_id=${teacher.id}`)
+
+    // Fetch section with paper details
+    const { data: section, error: sectionError } = await supabase
+      .from('test_paper_sections')
+      .select(`
+        id,
+        paper_id,
+        section_name,
+        question_count,
+        status,
+        test_papers!inner (
+          id,
+          institute_id,
+          status
+        )
+      `)
+      .eq('id', sectionId)
+      .eq('paper_id', paperId)
+      .single()
+
+    if (sectionError || !section) {
+      console.error('[DELETE_SECTION_ERROR]', sectionError)
+      return NextResponse.json({ error: 'Section not found' }, { status: 404 })
+    }
+
+    // Verify paper belongs to teacher's institute
+    const paper = section.test_papers as any
+    if (paper.institute_id !== teacher.institute_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
+    // Fetch all sections for the paper to validate deletion
+    const { data: allSections, error: allSectionsError } = await supabase
+      .from('test_paper_sections')
+      .select('id, question_count, status')
+      .eq('paper_id', paperId)
+
+    if (allSectionsError || !allSections) {
+      console.error('[DELETE_SECTION_ERROR] Failed to fetch sections:', allSectionsError)
+      return NextResponse.json(
+        { error: 'Failed to validate section deletion' },
+        { status: 500 }
+      )
+    }
+
+    // Validate section deletion (must keep at least 1 section)
+    const validation = validateSectionDeletion(allSections.length)
+
+    if (!validation.valid) {
+      console.log(`[DELETE_SECTION_VALIDATION_FAILED] ${validation.error}`)
+      return NextResponse.json(
+        { error: validation.error },
+        { status: 400 }
+      )
+    }
+
+    // Calculate new paper total after deletion
+    const newPaperTotal = calculateTotalAfterDeletion(allSections, sectionId)
+
+    // Delete the section (will cascade to questions and section_chapters via FK constraints)
+    const { error: deleteSectionError } = await supabase
+      .from('test_paper_sections')
+      .delete()
+      .eq('id', sectionId)
+
+    if (deleteSectionError) {
+      console.error('[DELETE_SECTION_ERROR] Failed to delete section:', deleteSectionError)
+      return NextResponse.json(
+        { error: 'Failed to delete section' },
+        { status: 500 }
+      )
+    }
+
+    // Update paper question count
+    const { error: updatePaperError } = await supabase
+      .from('test_papers')
+      .update({
+        question_count: newPaperTotal
+      })
+      .eq('id', paperId)
+
+    if (updatePaperError) {
+      console.error('[DELETE_SECTION_ERROR] Failed to update paper total:', updatePaperError)
+      return NextResponse.json(
+        { error: 'Failed to update paper total' },
+        { status: 500 }
+      )
+    }
+
+    console.log(`[DELETE_SECTION_SUCCESS] section="${section.section_name}" deleted_questions=${section.question_count} new_paper_total=${newPaperTotal}`)
+
+    return NextResponse.json({
+      success: true,
+      deleted_section_id: sectionId,
+      paper_total: newPaperTotal,
+      remaining_sections: allSections.length - 1
+    })
+
+  } catch (error) {
+    console.error('[DELETE_SECTION_EXCEPTION]', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -41,7 +41,7 @@ interface TokenUsageLog {
   chapterId?: string
   chapterName?: string
   questionId?: string
-  operationType: 'generate' | 'regenerate' | 'upload'
+  operationType: 'generate' | 'regenerate' | 'upload' | 'proofread'
   modelUsed: string
   apiMode: 'standard' | 'batch' | 'knowledge_based'
   tokenUsage: {

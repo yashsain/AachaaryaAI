@@ -160,11 +160,15 @@ const prohibitions: string[] = [
   '  5. assertionReasoning',
   '❌ NO OTHER structural forms allowed',
 
-  // ===== MSQ QUALITY PATTERNS =====
-  '❌ MSQ "ALL CORRECT" ABSOLUTELY BANNED - Never make all 4 options correct',
-  '❌ MSQ "ALL WRONG" ABSOLUTELY BANNED - At least 2 options must be correct',
-  '✅ MSQ MUST have 2-3 correct answers (NEVER 1, NEVER 4)',
-  '✅ MSQ correct answers MUST be non-obvious and require careful analysis',
+  // ===== MSQ FORMAT RULES (RPSC COMBINATION FORMAT) =====
+  '✅ MSQ uses RPSC COMBINATION format - NOT checkbox selection',
+  '✅ MSQ presents 4 statements (a), (b), (c), (d) - student picks which COMBINATION is correct',
+  '✅ MSQ options show combinations: "(1) केवल (a) और (b)", "(2) केवल (a), (b) और (c)"',
+  '✅ correctAnswer MUST be single value "1", "2", "3", or "4" - NOT "1, 3, 4"',
+  '❌ MSQ "ALL CORRECT" BANNED - NEVER make all statements (a,b,c,d) true',
+  '❌ MSQ CHECKBOX FORMAT BANNED - NOT "select all that apply", use COMBINATION options',
+  '✅ Mix true/false statements requiring discrimination',
+  '✅ MSQ correct combinations MUST be non-obvious and require careful pedagogical analysis',
 
   // ===== MATCH-THE-FOLLOWING PATTERNS =====
   '❌ SEQUENTIAL MATCHING ABSOLUTELY BANNED',
@@ -225,7 +229,16 @@ const prohibitions: string[] = [
   '     35% of 60 = (35/100) × 60 = 0.35 × 60 = 21 minutes',
   '     Step 3: Calculate remaining time',
   '     Total used = 24 + 21 = 45 minutes',
-  '     Remaining = 60 - 45 = 15 minutes for assessment"'
+  '     Remaining = 60 - 45 = 15 minutes for assessment"',
+
+  // ===== VERBOSE AI THINKING PROHIBITION (CRITICAL - Zero Tolerance) =====
+  '❌ VERBOSE AI THINKING ABSOLUTELY BANNED (ZERO TOLERANCE):',
+  '  - NO internal reasoning: "Wait", "BUT wait", "Let me re-check", "I should double check"',
+  '  - NO exploratory language: "Let\'s try", "Let\'s re-evaluate", "Let\'s assume"',
+  '  - NO trial-and-error or self-correction dialogue in explanations',
+  '  - NO uncertainty phrases: "it seems", "appears to be", "might be"',
+  '✅ Explanations MUST be direct, confident, step-by-step FINAL solutions only',
+  '✅ Show the correct reasoning path, NOT the thinking process to find it'
 ]
 
 // ============================================================================
@@ -240,29 +253,25 @@ function buildPrompt(
   isBilingual: boolean = false,
   chapterKnowledge?: ChapterKnowledge | null
 ): string {
-  // Use balanced difficulty for generation
-  const difficulty = 'balanced'
   const languageMode = isBilingual ? 'bilingual (English primary)' : 'english'
 
-  // Calculate archetype counts based on difficulty
-  const archetypeDist = archetypes[difficulty]
+  // Use config values directly (passed from difficultyMapper based on paper difficulty)
   const archetypeCounts: Record<string, number> = {}
-  Object.entries(archetypeDist).forEach(([archetype, percentage]) => {
+  Object.entries(config.archetypeDistribution).forEach(([archetype, percentage]) => {
     archetypeCounts[archetype] = Math.round(questionCount * percentage)
   })
 
-  // Calculate structural form counts
-  const structuralFormDist = structuralForms[difficulty]
   const structuralFormCounts: Record<string, number> = {}
-  Object.entries(structuralFormDist).forEach(([form, percentage]) => {
+  Object.entries(config.structuralForms).forEach(([form, percentage]) => {
     structuralFormCounts[form] = Math.round(questionCount * percentage)
   })
 
-  // Calculate cognitive load counts
-  const cognitiveLoadDist = cognitiveLoad[difficulty]
   const cognitiveLoadCounts: Record<string, number> = {}
-  Object.entries(cognitiveLoadDist).forEach(([load, percentage]) => {
-    cognitiveLoadCounts[load] = Math.round(questionCount * percentage)
+  Object.entries(config.cognitiveLoad).forEach(([load, percentage]) => {
+    // Skip metadata fields (not percentages)
+    if (load !== 'maxConsecutiveHigh' && load !== 'warmupCount') {
+      cognitiveLoadCounts[load] = Math.round(questionCount * percentage)
+    }
   })
 
   const archetypeList = Object.entries(archetypeCounts)
@@ -283,7 +292,7 @@ function buildPrompt(
 **Exam Context:** RPSC Senior Teacher (Grade II) Recruitment Examination
 **Subject:** Mathematics-Teaching-Methods
 **Chapter:** ${chapterName}
-**Target Difficulty:** ${difficulty.toUpperCase()}
+**Target Difficulty:** ${config.cognitiveLoad.highDensity > 0.70 ? 'HARD' : config.cognitiveLoad.highDensity < 0.40 ? 'EASY' : 'BALANCED'}
 **Total Questions:** ${questionCount}
 **Language Mode:** ${languageMode}
 **Difficulty Multiplier:** 4-6x (professional pedagogy - higher than B.Ed. level)
@@ -526,7 +535,7 @@ ${cognitiveLoadList}
 
 ## 🚫 CRITICAL PROHIBITIONS
 
-${prohibitions.map(p => `${p}`).join('\n')}
+${config.prohibitions.map(p => `${p}`).join('\n')}
 
 ---
 
@@ -662,6 +671,86 @@ Common calculation types in teaching methods questions:
 - **Mathematics protocols**: Heavy calculation focus, most questions need derivation
 - **Teaching Methods protocol**: Light calculation focus, ONLY pedagogical calculations need derivation
 - **When in doubt**: If ANY arithmetic operation is performed, show the steps
+
+---
+
+## 📐 STRUCTURAL FORMAT EXAMPLES
+
+### FORMAT 1: STANDARD 4-OPTION MCQ (~40% of questions):
+\`\`\`
+Question: According to NCF 2005, what is the main objective of mathematics teaching?
+(1) Memorizing formulas and theorems
+(2) Developing mathematical thinking and problem-solving skills
+(3) Scoring high marks in examinations
+(4) Solving only textbook problems
+
+Correct Answer: (2)
+
+Explanation: NCF 2005 emphasizes mathematical thinking, problem-solving, and conceptual understanding rather than rote memorization or exam-focused learning.
+\`\`\`
+- One question, 4 options, one correct answer
+- Standard teaching methods MCQ format
+
+### FORMAT 2: MULTI-STATEMENT EVALUATION (MSQ) (~20% of questions - RPSC COMBINATION FORMAT):
+
+**CRITICAL MSQ FORMAT RULE - READ CAREFULLY:**
+
+MSQ in RPSC uses **COMBINATION format**, NOT checkbox selection.
+
+**Template:**
+\`\`\`
+निम्नलिखित कथनों पर विचार कीजिए:
+(a) कथन 1
+(b) कथन 2
+(c) कथन 3
+(d) कथन 4
+उपरोक्त में से कौन से कथन सही हैं?
+
+(1) केवल (a) और (b)
+(2) केवल (a), (b) और (c)
+(3) केवल (b) और (c)
+(4) केवल (a) और (d)
+
+correctAnswer: "1"  // SINGLE answer selecting the correct COMBINATION
+\`\`\`
+
+**Example (Teaching Methods MSQ - ENGLISH):**
+\`\`\`json
+{
+  "questionNumber": 8,
+  "questionText": "Consider the following statements about mathematics teaching approaches:\\n1. In the constructivist approach, the teacher acts as a facilitator\\n2. In problem-based learning, students actively construct knowledge\\n3. Lecture method is the best approach for all mathematical concepts\\n4. NCF 2005 promotes constructivist mathematics teaching\\n\\nWhich of the above statements are correct?",
+  "options": {
+    "1": "1, 2 and 4 only",
+    "2": "1 and 4 only",
+    "3": "2, 3 and 4 only",
+    "4": "1, 2 and 3 only"
+  },
+  "correctAnswer": "1",
+  "explanation": "Statement 1 TRUE: In constructivist approach, teacher acts as facilitator, not lecturer\\nStatement 2 TRUE: Problem-based learning engages students in active knowledge construction\\nStatement 3 FALSE: Lecture method is NOT best for all concepts; hands-on activities work better for many\\nStatement 4 TRUE: NCF 2005 explicitly promotes constructivist mathematics pedagogy\\nTherefore statements 1, 2, and 4 are correct → Answer is option (1)",
+  "archetype": "pedagogyApplication",
+  "structuralForm": "multipleSelectQuestions",
+  "cognitiveLoad": "mediumDensity",
+  "difficulty": "BALANCED"
+}
+\`\`\`
+
+**MSQ GENERATION RULES:**
+- Present 4 statements labeled 1, 2, 3, 4 in ENGLISH
+- Each statement is independently verifiable (true or false)
+- Options show different COMBINATIONS of correct statements
+- Student selects WHICH COMBINATION option is correct
+- correctAnswer is SINGLE value: "1", "2", "3", or "4"
+
+**❌ FORBIDDEN MSQ PATTERNS:**
+- "All statements correct" answer - BANNED
+- Checkbox format \`correctAnswer: "1, 3, 4"\` - BANNED
+- Making all 4 statements obviously true - BANNED
+
+**✅ REQUIRED MSQ PATTERNS:**
+- Mix of true/false statements (2-3 true, 1-2 false)
+- Realistic false statements (common misconceptions in pedagogy)
+- **Options format**: "1 and 2 only", "1, 2 and 4 only", "1, 2 and 3 only", "2 and 3 only"
+- correctAnswer as single string: "1", "2", "3", or "4"
 
 ---
 

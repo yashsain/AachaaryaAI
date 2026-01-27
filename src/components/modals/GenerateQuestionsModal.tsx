@@ -14,7 +14,6 @@ import { useEffect, useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/Button'
 import { AlertCircle, CheckCircle2, Loader2, Zap } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 interface GenerateQuestionsModalProps {
   isOpen: boolean
@@ -32,6 +31,13 @@ interface GenerateQuestionsModalProps {
 
 type GenerationStatus = 'idle' | 'generating' | 'completed' | 'error'
 
+interface BatchProgress {
+  questionsGenerated: number
+  totalTarget: number
+  batchNumber: number
+  totalBatches: number
+}
+
 export function GenerateQuestionsModal({
   isOpen,
   onClose,
@@ -45,11 +51,11 @@ export function GenerateQuestionsModal({
   sectionStatus,
   session
 }: GenerateQuestionsModalProps) {
-  const router = useRouter()
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [generationResult, setGenerationResult] = useState<any>(null)
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
+  const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null)
 
   // Cleanup polling on unmount or close
   useEffect(() => {
@@ -66,6 +72,7 @@ export function GenerateQuestionsModal({
       setGenerationStatus('idle')
       setError(null)
       setGenerationResult(null)
+      setBatchProgress(null)
     } else {
       // Cleanup polling when modal closes
       if (pollingInterval) {
@@ -86,9 +93,21 @@ export function GenerateQuestionsModal({
       if (!response.ok) return
 
       const data = await response.json()
-      const newStatus = data.section.status
+      const section = data.section
+      const newStatus = section.status
 
-      console.log('[MODAL_POLL] Section status:', newStatus)
+      console.log('[MODAL_POLL] Section status:', newStatus, 'Batch:', section.batch_number, '/', section.total_batches, 'Questions:', section.questions_generated_so_far)
+
+      // Update batch progress if generating
+      if (newStatus === 'generating' && section.total_batches > 0) {
+        const targetQuestions = Math.ceil(questionCount * 1.5)
+        setBatchProgress({
+          questionsGenerated: section.questions_generated_so_far || 0,
+          totalTarget: targetQuestions,
+          batchNumber: section.batch_number || 0,
+          totalBatches: section.total_batches || 1
+        })
+      }
 
       // If status changed to in_review, generation completed
       if (newStatus === 'in_review') {
@@ -101,15 +120,14 @@ export function GenerateQuestionsModal({
         }
 
         setGenerationResult({
-          questions_generated: data.section.questions_count || questionCount,
+          questions_generated: section.actual_question_count || section.questions_generated_so_far || questionCount,
           chapters_processed: assignedChapters.length
         })
         setGenerationStatus('completed')
 
-        // Auto-close modal and refresh after 2 seconds
+        // Auto-close modal after 2 seconds (parent will refresh data via fetchPaperData)
         setTimeout(() => {
           onClose()
-          router.refresh()
         }, 2000)
       }
       // If status changed to ready (from generating), it failed
@@ -191,18 +209,33 @@ export function GenerateQuestionsModal({
 
       console.log('[MODAL_GENERATE_SUCCESS]', data)
 
-      // Stop polling since API returned successfully
-      stopPolling()
+      // Check if this is batch-based generation (has_more = true means more batches coming)
+      if (data.has_more || data.next_batch_triggered) {
+        // Batch 1 completed, more batches are generating in background
+        // Initialize batch progress with batch 1 data
+        setBatchProgress({
+          questionsGenerated: data.batch_1_questions || data.questions_generated || 0,
+          totalTarget: data.total_target || Math.ceil(questionCount * 1.5),
+          batchNumber: data.batch_number || 1,
+          totalBatches: data.total_batches || 1
+        })
 
-      // Update UI with result
-      setGenerationResult(data)
-      setGenerationStatus('completed')
+        // Keep polling to track remaining batches
+        console.log('[MODAL_GENERATE] Batch 1 complete, continuing to poll for remaining batches')
+      } else {
+        // Single batch generation completed (question count <= 30)
+        // Stop polling since everything is done
+        stopPolling()
 
-      // Auto-close modal and refresh after 2 seconds
-      setTimeout(() => {
-        onClose()
-        router.refresh()
-      }, 2000)
+        // Update UI with result
+        setGenerationResult(data)
+        setGenerationStatus('completed')
+
+        // Auto-close modal after 2 seconds (parent will refresh data via fetchPaperData)
+        setTimeout(() => {
+          onClose()
+        }, 2000)
+      }
 
     } catch (err) {
       console.error('[MODAL_GENERATE_ERROR]', err)
@@ -340,15 +373,45 @@ export function GenerateQuestionsModal({
             <div className="text-center py-12">
               <Loader2 className="h-12 w-12 text-blue-600 mx-auto mb-6 animate-spin" />
               <h3 className="text-xl font-bold text-gray-900 mb-2">Generating Questions...</h3>
-              <p className="text-gray-600 mb-2">
-                This may take a few minutes. You can close this modal.
+
+              {/* Batch Progress Display */}
+              {batchProgress && batchProgress.totalBatches > 1 ? (
+                <>
+                  <p className="text-gray-600 mb-4">
+                    Generated <span className="font-semibold text-blue-600">{batchProgress.questionsGenerated}</span> of <span className="font-semibold">{batchProgress.totalTarget}</span> questions
+                  </p>
+                  <p className="text-gray-500 text-sm mb-4">
+                    Batch <span className="font-semibold">{batchProgress.batchNumber}</span> of <span className="font-semibold">{batchProgress.totalBatches}</span>
+                  </p>
+
+                  {/* Progress Bar */}
+                  <div className="max-w-md mx-auto mb-6">
+                    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                      <div
+                        className="bg-blue-600 h-3 rounded-full transition-all duration-500 ease-out"
+                        style={{
+                          width: `${Math.min(100, (batchProgress.questionsGenerated / batchProgress.totalTarget) * 100)}%`
+                        }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      {Math.round((batchProgress.questionsGenerated / batchProgress.totalTarget) * 100)}% complete
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <p className="text-gray-600 mb-4">
+                  This may take a few minutes. You can close this modal.
+                </p>
+              )}
+
+              <p className="text-gray-500 text-sm mb-6">
+                Processing {assignedChapters.length} {assignedChapters.length === 1 ? 'chapter' : 'chapters'}
               </p>
-              <p className="text-gray-500 text-sm">
-                Processing {assignedChapters.length} chapters
-              </p>
-              <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
                 <p className="text-blue-800 text-sm">
-                  <strong>Note:</strong> Generation continues in the background. The page will refresh automatically when complete.
+                  <strong>Note:</strong> Generation continues in the background. You can close this modal and navigate freely. The page will refresh automatically when complete.
                 </p>
               </div>
 

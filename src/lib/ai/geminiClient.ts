@@ -19,7 +19,7 @@ export const ai = new GoogleGenAI({
 // Using gemini-3-flash-preview for faster and more cost-effective question generation
 // Cost: $0.10 input / $0.40 output per 1M tokens (20x cheaper than Pro)
 // Fast response times with high quality output
-export const GEMINI_MODEL = "gemini-3-pro-preview"
+export const GEMINI_MODEL = "gemini-3-flash-preview"
 
 // Generation config for all exam questions
 // Uses JSON response format - applicable to all protocols

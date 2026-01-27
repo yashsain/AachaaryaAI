@@ -6,6 +6,7 @@
  */
 
 import { Protocol, ProtocolConfig } from './protocols/types'
+import { ChapterKnowledge } from './types/chapterKnowledge'
 import { getArchetypeCounts, getStructuralFormCounts } from './difficultyMapper'
 
 /**
@@ -21,6 +22,97 @@ export function buildPrompt(
   isBilingual?: boolean
 ): string {
   return protocol.buildPrompt(config, chapterName, questionCount, totalQuestions, isBilingual)
+}
+
+/**
+ * Build prompt with deduplication for batch generation
+ * Injects previous question texts to prevent duplication across batches
+ *
+ * @param protocol Protocol to use for prompt building
+ * @param config Protocol configuration (difficulty-mapped)
+ * @param chapterName Chapter name
+ * @param questionCount Number of questions to generate in this batch
+ * @param totalQuestions Total questions in section (for context)
+ * @param isBilingual Whether to generate bilingual questions
+ * @param previousQuestions Array of previously generated question texts (for deduplication)
+ * @param chapterKnowledge Optional chapter knowledge (for Mode B - Source of Scope)
+ * @returns Prompt string with deduplication section injected
+ */
+export function buildPromptWithDeduplication(
+  protocol: Protocol,
+  config: ProtocolConfig,
+  chapterName: string,
+  questionCount: number,
+  totalQuestions: number,
+  isBilingual: boolean,
+  previousQuestions: Array<{ question_text: string }>,
+  chapterKnowledge?: ChapterKnowledge
+): string {
+  // Get base prompt from protocol
+  const basePrompt = protocol.buildPrompt(
+    config,
+    chapterName,
+    questionCount,
+    totalQuestions,
+    isBilingual,
+    chapterKnowledge as any // Type mismatch with hasStudyMaterials, but protocols expect chapterKnowledge
+  )
+
+  // If no previous questions, return base prompt
+  if (!previousQuestions || previousQuestions.length === 0) {
+    return basePrompt
+  }
+
+  // Build deduplication section
+  const deduplicationSection = `
+## 🚨 DEDUPLICATION REQUIREMENT (MANDATORY - ZERO VIOLATIONS ALLOWED)
+
+The following ${previousQuestions.length} questions have ALREADY been generated for this section in previous batches.
+You MUST NOT generate questions that are semantically similar to these.
+
+### Previously Generated Questions:
+${previousQuestions.map((q, i) => {
+  const text = q.question_text || ''
+  // Truncate to 200 chars for readability, but include full text for best deduplication
+  const displayText = text.length > 200 ? text.substring(0, 200) + '...' : text
+  return `${i + 1}. ${displayText}`
+}).join('\n')}
+
+### STRICT DEDUPLICATION RULES:
+1. **Different Topics**: Focus on topics/concepts NOT covered in previous questions
+2. **Different Scenarios**: Use completely different examples, contexts, or scenarios
+3. **Different Question Patterns**: Vary the question structure and approach
+4. **Different Facts**: Test different specific facts, dates, names, or events
+5. **Semantic Uniqueness**: Even if the topic is similar, test a different aspect of it
+
+### VALIDATION CHECKLIST (Self-Check Before Returning):
+✓ No question repeats the same topic/concept as previous questions
+✓ No question uses similar examples or scenarios
+✓ No question tests the same specific fact or knowledge point
+✓ Each question is semantically unique and adds new value
+
+**CRITICAL WARNING:** If you generate duplicate or highly similar questions, they will be REJECTED and the batch will fail.
+You MUST ensure every question in this batch is completely different from the ${previousQuestions.length} questions listed above.
+
+---
+`
+
+  // Insert deduplication section before output format section
+  // Most protocols have "## OUTPUT FORMAT" or "## FINAL INSTRUCTIONS" section
+  if (basePrompt.includes('## OUTPUT FORMAT')) {
+    return basePrompt.replace(
+      /## OUTPUT FORMAT/,
+      `${deduplicationSection}\n## OUTPUT FORMAT`
+    )
+  } else if (basePrompt.includes('## FINAL INSTRUCTIONS')) {
+    return basePrompt.replace(
+      /## FINAL INSTRUCTIONS/,
+      `${deduplicationSection}\n## FINAL INSTRUCTIONS`
+    )
+  } else {
+    // Fallback: append at the end
+    return `${basePrompt}\n\n${deduplicationSection}`
+  }
 }
 
 /**

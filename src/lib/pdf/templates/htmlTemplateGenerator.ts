@@ -6,6 +6,7 @@
 
 import { TemplateConfig, PDFSection, QuestionForPDF } from '../types'
 import { sanitizeQuestionText } from '@/lib/ai/questionSanitizer'
+import { renderLatexForPDF } from '../utils/latexRenderer'
 
 /**
  * Generates a complete HTML document for PDF generation
@@ -43,6 +44,9 @@ export function generateHTMLTemplate(config: TemplateConfig): string {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700&display=swap" rel="stylesheet">
+
+  <!-- KaTeX CSS for LaTeX math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.27/dist/katex.min.css">
 
   <style>
     * {
@@ -1166,23 +1170,15 @@ function normalizeOptionKey(key: string): string {
 }
 
 /**
- * Escape HTML special characters AND sanitize editorial notes
- * CRITICAL: Removes editorial notes like "(नोट: ...)" before HTML escaping
+ * Render text with LaTeX support AND sanitize editorial notes
+ * CRITICAL: Removes editorial notes like "(नोट: ...)" before rendering
+ * Converts LaTeX math expressions to HTML using KaTeX
  */
 function escapeHtml(text: string): string {
   // FIRST: Strip editorial notes and commentary
   const sanitized = sanitizeQuestionText(text)
 
-  // THEN: Escape HTML special characters
-  const map: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  }
-  const escaped = sanitized.replace(/[&<>"']/g, m => map[m])
-
-  // FINALLY: Convert newlines to HTML line breaks for proper formatting in PDF
-  return escaped.replace(/\n/g, '<br>')
+  // THEN: Render LaTeX and escape HTML
+  // renderLatexForPDF handles both LaTeX rendering and HTML escaping
+  return renderLatexForPDF(sanitized)
 }

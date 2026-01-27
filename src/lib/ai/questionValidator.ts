@@ -40,8 +40,19 @@ export interface ValidationResult {
 export function validateProhibitedPatterns(question: Question): string[] {
   const errors: string[] = []
 
+  // Check for null/undefined options (Gemini data quality issue)
+  const nullOptions = Object.entries(question.options)
+    .filter(([key, value]) => value == null || value === '')
+    .map(([key]) => key)
+
+  if (nullOptions.length > 0) {
+    errors.push(`Q${question.questionNumber}: Options ${nullOptions.join(', ')} are null/empty`)
+  }
+
   const fullText = question.questionText.toLowerCase()
-  const optionValues = Object.values(question.options).map(o => o.toLowerCase())
+  const optionValues = Object.values(question.options)
+    .filter((o): o is string => o != null && typeof o === 'string')
+    .map(o => o.toLowerCase())
 
   // Check for "Always" or "Never" in stem
   if (fullText.includes(' always ') || fullText.includes(' never ')) {
@@ -270,8 +281,8 @@ export function validateBasicQuality(question: Question): string[] {
     }
   }
 
-  // Check correct answer is valid
-  const validAnswers = ['(1)', '(2)', '(3)', '(4)']
+  // Check correct answer is valid (accept both "1" and "(1)" formats)
+  const validAnswers = ['1', '2', '3', '4', '(1)', '(2)', '(3)', '(4)']
   if (!validAnswers.includes(question.correctAnswer)) {
     warnings.push(`Q${question.questionNumber}: Invalid correct answer format: ${question.correctAnswer}`)
   }

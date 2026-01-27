@@ -89,28 +89,28 @@ export function cleanGeminiJSON(rawResponse: string): string {
   const firstBrace = cleaned.indexOf('{')
   const lastBrace = cleaned.lastIndexOf('}')
 
-  // Determine if response is array or object based on which comes first
-  const isArray = firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace)
-
-  if (isArray && firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
-    // Extract array [...] including all content
-    cleaned = cleaned.substring(firstBracket, lastBracket + 1)
-  } else if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    // Extract object {...}
+  // ALWAYS prefer objects over arrays (Gemini wraps arrays in objects like {"corrections": [...]})
+  // Only extract array if there's NO object wrapper
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    // Extract object {...} - this is the primary case
     cleaned = cleaned.substring(firstBrace, lastBrace + 1)
+  } else if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+    // Extract array [...] only if no object found
+    cleaned = cleaned.substring(firstBracket, lastBracket + 1)
   }
 
   // Strategy 3: Remove explanatory text that might be inside
   // Pattern: {...} some text {...} or [...] some text [...] -> take the largest one
+  // ALWAYS prefer objects over arrays (Gemini returns {"corrections": [...]})
   const arrayMatches = cleaned.match(/\[[\s\S]*\]/g)
   const objectMatches = cleaned.match(/\{[\s\S]*\}/g)
 
-  if (arrayMatches && arrayMatches.length > 0) {
-    // Take the longest array match (most likely to be complete)
-    cleaned = arrayMatches.reduce((a, b) => a.length > b.length ? a : b)
-  } else if (objectMatches && objectMatches.length > 0) {
-    // Take the longest object match (most likely to be complete)
+  if (objectMatches && objectMatches.length > 0) {
+    // Take the longest object match (most likely to be complete) - PRIORITY
     cleaned = objectMatches.reduce((a, b) => a.length > b.length ? a : b)
+  } else if (arrayMatches && arrayMatches.length > 0) {
+    // Take the longest array match only if no object found - FALLBACK
+    cleaned = arrayMatches.reduce((a, b) => a.length > b.length ? a : b)
   }
 
   // Strategy 4: Fix common JSON syntax issues

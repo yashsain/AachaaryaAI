@@ -30,8 +30,127 @@ import { parseGeminiJSON, getDiagnosticInfo } from '@/lib/ai/jsonCleaner'
 import { logApiUsage, calculateCost } from '@/lib/ai/tokenTracker'
 import { getProtocol } from '@/lib/ai/protocols'
 import { deletePaperPDFs } from '@/lib/storage/pdfCleanupService'
+import { runProofreader } from '@/lib/ai/proofreader'
 
 export const maxDuration = 300 // 5 minutes timeout
+
+// Batch generation configuration
+const BATCH_SIZE = 30 // Questions per batch (safe token limit ~9K tokens/batch) - Used for Mode A only
+const MAX_QUESTIONS_PER_CALL = 60 // Maximum questions per API call to prevent token overflow
+const MAX_BUFFER_QUESTIONS = 20 // Hard cap on extra questions for large sections
+
+/**
+ * Retry wrapper for question generation with automatic retry logic
+ * Handles JSON parse failures, network errors, and API errors
+ *
+ * @param mode Generation mode ('A' | 'B' | 'C')
+ * @param params Generation parameters (prompt, fileDataParts, etc.)
+ * @param batchNumber Current batch number for logging
+ * @param sectionId Section ID to update heartbeat during retries
+ * @param retries Number of retries remaining (default: 2)
+ * @returns Generated questions and token usage
+ */
+async function generateQuestionsWithRetry(
+  mode: 'A' | 'B' | 'C',
+  params: {
+    prompt: string
+    fileDataParts?: any[]
+  },
+  batchNumber: number,
+  sectionId: string,
+  retries: number = 2
+): Promise<{ questions: any[], tokenUsage: { promptTokens: number, completionTokens: number, totalTokens: number } }> {
+  const attemptNumber = 3 - retries
+
+  try {
+    console.log(`[REGENERATE_BATCH_RETRY] Mode ${mode} Batch ${batchNumber}: Attempt ${attemptNumber}/3`)
+
+    // Prepare contents based on mode
+    const contents = params.fileDataParts
+      ? [...params.fileDataParts, { text: params.prompt }]
+      : [{ text: params.prompt }]
+
+    // Call Gemini API
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents,
+      config: GENERATION_CONFIG
+    })
+
+    const responseText = response.text
+    if (!responseText) {
+      throw new Error('No response text received from Gemini')
+    }
+
+    // Extract token usage
+    const tokenUsage = {
+      promptTokens: response.usageMetadata?.promptTokenCount || 0,
+      completionTokens: response.usageMetadata?.candidatesTokenCount || 0,
+      totalTokens: response.usageMetadata?.totalTokenCount || 0
+    }
+
+    console.log(`[REGENERATE_BATCH_RETRY] Mode ${mode} Batch ${batchNumber} Attempt ${attemptNumber}: Token usage: ${tokenUsage.totalTokens}`)
+
+    // Parse JSON response (this is where ~7-8% of failures occur)
+    const parsedResponse = parseGeminiJSON<any>(responseText)
+    const rawQuestions = Array.isArray(parsedResponse) ? parsedResponse : (parsedResponse.questions || [])
+
+    if (!rawQuestions || rawQuestions.length === 0) {
+      throw new Error('No questions returned in response')
+    }
+
+    console.log(`[REGENERATE_BATCH_RETRY] Mode ${mode} Batch ${batchNumber} Attempt ${attemptNumber}: Successfully parsed ${rawQuestions.length} questions`)
+
+    return { questions: rawQuestions, tokenUsage }
+
+  } catch (error) {
+    // Determine error type for better logging
+    const errorType = error instanceof SyntaxError
+      ? 'JSON_PARSE_ERROR'
+      : (error as Error).message?.includes('timeout') || (error as Error).message?.includes('timed out')
+      ? 'TIMEOUT_ERROR'
+      : 'GEMINI_API_ERROR'
+
+    console.error(`[REGENERATE_BATCH_RETRY] Mode ${mode} Batch ${batchNumber} Attempt ${attemptNumber}/3 FAILED (${errorType}):`, error)
+
+    // Retry logic
+    if (retries > 0) {
+      // Calculate delay with exponential backoff: 2s, 4s
+      // Use longer delay for timeout errors
+      const baseDelay = 2000
+      const delayMs = errorType === 'TIMEOUT_ERROR'
+        ? baseDelay * 2 * (attemptNumber)
+        : baseDelay * (attemptNumber)
+
+      console.log(`[REGENERATE_BATCH_RETRY] Mode ${mode} Batch ${batchNumber}: Retrying in ${delayMs}ms... (${retries} retries left)`)
+
+      // Update heartbeat to prevent cleanup during retries
+      try {
+        await supabaseAdmin
+          .from('test_paper_sections')
+          .update({
+            last_batch_completed_at: new Date().toISOString()
+          })
+          .eq('id', sectionId)
+
+        console.log(`[REGENERATE_BATCH_RETRY] Updated heartbeat during retry for section ${sectionId}`)
+      } catch (heartbeatError) {
+        console.error(`[REGENERATE_BATCH_RETRY] Failed to update heartbeat:`, heartbeatError)
+        // Continue with retry anyway
+      }
+
+      // Wait before retry
+      await new Promise(resolve => setTimeout(resolve, delayMs))
+
+      // Recursive retry
+      return generateQuestionsWithRetry(mode, params, batchNumber, sectionId, retries - 1)
+    }
+
+    // All retries exhausted
+    console.error(`[REGENERATE_BATCH_RETRY] Mode ${mode} Batch ${batchNumber}: FAILED after 3 attempts`)
+    throw error
+  }
+}
 
 interface RegenerateSectionParams {
   params: Promise<{
@@ -101,7 +220,8 @@ export async function POST(
         ),
         subjects (
           id,
-          name
+          name,
+          is_source_of_scope
         )
       `)
       .eq('id', sectionId)
@@ -204,17 +324,6 @@ export async function POST(
       }, { status: 400 })
     }
 
-    // Update section status to 'generating' with tracking fields
-    await supabaseAdmin
-      .from('test_paper_sections')
-      .update({
-        status: 'generating',
-        generation_started_at: new Date().toISOString(),
-        generation_attempt_id: attemptId,
-        generation_error: null
-      })
-      .eq('id', sectionId)
-
     // Fetch chapters assigned to this section from section_chapters table
     const { data: sectionChapterRels, error: chaptersError } = await supabaseAdmin
       .from('section_chapters')
@@ -254,8 +363,59 @@ export async function POST(
       return chapter?.name === '[AI Knowledge] Full Syllabus'
     })
 
-    // Calculate questions per chapter (generate 150% for selection)
-    const totalQuestionsToGenerate = Math.ceil(section.question_count * 1.5)
+    // ========================================================================
+    // BUFFER CALCULATION WITH CAP
+    // ========================================================================
+    // Step 1: Calculate total questions with capped buffer
+    const unbuffered = section.question_count
+    const fiftyPercentBuffer = Math.ceil(unbuffered * 1.5)
+    const cappedBuffer = unbuffered + MAX_BUFFER_QUESTIONS
+    const totalQuestionsToGenerate = Math.min(fiftyPercentBuffer, cappedBuffer)
+
+    console.log(`[REGENERATE_SECTION_BUFFER] Target: ${unbuffered}, 50% buffer: ${fiftyPercentBuffer}, capped: ${cappedBuffer}, final: ${totalQuestionsToGenerate}`)
+
+    // ========================================================================
+    // DYNAMIC BATCH SIZE CALCULATION
+    // ========================================================================
+    // Step 2: Calculate batch size and total batches based on mode
+    let batchSize: number
+    let totalBatches: number
+
+    if (aiKnowledgeChapterRel) {
+      // Mode A: AI Knowledge - Intelligent batching (minimize calls, respect 60-question limit)
+      const callsNeeded = Math.ceil(totalQuestionsToGenerate / MAX_QUESTIONS_PER_CALL)
+      batchSize = Math.ceil(totalQuestionsToGenerate / callsNeeded)
+      totalBatches = callsNeeded
+      console.log(`[REGENERATE_SECTION_MODE_A] AI Knowledge mode (intelligent batching): ${totalQuestionsToGenerate} questions → ${totalBatches} batch(es) of ~${batchSize} questions`)
+    } else {
+      // Mode B/C: Chapter-based - Dynamic batch size based on 60-question-per-call limit
+      const questionsPerChapter = Math.ceil(totalQuestionsToGenerate / sectionChapters.length)
+
+      // Calculate minimum calls needed per chapter (based on 60-question limit)
+      const callsPerChapter = Math.ceil(questionsPerChapter / MAX_QUESTIONS_PER_CALL)
+
+      // Split questions evenly across calls
+      batchSize = Math.ceil(questionsPerChapter / callsPerChapter)
+      totalBatches = sectionChapters.length * callsPerChapter
+
+      console.log(`[REGENERATE_SECTION_MODE_BC] Chapter-based mode: ${sectionChapters.length} chapters, ${questionsPerChapter} per chapter → ${callsPerChapter} call(s) per chapter (batch_size=${batchSize}, total_batches=${totalBatches})`)
+    }
+
+    // Step 3: Update section status to 'generating' with calculated batch tracking fields
+    await supabaseAdmin
+      .from('test_paper_sections')
+      .update({
+        status: 'generating',
+        generation_started_at: new Date().toISOString(),
+        generation_attempt_id: attemptId,
+        generation_error: null,
+        batch_number: 0,
+        total_batches: totalBatches,
+        questions_generated_so_far: 0,
+        batch_size: batchSize,
+        batch_metadata: {}
+      })
+      .eq('id', sectionId)
 
     let questionsGenerated = 0
     let totalTokensUsed = 0
@@ -264,23 +424,23 @@ export async function POST(
     // AI KNOWLEDGE MODE: Generate questions using Gemini's training knowledge
     if (aiKnowledgeChapterRel) {
       const aiKnowledgeChapterId = aiKnowledgeChapterRel.chapter_id
-      console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE] Section "${section.section_name}" (${subjectName}) using AI Knowledge Mode (chapter_id: ${aiKnowledgeChapterId}) - regenerating without uploaded materials`)
+      console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE] Section "${section.section_name}" (${subjectName}) using AI Knowledge Mode (chapter_id: ${aiKnowledgeChapterId}) - BATCH 1 of ${totalBatches}`)
 
       try {
-        // Map difficulty to protocol config
+        // Map difficulty to protocol config for batch 1
         const protocolConfig = mapDifficultyToConfig(
           protocol,
           paper.difficulty_level as 'easy' | 'balanced' | 'hard',
-          totalQuestionsToGenerate
+          batchSize
         )
 
-        // Build AI Knowledge Mode prompt
+        // Build AI Knowledge Mode prompt for batch 1
         const aiKnowledgePrompt = buildPrompt(
           protocol,
           protocolConfig,
           `${subjectName} (Full Syllabus)`,
-          totalQuestionsToGenerate,
-          totalQuestionsToGenerate,
+          batchSize, // Generate batch 1 using calculated batch size
+          totalQuestionsToGenerate, // Total target for context
           section.is_bilingual || false
         )
 
@@ -289,58 +449,19 @@ export async function POST(
 
 ${aiKnowledgePrompt}`
 
-        console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE] Calling Gemini for ${totalQuestionsToGenerate} questions using AI knowledge...`)
+        console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE] Calling Gemini for batch 1: ${batchSize} questions using AI knowledge...`)
 
-        // Call Gemini WITHOUT file uploads (only text prompt)
-        const response = await ai.models.generateContent({
-          model: GEMINI_MODEL,
-          contents: [{ text: finalPrompt }],
-          config: GENERATION_CONFIG
-        })
+        // Use retry wrapper for automatic retry on failures
+        const result = await generateQuestionsWithRetry(
+          'A',
+          { prompt: finalPrompt },
+          1, // Batch 1
+          sectionId
+        )
 
-        const responseText = response.text
-        if (!responseText) {
-          throw new Error('No response text received from Gemini')
-        }
-        console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE] Received response from Gemini (${responseText.length} chars)`)
-
-        // Capture token usage
-        const tokenUsage = {
-          promptTokens: response.usageMetadata?.promptTokenCount || 0,
-          completionTokens: response.usageMetadata?.candidatesTokenCount || 0,
-          totalTokens: response.usageMetadata?.totalTokenCount || 0,
-        }
+        const questions = result.questions
+        const tokenUsage = result.tokenUsage
         totalTokensUsed = tokenUsage.totalTokens
-        console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE] Token usage: ${tokenUsage.totalTokens} total (${tokenUsage.promptTokens} input, ${tokenUsage.completionTokens} output)`)
-
-        // Parse JSON response
-        let parsedResponse: { questions: Question[] }
-        try {
-          const rawParsed = parseGeminiJSON<any>(responseText)
-
-          // Handle both formats: { questions: [...] } or just [...]
-          if (Array.isArray(rawParsed)) {
-            console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE] Gemini returned bare array, wrapping in questions object`)
-            parsedResponse = { questions: rawParsed }
-          } else if (rawParsed.questions && Array.isArray(rawParsed.questions)) {
-            parsedResponse = rawParsed
-          } else {
-            throw new Error('Response missing "questions" array or is not a valid array')
-          }
-
-          if (parsedResponse.questions.length === 0) {
-            throw new Error('Response has empty "questions" array')
-          }
-
-          console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE] Successfully parsed ${parsedResponse.questions.length} questions`)
-        } catch (parseError) {
-          const diagnostics = getDiagnosticInfo(responseText, parseError as Error)
-          console.error('[REGENERATE_SECTION_AI_KNOWLEDGE_ERROR] JSON parse failed')
-          console.error('[REGENERATE_SECTION_AI_KNOWLEDGE_ERROR] Error:', diagnostics.errorMessage)
-          throw new Error('Failed to parse AI-generated questions')
-        }
-
-        const questions = parsedResponse.questions || []
         console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE] Parsed ${questions.length} questions`)
 
         if (questions.length === 0) {
@@ -360,7 +481,7 @@ ${aiKnowledgePrompt}`
           allValidationWarnings.push(...validation.warnings)
         }
 
-        // Insert questions into database WITH section_id and AI Knowledge chapter_id
+        // Insert questions into database for batch 1 WITH section_id and AI Knowledge chapter_id
         const questionsToInsert = questions.map((q, index) => ({
           institute_id: teacher.institute_id,
           paper_id: paperId,
@@ -388,7 +509,8 @@ ${aiKnowledgePrompt}`
           negative_marks: section.negative_marks || 0,
           is_selected: false,
           generation_attempt_id: attemptId,
-          question_order: index + 1
+          question_order: index + 1,
+          batch_number: 1 // Batch 1
         }))
 
         const { error: insertError } = await supabaseAdmin
@@ -412,11 +534,11 @@ ${aiKnowledgePrompt}`
         }
 
         questionsGenerated = questions.length
-        console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE_SUCCESS] Inserted ${questionsGenerated} questions for section "${section.section_name}"`)
+        console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE_SUCCESS] Batch 1: Inserted ${questionsGenerated} questions for section "${section.section_name}"`)
 
         // Log API usage and costs
         const costs = calculateCost(tokenUsage, GEMINI_MODEL, 'standard')
-        console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE_COST] Section ${section.section_name}: ${questions.length} questions, ₹${costs.costInINR.toFixed(4)}`)
+        console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE_COST] Batch 1: Section ${section.section_name}: ${questions.length} questions, ₹${costs.costInINR.toFixed(4)}`)
 
         // Log usage to file (non-blocking)
         try {
@@ -438,22 +560,87 @@ ${aiKnowledgePrompt}`
           console.error('[TOKEN_TRACKER] Failed to log usage:', err)
         }
 
-        // Mark section as in_review with completion tracking
+        // Update section state after batch 1
+        const batch1Metadata = {
+          batch_1: {
+            generated_at: new Date().toISOString(),
+            questions_count: questionsGenerated,
+            tokens_used: tokenUsage.totalTokens,
+            cost_inr: costs.costInINR
+          }
+        }
+
         await supabaseAdmin
           .from('test_paper_sections')
           .update({
-            status: 'in_review',
-            generation_completed_at: new Date().toISOString(),
-            generation_error: null
+            batch_number: 1,
+            questions_generated_so_far: questionsGenerated,
+            batch_metadata: batch1Metadata,
+            last_batch_completed_at: new Date().toISOString(), // Initial heartbeat for batch 1
+            updated_at: new Date().toISOString()
           })
           .eq('id', sectionId)
 
-        console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE_COMPLETE] section="${section.section_name}" questions=${questionsGenerated} tokens=${tokenUsage.totalTokens}`)
+        // 🔥 SELF-TRIGGER: Fire async call to generate next batch if needed
+        const hasMore = questionsGenerated < totalQuestionsToGenerate
+
+        if (hasMore) {
+          const authHeader = request.headers.get('Authorization')
+
+          // Build URL with fallback for when NEXT_PUBLIC_SITE_URL is not set
+          const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ||
+            `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
+          const nextBatchUrl = `${siteUrl}/api/test-papers/${paperId}/sections/${sectionId}/generate-next-batch`
+
+          console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE] Batch 1 complete. Triggering batch 2 at: ${nextBatchUrl}`)
+
+          // Fire and forget (don't await)
+          fetch(nextBatchUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': authHeader || '',
+              'Content-Type': 'application/json'
+            }
+          }).catch(async (err) => {
+            console.error('[REGENERATE_SECTION_AI_KNOWLEDGE] Failed to trigger next batch:', err)
+
+            // Mark section as in_review so UI isn't stuck
+            await supabaseAdmin
+              .from('test_paper_sections')
+              .update({
+                status: 'in_review',
+                generation_error: `Batch 1 completed (${questionsGenerated} questions), but batch 2 trigger failed. Regenerate to complete.`
+              })
+              .eq('id', sectionId)
+          })
+        } else {
+          // If all questions generated in batch 1, run proofreader before marking as in_review
+          await runProofreader(sectionId, paperId, teacher.institute_id)
+
+          // Mark as in_review
+          await supabaseAdmin
+            .from('test_paper_sections')
+            .update({
+              status: 'in_review',
+              generation_completed_at: new Date().toISOString()
+            })
+            .eq('id', sectionId)
+
+          console.log(`[SECTION_COMPLETE] ✅ GENERATION + PROOFREADING COMPLETE for section "${section.section_name}". Status: in_review. Total questions: ${questionsGenerated}`)
+        }
+
+        console.log(`[REGENERATE_SECTION_AI_KNOWLEDGE_COMPLETE] Batch 1: section="${section.section_name}" questions=${questionsGenerated} tokens=${tokenUsage.totalTokens}`)
 
         return NextResponse.json({
           success: true,
           section_id: sectionId,
-          questions_generated: questionsGenerated,
+          batch_1_questions: questionsGenerated,
+          total_target: totalQuestionsToGenerate,
+          batch_number: 1,
+          total_batches: totalBatches,
+          has_more: hasMore,
+          next_batch_triggered: hasMore,
+          ai_knowledge_mode: true,
           validation_warnings: allValidationWarnings
         })
 
@@ -482,147 +669,219 @@ ${aiKnowledgePrompt}`
     }
 
     // MATERIAL-BASED MODE: Standard question generation from uploaded materials
+    // Check if subject is Source of Scope (SoS) or Source of Truth (SoT)
+    const subjectData = section.subjects as any
+    const isSourceOfScope = subjectData?.is_source_of_scope || false
+
+    console.log(`[REGENERATE_SECTION] Processing ${sectionChapters.length} chapters - BATCH 1 of ${totalBatches}`)
+    console.log(`[REGENERATE_SECTION] Subject mode: ${isSourceOfScope ? 'Source of Scope (use chapter_knowledge)' : 'Source of Truth (upload PDFs)'}`)
+
+    // SEQUENTIAL CHAPTER PROCESSING: Build chapter schedule for all batches
+    // Each chapter gets processed completely before moving to the next
     const questionsPerChapter = Math.ceil(totalQuestionsToGenerate / sectionChapters.length)
-    console.log(`[REGENERATE_SECTION] Generating ${questionsPerChapter} questions per chapter (total: ${totalQuestionsToGenerate})`)
 
-    // Loop through each chapter
-    for (const chapter of sectionChapters) {
-      const chapterId = chapter.id
-      const chapterName = chapter.name
+    const chapterSchedule = sectionChapters.map((ch: any, index: number) => ({
+      chapter_id: ch.id,
+      chapter_name: ch.name,
+      chapter_order: index + 1,
+      questions_target: questionsPerChapter,
+      questions_generated: 0
+    }))
 
-      console.log(`[REGENERATE_SECTION_CHAPTER_START] section="${section.section_name}" chapter="${chapterName}"`)
+    // Batch 1: Process FIRST chapter only
+    const firstChapter = chapterSchedule[0]
+    // Mode B/C: Use pre-calculated batch size (already accounts for 1 or 2 calls based on chapter size)
+    const questionsInBatch1 = Math.min(batchSize, firstChapter.questions_target)
+
+    console.log(`[REGENERATE_SECTION] SEQUENTIAL PROCESSING - ${sectionChapters.length} chapters, ${questionsPerChapter} questions each`)
+    console.log(`[REGENERATE_SECTION] Batch 1: Generating ${questionsInBatch1} questions for Chapter 1: "${firstChapter.chapter_name}"`)
+
+    // Process FIRST chapter only (sequential processing)
+    const chapter = sectionChapters[0]
+    const chapterId = chapter.id
+    const chapterName = chapter.name
+
+    console.log(`[REGENERATE_SECTION_CHAPTER_START] chapter="${chapterName}" (1 of ${sectionChapters.length})`)
 
       try {
-        // Step 1: Fetch materials for this chapter
-        const materials = await fetchMaterialsForChapter(chapterId, teacher.institute_id)
+        let uploadedFiles: any[] = []
+        let chapterKnowledge: any = null
 
-        if (!materials || materials.length === 0) {
-          console.warn(`[REGENERATE_SECTION_WARNING] No materials found for chapter ${chapterName}, skipping`)
-          continue
+        // SOURCE OF SCOPE: Use chapter_knowledge (NO PDF uploads)
+        if (isSourceOfScope) {
+          console.log(`[REGENERATE_SECTION_SOS] Fetching chapter_knowledge for chapter ${chapterName}...`)
+
+          // Fetch chapter_knowledge for this chapter
+          const { data: knowledgeData, error: knowledgeError } = await supabaseAdmin
+            .from('chapter_knowledge')
+            .select('scope_analysis, style_examples, status')
+            .eq('chapter_id', chapterId)
+            .eq('institute_id', teacher.institute_id)
+            .eq('status', 'completed')
+            .single()
+
+          if (knowledgeError || !knowledgeData) {
+            console.error(`[REGENERATE_SECTION_SOS_ERROR] No chapter_knowledge found for chapter ${chapterName}. Error: ${knowledgeError?.message}`)
+
+            await supabaseAdmin
+              .from('test_paper_sections')
+              .update({
+                status: 'ready',
+                generation_error: `No chapter knowledge found for "${chapterName}". Please analyze materials first.`
+              })
+              .eq('id', sectionId)
+
+            return NextResponse.json({
+              error: `No chapter knowledge found for "${chapterName}". Please upload and analyze materials first.`
+            }, { status: 400 })
+          }
+
+          chapterKnowledge = knowledgeData
+          console.log(`[REGENERATE_SECTION_SOS] Using chapter_knowledge (scope_analysis + style_examples) for ${chapterName}`)
         }
+        // SOURCE OF TRUTH: Upload PDFs to Gemini
+        else {
+          console.log(`[REGENERATE_SECTION_SOT] Fetching and uploading PDFs for chapter ${chapterName}...`)
 
-        console.log(`[REGENERATE_SECTION] Found ${materials.length} materials for chapter ${chapterName}`)
+          // Step 1: Fetch materials for this chapter
+          const materials = await fetchMaterialsForChapter(chapterId, teacher.institute_id)
 
-        // Step 2: Upload PDFs to Gemini File API
-        const uploadedFiles = []
-        for (const material of materials) {
-          try {
-            const uploadedFile = await uploadPDFToGemini(material.file_url, material.title)
-            uploadedFiles.push(uploadedFile)
-            console.log(`[REGENERATE_SECTION] Uploaded: ${material.title}`)
-          } catch (uploadError) {
-            console.error(`[REGENERATE_SECTION_ERROR] Failed to upload ${material.title}:`, uploadError)
-            // Continue with other files
+          if (!materials || materials.length === 0) {
+            console.error(`[REGENERATE_SECTION_SOT_ERROR] No materials found for chapter ${chapterName}`)
+
+            await supabaseAdmin
+              .from('test_paper_sections')
+              .update({
+                status: 'ready',
+                generation_error: `No materials found for chapter "${chapterName}". Please upload materials first.`
+              })
+              .eq('id', sectionId)
+
+            return NextResponse.json({
+              error: `No materials found for chapter "${chapterName}". Please upload study materials for this chapter first.`
+            }, { status: 400 })
+          }
+
+          console.log(`[REGENERATE_SECTION_SOT] Found ${materials.length} materials for chapter ${chapterName}`)
+
+          // Step 2: Upload PDFs to Gemini File API
+          for (const material of materials) {
+            try {
+              const uploadedFile = await uploadPDFToGemini(material.file_url, material.title)
+              uploadedFiles.push(uploadedFile)
+              console.log(`[REGENERATE_SECTION_SOT] Uploaded: ${material.title}`)
+            } catch (uploadError) {
+              console.error(`[REGENERATE_SECTION_SOT_ERROR] Failed to upload ${material.title}:`, uploadError)
+              // Continue with other files
+            }
+          }
+
+          if (uploadedFiles.length === 0) {
+            console.error(`[REGENERATE_SECTION_SOT_ERROR] No files uploaded successfully for chapter ${chapterName}`)
+
+            await supabaseAdmin
+              .from('test_paper_sections')
+              .update({
+                status: 'ready',
+                generation_error: `Failed to upload materials for chapter "${chapterName}"`
+              })
+              .eq('id', sectionId)
+
+            return NextResponse.json({
+              error: `Failed to upload materials for chapter "${chapterName}". Please check the PDF files.`
+            }, { status: 500 })
           }
         }
 
-        if (uploadedFiles.length === 0) {
-          console.error(`[REGENERATE_SECTION_ERROR] No files uploaded successfully for chapter ${chapterName}`)
-          continue
-        }
-
-        // Step 3: Map difficulty to protocol config
+        // Step 3: Map difficulty to protocol config for batch 1
         const protocolConfig = mapDifficultyToConfig(
           protocol,
           paper.difficulty_level as 'easy' | 'balanced' | 'hard',
-          questionsPerChapter
+          questionsInBatch1
         )
 
-        // Step 4: Build prompt using protocol
-        const prompt = buildPrompt(
+        // Step 4: Build prompt using protocol for batch 1
+        let basePrompt = buildPrompt(
           protocol,
           protocolConfig,
           chapterName,
-          questionsPerChapter,
-          totalQuestionsToGenerate
+          questionsInBatch1, // Generate questions for first chapter in batch 1
+          totalQuestionsToGenerate  // Total target for context
         )
 
-        console.log(`[REGENERATE_SECTION] Calling Gemini for ${questionsPerChapter} questions...`)
+        // Step 5: Prepare Gemini call based on subject mode
+        let finalPrompt: string
+        let fileDataParts: any[] | undefined
 
-        // Step 5: Call Gemini with fileUris + prompt
-        const fileDataParts = uploadedFiles.map(file => ({
-          fileData: {
-            fileUri: file.fileUri,
-            mimeType: file.mimeType
-          }
-        }))
+        if (isSourceOfScope) {
+          // SOURCE OF SCOPE: Inject chapter_knowledge into prompt (NO file uploads)
+          const scopeInfo = chapterKnowledge.scope_analysis
+            ? JSON.stringify(chapterKnowledge.scope_analysis, null, 2)
+            : 'No scope analysis available'
 
-        const response = await ai.models.generateContent({
-          model: GEMINI_MODEL,
-          contents: [
-            ...fileDataParts,
-            { text: prompt }
-          ],
-          config: GENERATION_CONFIG
-        })
+          const styleInfo = chapterKnowledge.style_examples
+            ? JSON.stringify(chapterKnowledge.style_examples, null, 2)
+            : 'No style examples available'
 
-        const responseText = response.text
-        if (!responseText) {
-          throw new Error('No response text received from Gemini')
+          finalPrompt = `CHAPTER KNOWLEDGE (Source of Scope):
+
+**Scope Analysis:**
+${scopeInfo}
+
+**Style Examples:**
+${styleInfo}
+
+IMPORTANT: Use the above chapter knowledge as the SCOPE for question generation. Generate questions that align with the topics, difficulty patterns, and question styles shown above. Do NOT go outside this scope.
+
+${basePrompt}`
+
+          console.log(`[REGENERATE_SECTION_SOS] Calling Gemini with chapter_knowledge for ${questionsInBatch1} questions...`)
+        } else {
+          // SOURCE OF TRUTH: Use uploaded PDFs
+          fileDataParts = uploadedFiles.map(file => ({
+            fileData: {
+              fileUri: file.fileUri,
+              mimeType: file.mimeType
+            }
+          }))
+
+          finalPrompt = `IMPORTANT: The attached PDF files contain the TRUTH - the exact study materials for this chapter. Generate questions that STRICTLY follow the content, examples, and explanations in these materials. Do NOT use external knowledge or go beyond what is covered in the provided PDFs.
+
+${basePrompt}`
+
+          console.log(`[REGENERATE_SECTION_SOT] Calling Gemini with ${uploadedFiles.length} PDF(s) for ${questionsInBatch1} questions...`)
         }
-        console.log(`[REGENERATE_SECTION] Received response from Gemini (${responseText.length} chars)`)
 
-        // Capture token usage from response
-        const tokenUsage = {
-          promptTokens: response.usageMetadata?.promptTokenCount || 0,
-          completionTokens: response.usageMetadata?.candidatesTokenCount || 0,
-          totalTokens: response.usageMetadata?.totalTokenCount || 0,
-        }
+        // Step 6: Use retry wrapper for automatic retry on failures
+        const result = await generateQuestionsWithRetry(
+          isSourceOfScope ? 'B' : 'C',
+          { prompt: finalPrompt, fileDataParts },
+          1, // Batch 1
+          sectionId
+        )
+
+        const questions = result.questions
+        const tokenUsage = result.tokenUsage
         totalTokensUsed += tokenUsage.totalTokens
-        console.log(`[REGENERATE_SECTION] Token usage: ${tokenUsage.totalTokens} total (${tokenUsage.promptTokens} input, ${tokenUsage.completionTokens} output)`)
-
-        // Step 6: Parse JSON response with production-grade cleaning
-        let parsedResponse: { questions: Question[] }
-        try {
-          const rawParsed = parseGeminiJSON<any>(responseText)
-
-          // Handle both formats: { questions: [...] } or just [...]
-          if (Array.isArray(rawParsed)) {
-            console.log(`[REGENERATE_SECTION] Gemini returned bare array, wrapping in questions object`)
-            parsedResponse = { questions: rawParsed }
-          } else if (rawParsed.questions && Array.isArray(rawParsed.questions)) {
-            parsedResponse = rawParsed
-          } else {
-            throw new Error('Response missing "questions" array')
-          }
-
-          if (parsedResponse.questions.length === 0) {
-            throw new Error('Response has empty "questions" array')
-          }
-
-          console.log(`[REGENERATE_SECTION] Successfully parsed ${parsedResponse.questions.length} questions`)
-        } catch (parseError) {
-          const diagnostics = getDiagnosticInfo(responseText, parseError as Error)
-
-          console.error('[REGENERATE_SECTION_ERROR] JSON parse failed after all cleanup attempts')
-          console.error('[REGENERATE_SECTION_ERROR] Error:', diagnostics.errorMessage)
-
-          // Mark section as ready (failed generation, but chapters still assigned)
-          await supabaseAdmin
-            .from('test_paper_sections')
-            .update({
-              status: 'ready',
-              generation_error: `JSON parse failed: ${diagnostics.errorMessage}`,
-              generation_started_at: null,
-              generation_attempt_id: null
-            })
-            .eq('id', sectionId)
-
-          return NextResponse.json({
-            error: `Failed to parse AI response: ${diagnostics.errorMessage}`,
-            details: 'Check server logs for full diagnostic info'
-          }, { status: 500 })
-        }
-
-        const questions = parsedResponse.questions || []
         console.log(`[REGENERATE_SECTION] Parsed ${questions.length} questions`)
 
         if (questions.length === 0) {
           console.error('[REGENERATE_SECTION_ERROR] No questions in response')
-          continue
+
+          await supabaseAdmin
+            .from('test_paper_sections')
+            .update({
+              status: 'ready',
+              generation_error: `Gemini returned 0 questions for chapter "${chapterName}"`
+            })
+            .eq('id', sectionId)
+
+          return NextResponse.json({
+            error: `Failed to generate questions for chapter "${chapterName}". Please try again.`
+          }, { status: 500 })
         }
 
-        // Step 7: Validate questions using protocol
+        // Step 8: Validate questions using protocol
         const validation = validateQuestionsWithProtocol(questions, protocol)
 
         if (validation.errors.length > 0) {
@@ -635,7 +894,7 @@ ${aiKnowledgePrompt}`
           allValidationWarnings.push(...validation.warnings)
         }
 
-        // Step 8: Insert questions into database WITH section_id
+        // Step 9: Insert questions into database for batch 1 WITH section_id
         const questionsToInsert = questions.map((q, index) => ({
           institute_id: teacher.institute_id,
           paper_id: paperId,
@@ -656,7 +915,8 @@ ${aiKnowledgePrompt}`
           negative_marks: section.negative_marks || 0,
           is_selected: false,
           generation_attempt_id: attemptId,
-          question_order: questionsGenerated + index + 1
+          question_order: questionsGenerated + index + 1,
+          batch_number: 1 // Batch 1
         }))
 
         const { error: insertError } = await supabaseAdmin
@@ -706,24 +966,100 @@ ${aiKnowledgePrompt}`
           console.error('[TOKEN_TRACKER] Failed to log usage:', err)
         }
 
-        console.log(`[REGENERATE_SECTION_CHAPTER_SUCCESS] section="${section.section_name}" chapter=${chapterName} generated=${questions.length}`)
+        console.log(`[REGENERATE_SECTION_CHAPTER_SUCCESS] chapter="${chapterName}" generated=${questions.length}`)
 
       } catch (chapterError) {
-        console.error(`[REGENERATE_SECTION_CHAPTER_ERROR] section="${section.section_name}" chapter=${chapterName}:`, chapterError)
-        // Continue with next chapter
+        console.error(`[REGENERATE_SECTION_CHAPTER_ERROR] chapter="${chapterName}":`, chapterError)
+
+        await supabaseAdmin
+          .from('test_paper_sections')
+          .update({ status: 'ready' })
+          .eq('id', sectionId)
+
+        return NextResponse.json({
+          error: `Failed to generate questions for chapter "${chapterName}". Please try again.`
+        }, { status: 500 })
+      }
+
+    // Update section state after batch 1 with chapter schedule
+    // Track chapter distribution and progress
+    chapterSchedule[0].questions_generated = questionsGenerated
+
+    const batch1Metadata = {
+      chapterSchedule: chapterSchedule, // Full chapter distribution plan
+      current_chapter_index: 0, // Currently processing first chapter
+      [`chapter_${firstChapter.chapter_id}_generated`]: questionsGenerated, // Track by chapter ID
+      batch_1: {
+        generated_at: new Date().toISOString(),
+        questions_count: questionsGenerated,
+        tokens_used: totalTokensUsed,
+        cost_inr: calculateCost({
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: totalTokensUsed
+        }, GEMINI_MODEL, 'standard').costInINR,
+        chapters_processed: 1 // Sequential: processed 1 chapter in batch 1
       }
     }
 
-    // Mark section as in_review (ready for teacher to review and finalize)
     await supabaseAdmin
       .from('test_paper_sections')
       .update({
-        status: 'in_review',
-        generation_completed_at: new Date().toISOString(),
-        generation_error: null,
+        batch_number: 1,
+        questions_generated_so_far: questionsGenerated,
+        batch_metadata: batch1Metadata,
+        last_batch_completed_at: new Date().toISOString(), // Initial heartbeat for batch 1
         updated_at: new Date().toISOString()
       })
       .eq('id', sectionId)
+
+    // 🔥 SELF-TRIGGER: Fire async call to generate next batch if needed
+    const hasMore = questionsGenerated < totalQuestionsToGenerate
+
+    if (hasMore) {
+      const authHeader = request.headers.get('Authorization')
+
+      // Build URL with fallback for when NEXT_PUBLIC_SITE_URL is not set
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ||
+        `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
+      const nextBatchUrl = `${siteUrl}/api/test-papers/${paperId}/sections/${sectionId}/generate-next-batch`
+
+      console.log(`[REGENERATE_SECTION] Batch 1 complete. Triggering batch 2 at: ${nextBatchUrl}`)
+
+      // Fire and forget (don't await)
+      fetch(nextBatchUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader || '',
+          'Content-Type': 'application/json'
+        }
+      }).catch(async (err) => {
+        console.error('[REGENERATE_SECTION] Failed to trigger next batch:', err)
+
+        // Mark section as in_review so UI isn't stuck
+        await supabaseAdmin
+          .from('test_paper_sections')
+          .update({
+            status: 'in_review',
+            generation_error: `Batch 1 completed (${questionsGenerated} questions), but batch 2 trigger failed. Regenerate to complete.`
+          })
+          .eq('id', sectionId)
+      })
+    } else {
+      // If all questions generated in batch 1, run proofreader before marking as in_review
+      await runProofreader(sectionId, paperId, teacher.institute_id)
+
+      // Mark as in_review
+      await supabaseAdmin
+        .from('test_paper_sections')
+        .update({
+          status: 'in_review',
+          generation_completed_at: new Date().toISOString()
+        })
+        .eq('id', sectionId)
+
+      console.log(`[SECTION_COMPLETE] ✅ GENERATION + PROOFREADING COMPLETE for section "${section.section_name}". Status: in_review. Total questions: ${questionsGenerated}`)
+    }
 
     // Calculate cost estimate
     const costs = calculateCost(
@@ -736,14 +1072,19 @@ ${aiKnowledgePrompt}`
       'standard'
     )
 
-    console.log(`[REGENERATE_SECTION_SUCCESS] section="${section.section_name}" deleted=${questionsDeleted} generated=${questionsGenerated} tokens=${totalTokensUsed}`)
+    console.log(`[REGENERATE_SECTION_SUCCESS] Batch 1: section="${section.section_name}" deleted=${questionsDeleted} generated=${questionsGenerated} tokens=${totalTokensUsed}`)
 
     return NextResponse.json({
       success: true,
       section_id: sectionId,
       section_name: section.section_name,
       questions_deleted: questionsDeleted,
-      questions_generated: questionsGenerated,
+      batch_1_questions: questionsGenerated,
+      total_target: totalQuestionsToGenerate,
+      batch_number: 1,
+      total_batches: totalBatches,
+      has_more: hasMore,
+      next_batch_triggered: hasMore,
       chapters_processed: sectionChapters.length,
       cost_estimate: {
         tokens_used: totalTokensUsed,
@@ -755,9 +1096,98 @@ ${aiKnowledgePrompt}`
   } catch (error) {
     console.error('[REGENERATE_SECTION_EXCEPTION]', error)
 
-    // Try to mark section as ready (failed regeneration)
+    // Get section and paper IDs
+    const { id: paperId, section_id: sectionId } = await (params as any)
+
+    // Detect if this is a retry-exhausted error (JSON parse, timeout, or Gemini API error)
+    const isRetryExhausted = error instanceof Error && (
+      error.message.includes('JSON') ||
+      error.message.includes('json') ||
+      error.message.includes('parse') ||
+      error.message.includes('timeout') ||
+      error.message.includes('Gemini') ||
+      error.message.includes('429') ||
+      error.message.includes('quota')
+    )
+
+    if (isRetryExhausted) {
+      console.log('[REGENERATE_RETRY_EXHAUSTED] All retry attempts failed, attempting graceful degradation')
+
+      // Get current section state to see if any questions were generated
+      const { data: section, error: sectionFetchError } = await supabaseAdmin
+        .from('test_paper_sections')
+        .select(`
+          id,
+          section_name,
+          paper_id,
+          test_papers!inner (
+            id,
+            institute_id
+          )
+        `)
+        .eq('id', sectionId)
+        .single()
+
+      if (!sectionFetchError && section) {
+        // Count generated questions (batch 1 in regenerate)
+        const { count: questionsGenerated } = await supabaseAdmin
+          .from('questions')
+          .select('*', { count: 'exact', head: true })
+          .eq('section_id', sectionId)
+          .eq('generation_attempt_id', null) // Questions from successful generation
+
+        const questionsAvailable = questionsGenerated || 0
+
+        console.log(`[REGENERATE_RETRY_EXHAUSTED] Section ${sectionId} has ${questionsAvailable} questions available`)
+
+        // Run proofreader on successfully generated questions if any exist
+        if (questionsAvailable > 0) {
+          console.log(`[REGENERATE_RETRY_EXHAUSTED] Running proofreader on ${questionsAvailable} successfully generated questions`)
+          try {
+            const paper = section.test_papers as any
+            await runProofreader(sectionId, section.paper_id, paper.institute_id)
+            console.log('[REGENERATE_RETRY_EXHAUSTED] Proofreader completed successfully')
+          } catch (proofreaderError) {
+            console.error('[REGENERATE_RETRY_EXHAUSTED] Proofreader failed:', proofreaderError)
+            // Continue even if proofreader fails - questions are still usable
+          }
+        }
+
+        // Mark section as 'in_review' if questions were generated, otherwise 'ready'
+        const newStatus = questionsAvailable > 0 ? 'in_review' : 'ready'
+        const errorMessage = questionsAvailable > 0
+          ? `Batch 1 failed after 3 retry attempts. ${questionsAvailable} questions are available for review. You can regenerate to try again.`
+          : 'Batch 1 failed after 3 retry attempts. No questions were generated. Please try regenerating again.'
+
+        await supabaseAdmin
+          .from('test_paper_sections')
+          .update({
+            status: newStatus,
+            generation_error: errorMessage,
+            generation_completed_at: new Date().toISOString(),
+            generation_started_at: null,
+            generation_attempt_id: null
+          })
+          .eq('id', sectionId)
+
+        console.log(`[REGENERATE_RETRY_EXHAUSTED] Section ${sectionId} marked as '${newStatus}' with ${questionsAvailable} questions preserved`)
+
+        // Return 207 Multi-Status for partial success
+        return NextResponse.json(
+          {
+            error: `Batch 1 failed after 3 retry attempts: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            partial_success: questionsAvailable > 0,
+            questions_available: questionsAvailable,
+            section_status: newStatus,
+            message: errorMessage
+          },
+          { status: questionsAvailable > 0 ? 207 : 500 }
+        )
+      }
+    }
+
+    // Standard error handling for non-retry-exhausted errors
     try {
-      const { section_id: sectionId } = await (params as any)
       await supabaseAdmin
         .from('test_paper_sections')
         .update({
@@ -772,7 +1202,7 @@ ${aiKnowledgePrompt}`
     }
 
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     )
   }

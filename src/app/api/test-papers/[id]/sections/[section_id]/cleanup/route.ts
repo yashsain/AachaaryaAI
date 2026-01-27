@@ -36,7 +36,7 @@ export async function POST(request: NextRequest, { params }: CleanupParams) {
     // Get section details
     const { data: section, error: fetchError } = await supabaseAdmin
       .from('test_paper_sections')
-      .select('id, section_name, generation_attempt_id, generation_started_at, status')
+      .select('id, section_name, generation_attempt_id, generation_started_at, last_batch_completed_at, status')
       .eq('id', sectionId)
       .single()
 
@@ -51,11 +51,14 @@ export async function POST(request: NextRequest, { params }: CleanupParams) {
       return NextResponse.json({ message: 'Section not in generating status' })
     }
 
-    // Check if it's actually stuck (> 7 minutes)
+    // Check if it's actually stuck (> 7 minutes since last activity)
+    // Use last_batch_completed_at if available (heartbeat), otherwise fall back to generation_started_at
     const sevenMinutesAgo = new Date(Date.now() - 7 * 60 * 1000).toISOString()
-    if (!section.generation_started_at || section.generation_started_at > sevenMinutesAgo) {
-      console.log(`[CLEANUP] Section ${sectionId} generation started recently, skipping`)
-      return NextResponse.json({ message: 'Generation started recently' })
+    const lastActivity = section.last_batch_completed_at || section.generation_started_at
+
+    if (!lastActivity || lastActivity > sevenMinutesAgo) {
+      console.log(`[CLEANUP] Section ${sectionId} had activity recently (last: ${lastActivity}), skipping`)
+      return NextResponse.json({ message: 'Generation had activity recently' })
     }
 
     console.log(`[CLEANUP] Cleaning stuck section ${sectionId} (${section.section_name})`)
@@ -80,6 +83,8 @@ export async function POST(request: NextRequest, { params }: CleanupParams) {
       .update({
         status: 'ready',
         generation_attempt_id: null,
+        generation_started_at: null,
+        last_batch_completed_at: null,
         generation_error: 'Generation timed out and was automatically cleaned up',
         updated_at: new Date().toISOString()
       })

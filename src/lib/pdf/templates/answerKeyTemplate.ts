@@ -3,6 +3,8 @@
  * Displays questions with correct answers highlighted and explanations
  */
 
+import { renderLatexForPDF } from '../utils/latexRenderer'
+
 interface AnswerKeyQuestion {
   question_number: number
   question_text: string
@@ -71,6 +73,9 @@ export function generateAnswerKeyHTML(config: AnswerKeyConfig): string {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700&display=swap" rel="stylesheet">
+
+  <!-- KaTeX CSS for LaTeX math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.27/dist/katex.min.css">
 
   <style>
     * {
@@ -509,15 +514,10 @@ function normalizeOptionKey(key: string): string {
 }
 
 /**
- * Escape HTML to prevent injection
+ * Render text with LaTeX support
+ * Converts LaTeX math expressions to HTML using KaTeX
  */
 function escapeHtml(text: string): string {
-  const map: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  }
-  return text.replace(/[&<>"']/g, (char) => map[char])
+  // Use LaTeX renderer which handles both LaTeX rendering and HTML escaping
+  return renderLatexForPDF(text)
 }

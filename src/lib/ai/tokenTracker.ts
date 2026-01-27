@@ -131,7 +131,7 @@ interface ApiUsageLogParams {
   questionId?: string
   usage: TokenUsage
   modelUsed: string
-  operationType: 'generate' | 'regenerate' | 'upload'
+  operationType: 'generate' | 'regenerate' | 'upload' | 'proofread'
   questionsGenerated?: number
   mode?: ApiMode
 }
