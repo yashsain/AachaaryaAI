@@ -208,7 +208,36 @@ CRITICAL INSTRUCTIONS:
 - Example: If question has base 0.5 but answer doesn't match options → change base to 2 OR change options to match base 0.5 (whichever makes sense)
 - Final result must be mathematically/logically sound with NO contradictions
 
-Return ONLY the JSON object (no markdown, no explanations).`
+---
+
+## 📤 CRITICAL JSON OUTPUT RULES
+
+**MANDATORY - ZERO DEVIATION ALLOWED:**
+
+1. **Return ONLY valid JSON** - no text before \`{\` or after \`}\`
+2. **Do NOT add explanations, notes, or commentary** after the closing brace
+3. **Do NOT wrap JSON in markdown code blocks** (\`\`\`json)
+4. **Do NOT add clarifying text** about corrections made or issues found
+5. **Validate JSON structure** before returning
+
+**CORRECT:**
+\`\`\`
+{"corrections": [...]}
+\`\`\`
+
+**WRONG (will cause parsing errors):**
+\`\`\`
+{"corrections": [...]}
+
+Note: Found 3 issues and corrected them.
+\`\`\`
+
+**WRONG (will cause parsing errors):**
+\`\`\`json
+{"corrections": [...]}
+\`\`\`
+
+Return the JSON now.`
 }
 
 /**

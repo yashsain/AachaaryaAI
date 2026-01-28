@@ -529,6 +529,7 @@ ${aiKnowledgePrompt}`
 
         // Update section state after batch 1
         const batch1Metadata = {
+          total_target: totalQuestionsToGenerate, // Store capped target for consistent progress tracking
           batch_1: {
             generated_at: new Date().toISOString(),
             questions_count: questionsToStore.length,
@@ -883,6 +884,7 @@ ${aiKnowledgePrompt}`
       chapterSchedule[0].questions_generated = questionsGenerated
 
       const batch1Metadata = {
+        total_target: totalQuestionsToGenerate, // Store capped target for consistent progress tracking
         chapterSchedule: chapterSchedule, // Full chapter distribution plan
         current_chapter_index: 0, // Currently processing first chapter
         [`chapter_${firstChapter.chapter_id}_generated`]: questionsGenerated, // Track by chapter ID
@@ -1299,6 +1301,7 @@ ${aiKnowledgePrompt}`
     chapterSchedule[0].questions_generated = questionsGenerated
 
     const batch1Metadata = {
+      total_target: totalQuestionsToGenerate, // Store capped target for consistent progress tracking
       chapterSchedule: chapterSchedule, // Full chapter distribution plan
       current_chapter_index: 0, // Currently processing first chapter
       [`chapter_${firstChapter.chapter_id}_generated`]: questionsGenerated, // Track by chapter ID

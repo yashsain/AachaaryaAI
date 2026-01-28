@@ -276,7 +276,9 @@ export async function POST(
     }
 
     // Check if we should continue or complete
-    const targetQuestions = Math.ceil(section.question_count * 1.5)
+    // Use the capped total_target from batch_metadata (set during initial generation)
+    // Fallback to 50% buffer calculation for backward compatibility with old sections
+    const targetQuestions = section.batch_metadata?.total_target ?? Math.ceil(section.question_count * 1.5)
 
     if (section.questions_generated_so_far >= targetQuestions) {
       console.log(`[GENERATE_NEXT_BATCH_COMPLETE] section="${section.section_name}" generated=${section.questions_generated_so_far}/${targetQuestions}`)

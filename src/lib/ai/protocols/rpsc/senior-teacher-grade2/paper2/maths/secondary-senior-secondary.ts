@@ -667,7 +667,38 @@ Each question must:
 4. Include complete step-by-step derivation in explanation
 5. Be appropriate for competitive government exam
 
-**Remember:** These assess senior mathematics teachers. Questions must be rigorous, computational, and professionally challenging.`
+**Remember:** These assess senior mathematics teachers. Questions must be rigorous, computational, and professionally challenging.
+
+---
+
+## 📤 CRITICAL JSON OUTPUT RULES
+
+**MANDATORY - ZERO DEVIATION ALLOWED:**
+
+1. **Return ONLY valid JSON** - no text before \`{\` or after \`}\`
+2. **Do NOT add explanations, notes, or commentary** after the closing brace
+3. **Do NOT wrap JSON in markdown code blocks** (\`\`\`json)
+4. **Do NOT add clarifying text** about bilingual fields or translations
+5. **Validate JSON structure** before returning
+
+**CORRECT:**
+\`\`\`
+{"questions": [...]}
+\`\`\`
+
+**WRONG (will cause parsing errors):**
+\`\`\`
+{"questions": [...]}
+
+Note: Hindi translations provided for all questions.
+\`\`\`
+
+**WRONG (will cause parsing errors):**
+\`\`\`json
+{"questions": [...]}
+\`\`\`
+
+Return the JSON now.`
 }
 
 // ============================================================================

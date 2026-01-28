@@ -838,7 +838,38 @@ Generate exactly ${questionCount} high-quality questions following:
 
 Each question must be pedagogically sound, scenario-based where applicable, and test genuine teaching method knowledge rather than mere recall.
 
-**Remember:** You are training senior mathematics teachers who will teach grades 9-12. Questions should reflect the complexity and depth expected at that level.`
+**Remember:** You are training senior mathematics teachers who will teach grades 9-12. Questions should reflect the complexity and depth expected at that level.
+
+---
+
+## 📤 CRITICAL JSON OUTPUT RULES
+
+**MANDATORY - ZERO DEVIATION ALLOWED:**
+
+1. **Return ONLY valid JSON** - no text before \`{\` or after \`}\`
+2. **Do NOT add explanations, notes, or commentary** after the closing brace
+3. **Do NOT wrap JSON in markdown code blocks** (\`\`\`json)
+4. **Do NOT add clarifying text** about bilingual fields or translations
+5. **Validate JSON structure** before returning
+
+**CORRECT:**
+\`\`\`
+{"questions": [...]}
+\`\`\`
+
+**WRONG (will cause parsing errors):**
+\`\`\`
+{"questions": [...]}
+
+Note: Hindi translations provided for all questions.
+\`\`\`
+
+**WRONG (will cause parsing errors):**
+\`\`\`json
+{"questions": [...]}
+\`\`\`
+
+Return the JSON now.`
 }
 
 // ============================================================================
